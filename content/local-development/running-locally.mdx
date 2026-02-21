@@ -1,0 +1,82 @@
+# Running Locally
+
+tsdevstack provides a complete local development environment with Docker Compose.
+
+import { LocalArchitectureDiagram } from '../../components/LocalArchitectureDiagram';
+
+## Quick start
+
+```bash
+# Generate all configs
+npx tsdevstack sync
+
+# Start everything
+npm run dev
+```
+
+This starts:
+- **Kong Gateway** at `http://localhost:8000`
+- **PostgreSQL** database
+- **Redis** cache
+- **All your services** with hot reload
+
+## Local architecture
+
+<LocalArchitectureDiagram />
+
+Key differences from cloud:
+- **No load balancer** - Kong handles TLS termination directly
+- **Direct service access** - Services are also reachable on their individual ports for debugging (e.g., `localhost:3001`)
+- **Hot reload** - Source code is mounted into containers
+- **Local secrets** - Secrets come from `.secrets.local.json` files
+
+## What the generate commands do
+
+The framework has two main generation commands:
+
+```bash
+npx tsdevstack generate-secrets  # Regenerates secrets files
+npx tsdevstack generate-kong     # Regenerates Kong configuration
+```
+
+These regenerate framework-managed files:
+
+- `kong.tsdevstack.yml` - Framework gateway routes
+- `kong.yml` - Merged gateway config
+- `.secrets.tsdevstack.json` - Framework secrets
+- `.secrets.local.json` - Merged secrets
+
+Run generation after:
+- Adding or removing a service
+- Changing OpenAPI decorators
+- Adding custom secrets to `.secrets.user.json`
+
+## Accessing services
+
+All services are accessed through the Kong gateway:
+
+```bash
+# Service endpoints (route prefixes use the short name, e.g., /auth/, /offers/)
+curl http://localhost:8000/auth/v1/auth/login
+curl http://localhost:8000/offers/v1/plans
+```
+
+Swagger UI is served directly by each service (not through Kong):
+
+```bash
+# Access Swagger for auth-service running on port 3001
+http://localhost:3001/api
+```
+
+See [Swagger Docs](/building-apis/swagger-docs) for details.
+
+## Stopping
+
+Press `Ctrl+C` in the terminal running `npm run dev` to stop all services.
+
+To stop Docker containers:
+
+```bash
+docker compose down
+```
+

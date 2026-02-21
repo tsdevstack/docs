@@ -1,0 +1,162 @@
+# Quick Start
+
+Get from zero to production in an hour.
+
+import { Prerequisites } from "../../components/Prerequisites";
+
+<Prerequisites />
+
+## Local Development
+
+:::info
+The `init` command is coming soon. For now, clone the starter repository to get started.
+:::
+
+```bash
+# 1. Create your project
+npx tsdevstack init --template fullstack-auth
+
+# 2. Install dependencies
+npm install
+
+# 3. Generate configs and start infrastructure
+npx tsdevstack sync
+
+# 4. Start development
+npm run dev
+```
+
+That's it. Your microservices are running locally with [Kong](https://konghq.com/) gateway, [PostgreSQL](https://www.postgresql.org/), and [Redis](https://redis.io/).
+
+### What you'll have
+
+After running these commands, you get:
+
+| Component  | URL                        | Description                            |
+| ---------- | -------------------------- | -------------------------------------- |
+| Gateway    | http://localhost:8000      | Kong API gateway with routing and auth |
+| Swagger    | http://localhost:{port}/api | Per-service API docs (e.g., :3001/api) |
+| PostgreSQL | localhost:5432             | Database with connection pooling       |
+| Redis      | localhost:6379             | Cache and session storage              |
+| pgAdmin    | http://localhost:5050      | Database management UI (admin@localhost.com / admin) |
+| Redis Commander | http://localhost:8081 | Redis browser and management UI        |
+| Prometheus | http://localhost:9090      | Metrics collection                     |
+| Grafana    | http://localhost:4001      | Dashboards and visualization           |
+| Jaeger     | http://localhost:16686     | Distributed tracing                    |
+
+Each service you create gets:
+
+- Hot reload on code changes
+- Structured JSON logging
+- Automatic health checks at `/health`
+- Prometheus metrics at `/metrics`
+- OpenAPI spec generation
+
+As you develop, add more apps with `npx tsdevstack add-service` and run `npx tsdevstack sync` to update configs.
+
+See [Running Locally](/local-development/running-locally) for details.
+
+## Deploy to Cloud
+
+### 1. Create Cloud Account
+
+Set up your cloud provider account and credentials. Choose one:
+
+| Provider | What to create | Guide |
+|----------|---------------|-------|
+| **GCP** | Service account + JSON key | [GCP Setup](/infrastructure/providers/gcp/account-setup) |
+| **AWS** | IAM user + access key (separate account per env) | [AWS Setup](/infrastructure/providers/aws/account-setup) |
+| **Azure** | App Registration + client secret | [Azure Setup](/infrastructure/providers/azure/account-setup) |
+
+### 2. Configure Credentials
+
+Add your credentials to the provider-specific file in `.tsdevstack/`:
+
+- GCP: `.credentials.gcp.json`
+- AWS: `.credentials.aws.json`
+- Azure: `.credentials.azure.json`
+
+See the provider guide above for the exact format.
+
+### 3. Initialize Cloud
+
+```bash
+npx tsdevstack cloud:init --gcp   # or --aws or --azure
+```
+
+This validates credentials, enables APIs, and grants required permissions automatically.
+
+### 4. Configure Domains and Push Secrets
+
+If you have frontend apps, add their domains to `.tsdevstack/infrastructure.json`:
+
+```json
+{
+  "dev": {
+    "frontend": {
+      "domain": "example.com"
+    }
+  }
+}
+```
+
+Then push secrets. The command prompts for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` — everything else is auto-generated or auto-derived:
+
+```bash
+npx tsdevstack cloud-secrets:push --env dev
+```
+
+### 5. Deploy
+
+```bash
+npx tsdevstack infra:deploy --env dev
+```
+
+### 6. Configure DNS
+
+The deploy command outputs:
+
+- Load Balancer IP
+- SSL validation records
+
+Add these to your domain provider:
+
+- A records pointing to the LB IP
+- SSL validation CNAME records
+
+See [Domain Setup](/infrastructure/domain-setup) for details.
+
+### 7. Wait for SSL
+
+SSL certificates provision in 30-60 minutes. Then you're live.
+
+## CI/CD
+
+Automate deployments with GitHub Actions. You can deploy from local CLI, CI/CD, or both.
+
+```bash
+npx tsdevstack infra:init-ci --github
+```
+
+Then add environment-prefixed secrets to your repository (**Settings > Secrets and variables > Actions**). The secrets depend on your provider:
+
+| Provider | Secrets per environment |
+|----------|------------------------|
+| GCP | `GCP_WIF_DEV`, `GCP_SA_DEV`, `GCP_REGION_DEV` |
+| AWS | `AWS_ROLE_ARN_DEV`, `AWS_REGION_DEV` |
+| Azure | `AZURE_CLIENT_ID_DEV`, `AZURE_TENANT_ID_DEV`, `AZURE_SUBSCRIPTION_ID_DEV`, `AZURE_LOCATION_DEV` |
+
+Replace `DEV` with `STAGING`, `PROD`, etc. for each environment.
+
+See [CI/CD Setup](/infrastructure/cicd-setup) and the provider-specific CI/CD pages for details.
+
+## Summary
+
+| Step             | Command                                  | Time   |
+| ---------------- | ---------------------------------------- | ------ |
+| Local setup      | `init` → `npm i` → `sync` → `dev`        | 5 min  |
+| Cloud setup      | `cloud:init` → `secrets:push` → `deploy` | 15 min |
+| DNS + SSL        | Configure DNS, wait                      | 1 hour |
+| CI/CD            | `init-ci` + GitHub secrets               | 15 min |
+
+**Total: ~1.5 hours to production** (mostly waiting for SSL)

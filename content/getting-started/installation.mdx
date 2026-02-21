@@ -1,0 +1,74 @@
+# Installation
+
+import { Prerequisites } from '../../components/Prerequisites';
+
+<Prerequisites />
+
+## Getting started
+
+:::info
+The `init` command is coming soon. For now, clone the starter repository to get started.
+:::
+
+```bash
+# Create a new project
+npx tsdevstack init
+
+# Install dependencies
+npm install
+```
+
+### Templates
+
+| Template | Description |
+|----------|-------------|
+| `fullstack-auth` | Auth service + Next.js frontend with login/signup pages (Recommended) |
+| `auth` | Auth service only (backend-only projects) |
+
+We recommend `fullstack-auth` for most projects - it gives you a complete authentication system out of the box:
+
+```bash
+npx tsdevstack init --template fullstack-auth
+```
+
+### Project structure
+
+After init, you'll have:
+
+```
+my-project/
+├── apps/                       # Your services and frontends
+├── packages/                   # Shared code
+├── infrastructure/             # Terraform configs
+├── .tsdevstack/                # Framework configuration
+└── package.json
+```
+
+## Generate local configuration
+
+Generate the configuration files needed for local development:
+
+```bash
+npx tsdevstack sync
+```
+
+This generates:
+- Kong gateway configuration from your OpenAPI specs
+- Secrets for local development
+- Docker Compose configuration
+
+## Start local environment
+
+```bash
+npm run dev
+```
+
+This starts Docker containers (database, Redis, Kong) and all your services with hot reload.
+
+Your services are now available through the Kong gateway at `http://localhost:8000`.
+
+## What's next?
+
+- [Your First App](/getting-started/your-first-app) - Add a service
+- [Project Structure](/getting-started/project-structure) - Understand the layout
+- [Running Locally](/local-development/running-locally) - Local development workflow

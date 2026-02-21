@@ -1,0 +1,166 @@
+# Architecture Overview
+
+tsdevstack uses a gateway-first architecture where all traffic flows through a central API gateway before reaching your services. This pattern provides consistent security, routing, and observability across all your APIs.
+
+import { CloudArchitectureDiagram } from '../../components/CloudArchitectureDiagram';
+
+## High-level architecture
+
+<CloudArchitectureDiagram />
+
+Every external request goes through Kong first. Kong handles authentication, validates tokens, applies rate limits, and then forwards validated requests to your services. Your services never handle raw external traffic directly.
+
+## Core components
+
+### API Gateway (Kong)
+
+[Kong](https://konghq.com/) is the front door to your application. It handles:
+
+- **Routing** - Maps URL paths to backend services (e.g., `/auth/v1/*` goes to auth-service)
+- **Authentication** - Validates JWT tokens before requests reach your services
+- **Rate limiting** - Prevents abuse with configurable request limits (stored in Redis)
+- **CORS** - Manages cross-origin requests for browser clients
+- **Header transformation** - Strips spoofed headers, adds trusted headers
+
+In tsdevstack, Kong configuration is generated automatically from your OpenAPI specs. When you add an endpoint to a service, Kong routing is updated to match.
+
+### Backend services
+
+Services are [NestJS](https://nestjs.com/) applications that contain your business logic. Each service:
+
+- Handles a specific domain (auth, users, products, etc.)
+- Has its own database (when needed)
+- Exposes a REST API with OpenAPI documentation
+- Runs as an independent container
+- Is only reachable through Kong (not directly from the internet)
+- Has its own auth guards for defense in depth
+
+Services don't know about each other's internals. They communicate through well-defined APIs.
+
+While Kong handles primary authentication at the gateway level, services also implement their own auth guards. This defense-in-depth approach means authentication is verified at multiple layers, protecting against misconfiguration or gateway bypass scenarios.
+
+### Frontend (optional)
+
+The included Next.js frontend handles:
+
+- Server-side rendering for SEO and performance
+- Secure cookie-based authentication (no tokens in localStorage)
+- API routes that proxy requests to Kong
+
+### Databases
+
+PostgreSQL is the primary data store. Each service that needs persistence gets its own database, keeping data isolated and services independent.
+
+Redis provides fast caching and is used for:
+
+- Rate limiting counters (distributed across Kong instances)
+- Session data
+- General application caching
+
+## Request flow
+
+Here's what happens when a user makes an API request:
+
+```
+1. User Request
+   Browser/App sends request to your domain
+   Example: POST /auth/v1/login
+
+2. Load Balancer
+   Terminates TLS, applies WAF rules
+
+3. Gateway Processing
+   Kong receives the request and:
+   - Strips spoofed internal headers
+   - Checks rate limits
+   - Validates JWT token (if required)
+   - Extracts user info from token
+   - Adds trust headers
+   - Routes to the correct service
+
+4. Service Processing
+   The service receives a validated request with:
+   - User info extracted from JWT
+   - Trust headers proving request came through Kong
+
+   Service processes the request and returns a response.
+
+5. Response
+   Kong forwards the response to the client
+   with appropriate headers and status codes.
+```
+
+For authenticated requests, Kong extracts user information from the JWT and passes it to services via trusted headers. Services can rely on these headers without re-validating the token.
+
+## How local mirrors cloud
+
+One of tsdevstack's core design principles is that local development should work exactly like production. The same architecture runs in both environments:
+
+| Component | Local | Cloud |
+|-----------|-------|-------|
+| Load Balancer | - | Cloud Load Balancer + WAF |
+| CDN | - | Cloud CDN |
+| Gateway | Kong container | Kong (containerized) |
+| Services | Running in monorepo (hot reload) | Containerized services |
+| Next.js | Running in monorepo (hot reload) | Containerized + CDN |
+| SPA Apps | Dev server (hot reload) | Bucket storage + CDN |
+| Database | PostgreSQL container | Managed PostgreSQL |
+| Cache | Redis container | Managed Redis |
+| Secrets | `.secrets.*.json` files | Secret Manager |
+
+The key differences are in networking and scale:
+
+- **Local**: All containers run on your machine, connected via Docker network
+- **Cloud**: Services run in isolated networks, only reachable through the gateway
+
+Your code doesn't change between environments. Configuration (database URLs, API endpoints) comes from secrets that tsdevstack manages per environment.
+
+## Service isolation
+
+In the cloud architecture, backend services are not directly accessible from the internet:
+
+```
+Internet → Load Balancer → Kong → Services (private network only)
+```
+
+This isolation means:
+
+- Services only accept requests from Kong
+- External attackers cannot bypass authentication
+- Internal service-to-service calls use separate API keys
+
+Locally, services are directly accessible for convenience - you can hit endpoints through Postman or curl without going through Kong. The network isolation only applies in cloud environments.
+
+## Technology choices
+
+| Layer | Technology | Why |
+|-------|------------|-----|
+| Gateway | [Kong](https://konghq.com/) | Industry-standard, plugin ecosystem, declarative config |
+| Backend | [NestJS](https://nestjs.com/) | TypeScript, decorators for OpenAPI, dependency injection |
+| Frontend | [Next.js](https://nextjs.org/) | React, SSR, API routes for cookie auth |
+| SPA | [Rsbuild](https://rsbuild.dev/) | Fast builds, React/Vue/Svelte support, modern tooling |
+| Database | [PostgreSQL](https://www.postgresql.org/) | Reliable, full-featured, great TypeScript support |
+| Cache | [Redis](https://redis.io/) | Fast, widely supported, good for rate limiting |
+| IaC | [Terraform](https://www.terraform.io/) | Multi-cloud, declarative infrastructure |
+
+## What's generated vs. what you write
+
+tsdevstack generates infrastructure and configuration. You write business logic.
+
+**Generated by tsdevstack:**
+
+- Application scaffolding (NestJS services pre-configured with @tsdevstack/nest-common)
+- Kong configuration and routing
+- Docker Compose for local development
+- Database connection configuration
+- OpenAPI specs from your decorators
+- Terraform infrastructure code
+- HTTP client packages with DTOs
+
+**Written by you:**
+
+- Service endpoints and controllers
+- Database models and migrations
+- Business logic and validation
+- Frontend pages and components
+

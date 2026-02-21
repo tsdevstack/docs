@@ -1,0 +1,39 @@
+{
+  "name": "tsdevstack-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation site for tsdevstack — a full-stack TypeScript microservices framework",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsdevstack/docs.git"
+  },
+  "homepage": "https://github.com/tsdevstack/docs",
+  "bugs": {
+    "url": "https://github.com/tsdevstack/docs/issues"
+  },
+  "scripts": {
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview"
+  },
+  "keywords": [
+    "tsdevstack",
+    "documentation",
+    "docs",
+    "cli",
+    "microservices",
+    "nestjs",
+    "nextjs",
+    "kong",
+    "infrastructure",
+    "devops"
+  ],
+  "author": "tsdevstack",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "rspress": "^1.47.0"
+  }
+}

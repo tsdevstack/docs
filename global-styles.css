@@ -1,0 +1,12 @@
+/* Landing page: make feature grid responsive */
+@media (max-width: 960px) {
+  .rspress-home .rspress-home-content div[style*="grid-template-columns"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .rspress-home .rspress-home-content div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

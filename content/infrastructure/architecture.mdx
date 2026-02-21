@@ -1,0 +1,95 @@
+# Infrastructure Architecture
+
+This page covers the cloud deployment architecture. For conceptual architecture and request flows, see [Architecture Overview](/introduction/architecture-overview).
+
+import { CloudArchitectureDiagram } from '../../components/CloudArchitectureDiagram';
+
+## Cloud architecture
+
+<CloudArchitectureDiagram />
+
+## Cloud components
+
+| Component | Service | Notes |
+|-----------|---------|-------|
+| Load Balancer | Cloud LB | TLS termination, WAF, health checks |
+| CDN | Cloud CDN | Static assets, edge caching |
+| API Gateway | [Kong](https://konghq.com/) (containerized) | Internal ingress, auth, rate limiting |
+| Backend Services | Containers | Internal-only ingress |
+| Frontend (Next.js) | Container + CDN | SSR container, static via CDN |
+| SPA Apps | Bucket + CDN | Static hosting |
+| Database | Managed PostgreSQL | Private IP, automated backups |
+| Cache | Managed Redis | Private IP, HA |
+| Secrets | Secret Manager | Versioned, access-controlled |
+
+## Network isolation
+
+Backend services are deployed with **internal-only ingress**. Only the Load Balancer is publicly accessible. Kong Gateway runs internally and receives traffic from the Load Balancer.
+
+| Component | Ingress | Reachable From |
+|-----------|---------|----------------|
+| Load Balancer | External | Internet |
+| Kong Gateway | Internal | Load Balancer |
+| Auth Service | Internal | Kong only |
+| Offers Service | Internal | Kong only |
+| BFF Service | Internal | Kong only |
+| PostgreSQL | None | Private VPC only |
+| Redis | None | Private VPC only |
+
+This isolation ensures:
+- Services only accept requests from Kong (validated by trust headers)
+- External attackers cannot bypass authentication
+- Database and cache are never exposed to the internet
+
+## Terraform resources
+
+Infrastructure is managed with [Terraform](https://www.terraform.io/). The framework generates provider-specific configurations:
+
+### Networking
+- VPC with private and public subnets
+- Private service connections for managed databases
+- Firewall rules for service-to-service communication
+
+### Compute
+- Container runtime (Cloud Run, ECS, Container Apps)
+- Auto-scaling based on request volume
+- Health check configuration
+
+### Data
+- Managed PostgreSQL with per-service databases
+- Managed Redis for rate limiting and caching
+- Private IP connectivity only
+
+### Load balancing
+- Global load balancer with TLS certificates
+- URL maps for routing (API vs static)
+- Cloud CDN integration
+
+### Security
+- Secret Manager for sensitive configuration
+- IAM roles with least-privilege access
+- WAF rules for common attack patterns
+
+## Security layers
+
+1. **WAF** - Blocks common attack patterns at the edge
+2. **Load Balancer** - TLS termination, DDoS protection
+3. **Kong Gateway** - JWT validation, rate limiting, header sanitization
+4. **Network isolation** - Services unreachable from internet
+5. **Trust headers** - Services verify requests came through Kong
+6. **Secret Manager** - Secrets never in code or environment variables
+
+## Local vs cloud comparison
+
+| Aspect | Local | Cloud |
+|--------|-------|-------|
+| Entry point | `localhost:8000` | Load Balancer IP |
+| TLS | None (HTTP) | Managed certificates |
+| WAF | None | Cloud WAF |
+| Services | Direct port access | Internal only |
+| Database | Container | Managed service |
+| Secrets | `.secrets.local.json` | Secret Manager |
+| Scaling | Single instance | Auto-scaling |
+| Observability | Local Prometheus/Jaeger | Cloud Monitoring |
+
+Your code works identically in both environments. Only configuration differs.
