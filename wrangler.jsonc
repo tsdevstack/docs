@@ -1,0 +1,7 @@
+{
+  "name": "tsdevstack-docs",
+  "compatibility_date": "2026-02-22",
+  "assets": {
+    "directory": "./doc_build",
+  },
+}
