@@ -31,7 +31,7 @@ Do this for **each environment's App Registration** (dev, staging, prod).
 3. **Scenario:** Select **"GitHub Actions deploying Azure resources"**
 4. Fill in:
    - **Organization:** Your GitHub username or org
-   - **Repository:** Your repo name (e.g., `curated-sound`)
+   - **Repository:** Your repo name (e.g., `my-project`)
    - **Entity type:** Branch
    - **GitHub branch name:** `main`
    - **Name:** `github-actions-main`

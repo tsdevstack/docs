@@ -29,7 +29,7 @@ Do this **once per AWS account**.
    - **Audience:** `sts.amazonaws.com`
 3. Fill in the GitHub repository restriction:
    - **GitHub organization:** Your GitHub username or org
-   - **GitHub repository:** Your repo name (e.g., `curated-sound`)
+   - **GitHub repository:** Your repo name (e.g., `my-project`)
    - **GitHub branch:** Leave empty for all branches, or `main` for prod
 4. **Skip** attaching managed policies (you'll add an inline policy next)
 5. **Role name:** `github-actions-deploy`
