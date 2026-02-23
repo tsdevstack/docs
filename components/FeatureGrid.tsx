@@ -182,7 +182,7 @@ const features: Feature[] = [
 
 export function FeatureGrid() {
   return (
-    <div style={{
+    <div className="feature-grid" style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(3, 1fr)',
       gap: '1.25rem',

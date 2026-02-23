@@ -1,12 +1,17 @@
-/* Landing page: make feature grid responsive */
+/* Landing page responsive styles */
+
 @media (max-width: 960px) {
-  .rspress-home .rspress-home-content div[style*="grid-template-columns"] {
+  .feature-grid {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
 @media (max-width: 640px) {
-  .rspress-home .rspress-home-content div[style*="grid-template-columns"] {
+  .feature-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .home-hero {
+    padding: 3rem 1rem 2rem !important;
   }
 }

@@ -1,6 +1,6 @@
 export function HomeHero() {
   return (
-    <div style={{
+    <div className="home-hero" style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
