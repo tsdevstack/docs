@@ -60,7 +60,7 @@ export function HomeHero() {
         justifyContent: 'center',
       }}>
         <a
-          href="mailto:hello@tsdevstack.dev?subject=Early access request"
+          href="/getting-started/quick-start"
           style={{
             display: 'inline-block',
             padding: '0.75rem 2rem',
@@ -73,7 +73,7 @@ export function HomeHero() {
             transition: 'opacity 0.2s',
           }}
         >
-          Request Early Access
+          Get Started
         </a>
         <a
           href="/introduction/what-is-tsdevstack"
@@ -93,6 +93,17 @@ export function HomeHero() {
           Why tsdevstack?
         </a>
       </div>
+      <a
+        href="mailto:hello@tsdevstack.dev"
+        style={{
+          marginTop: '1.5rem',
+          fontSize: '0.85rem',
+          color: 'var(--rp-c-text-2)',
+          textDecoration: 'none',
+        }}
+      >
+        Contact us
+      </a>
     </div>
   );
 }
