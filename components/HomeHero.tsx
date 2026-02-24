@@ -96,10 +96,17 @@ export function HomeHero() {
       <a
         href="mailto:hello@tsdevstack.dev"
         style={{
+          display: 'inline-block',
           marginTop: '1.5rem',
-          fontSize: '0.85rem',
+          padding: '0.5rem 1.5rem',
+          borderRadius: '24px',
+          fontSize: '0.9rem',
+          fontWeight: 500,
           color: 'var(--rp-c-text-2)',
+          background: 'var(--rp-c-bg-soft)',
+          border: '1px solid var(--rp-c-divider)',
           textDecoration: 'none',
+          transition: 'opacity 0.2s',
         }}
       >
         Contact us
