@@ -9,6 +9,21 @@ export function HomeHero() {
       maxWidth: '800px',
       margin: '0 auto',
     }}>
+      <span style={{
+        display: 'inline-block',
+        padding: '0.25rem 0.75rem',
+        borderRadius: '999px',
+        fontSize: '0.8rem',
+        fontWeight: 600,
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+        color: 'var(--rp-c-brand)',
+        background: 'color-mix(in srgb, var(--rp-c-brand) 10%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--rp-c-brand) 25%, transparent)',
+        marginBottom: '1.5rem',
+      }}>
+        Currently in Beta
+      </span>
       <h1 style={{
         fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
         fontWeight: 700,
@@ -45,7 +60,7 @@ export function HomeHero() {
         justifyContent: 'center',
       }}>
         <a
-          href="/getting-started/quick-start"
+          href="mailto:hello@tsdevstack.dev?subject=Early access request"
           style={{
             display: 'inline-block',
             padding: '0.75rem 2rem',
@@ -58,7 +73,7 @@ export function HomeHero() {
             transition: 'opacity 0.2s',
           }}
         >
-          Get Started
+          Request Early Access
         </a>
         <a
           href="/introduction/what-is-tsdevstack"

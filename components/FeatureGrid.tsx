@@ -161,7 +161,7 @@ const features: Feature[] = [
   {
     icon: <OSILogo />,
     title: 'Free & open source',
-    details: 'Bring your own cloud account. No vendor lock-in, no platform fees. You only pay your cloud provider.',
+    details: 'No registration needed. Bring your own cloud account. No vendor lock-in, no platform fees. You only pay your cloud provider.',
   },
   {
     icon: <ComplianceLogos />,

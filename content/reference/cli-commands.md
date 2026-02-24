@@ -4,7 +4,7 @@ The `tsdevstack` CLI handles project management, code generation, and deployment
 
 ## Installation
 
-The CLI is part of your project's dependencies. Run commands with `npx tsdevstack` or through npm scripts.
+The CLI is installed as a project devDependency (`@tsdevstack/cli`). Run commands with `npx tsdevstack` (or `npx tsds`) from your project root.
 
 ```bash
 npx tsdevstack --version

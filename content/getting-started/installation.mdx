@@ -4,15 +4,15 @@ import { Prerequisites } from '../../components/Prerequisites';
 
 <Prerequisites />
 
-## Getting started
-
-:::info
-The `init` command is coming soon. For now, clone the starter repository to get started.
+:::warning[Beta]
+tsdevstack is currently in beta. [Request early access](mailto:hello@tsdevstack.dev?subject=Early access request) to get started.
 :::
+
+## Getting started
 
 ```bash
 # Create a new project
-npx tsdevstack init
+npx @tsdevstack/cli init
 
 # Install dependencies
 npm install
@@ -28,7 +28,7 @@ npm install
 We recommend `fullstack-auth` for most projects - it gives you a complete authentication system out of the box:
 
 ```bash
-npx tsdevstack init --template fullstack-auth
+npx @tsdevstack/cli init --template fullstack-auth
 ```
 
 ### Project structure
