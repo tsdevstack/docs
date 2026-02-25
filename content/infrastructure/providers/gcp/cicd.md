@@ -54,9 +54,13 @@ Find your project number in [Project Settings](https://console.cloud.google.com/
 
 Add these secrets in your GitHub repository under **Settings > Secrets and variables > Actions**.
 
-Secret names use UPPERCASE environment suffixes.
+Secret names use the pattern `GCP_{TYPE}_{ENV}` where `{ENV}` is the UPPERCASE environment name from your `.tsdevstack/config.json`.
 
-### For dev environment
+::: info Environment names are your choice
+The framework has no naming convention for environments. `dev`, `staging`, `prod` are common choices, but you can use any name. The examples below use `dev` and `prod`.
+:::
+
+### Example: dev environment
 
 | Secret | Value | Where to Find |
 |--------|-------|---------------|
@@ -64,13 +68,67 @@ Secret names use UPPERCASE environment suffixes.
 | `GCP_SA_DEV` | `{name}@{project}.iam.gserviceaccount.com` | Service Accounts > Email column |
 | `GCP_REGION_DEV` | `us-central1` | Your preferred region |
 
-### For prod environment
+### Example: prod environment
 
 | Secret | Value | Where to Find |
 |--------|-------|---------------|
 | `GCP_WIF_PROD` | `projects/{NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider` | Workload Identity Federation > Pool > Provider details |
 | `GCP_SA_PROD` | `{name}@{project}.iam.gserviceaccount.com` | Service Accounts > Email column |
 | `GCP_REGION_PROD` | `us-central1` | Your preferred region |
+
+Repeat for each environment you have configured.
+
+## User Secrets (Required Before First Deployment)
+
+The CI workflow pushes framework-generated secrets automatically (`cloud-secrets:push --skip-user-secrets`), but **user secrets must be created manually** in GCP Secret Manager before the first CI deployment.
+
+::: warning Required before running CI
+Without these secrets, deployment will fail. The CI pipeline cannot prompt for interactive input.
+:::
+
+### Required User Secrets
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DOMAIN` | Your base domain | `example.com` |
+| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+
+### Secret Naming Format
+
+Secrets in GCP Secret Manager follow the format: `{project-name}-{scope}-{KEY}`
+
+Where `{project-name}` is the `project.name` from your `.tsdevstack/config.json`.
+
+For example, if your project name is `myapp`:
+
+| Secret Key | GCP Secret Manager Name |
+|------------|------------------------|
+| `DOMAIN` | `myapp-shared-DOMAIN` |
+| `RESEND_API_KEY` | `myapp-shared-RESEND_API_KEY` |
+| `EMAIL_FROM` | `myapp-shared-EMAIL_FROM` |
+
+### Creating Secrets in GCP Console
+
+1. Go to [Secret Manager](https://console.cloud.google.com/security/secret-manager) and select your project
+2. If Secret Manager is not enabled, click **Enable** when prompted
+3. Click **Create Secret**
+4. **Name:** Enter the full secret name (e.g., `myapp-shared-DOMAIN`)
+5. **Secret value:** Enter the value (e.g., `example.com`)
+6. Leave all other settings as default
+7. Click **Create Secret**
+
+Repeat for each required secret. You can also add any custom secrets your application needs (e.g., third-party API keys) using the same `{project-name}-shared-{KEY}` naming pattern.
+
+### Alternative: Using the CLI
+
+If you have local credentials configured (see [Account Setup](/infrastructure/providers/gcp/account-setup)), you can push user secrets from your machine:
+
+```bash
+npx tsdevstack cloud-secrets:push --env dev
+```
+
+This will prompt for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` interactively.
 
 ## Workflow Authentication Pattern
 
@@ -125,6 +183,5 @@ permissions:
 
 Verify the service account email format: `<name>@<project-id>.iam.gserviceaccount.com`
 
-```bash
-gcloud iam service-accounts describe "deploy@${PROJECT_ID}.iam.gserviceaccount.com"
-```
+1. Go to [IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+2. Check that the service account exists and the email matches what you set in `GCP_SA_{ENV}`

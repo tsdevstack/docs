@@ -60,7 +60,64 @@ Repeat for staging and prod with `_STAGING` and `_PROD` suffixes.
 
 **No `AZURE_CLIENT_SECRET` needed** — OIDC handles authentication.
 
-**Naming convention:** Workflows dynamically look up secrets by converting the environment name to uppercase. `dev` > `AZURE_CLIENT_ID_DEV`, `AZURE_TENANT_ID_DEV`, etc.
+::: info Environment names are your choice
+The framework has no naming convention for environments. `dev`, `staging`, `prod` are common choices, but you can use any name. The suffix is always the UPPERCASE version of your environment name.
+:::
+
+## User Secrets (Required Before First Deployment)
+
+The CI workflow pushes framework-generated secrets automatically (`cloud-secrets:push --skip-user-secrets`), but **user secrets must be created manually** in Azure Key Vault before the first CI deployment.
+
+::: warning Required before running CI
+Without these secrets, deployment will fail. The CI pipeline cannot prompt for interactive input.
+:::
+
+### Required User Secrets
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DOMAIN` | Your base domain | `example.com` |
+| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+
+### Secret Naming Format
+
+Secrets in Azure Key Vault follow the format: `{project-name}-{scope}-{KEY}`
+
+Azure Key Vault only allows alphanumeric characters and hyphens, so **underscores are automatically transformed to hyphens**.
+
+Where `{project-name}` is the `project.name` from your `.tsdevstack/config.json`.
+
+For example, if your project name is `myapp`:
+
+| Secret Key | Azure Key Vault Name |
+|------------|---------------------|
+| `DOMAIN` | `myapp-shared-DOMAIN` |
+| `RESEND_API_KEY` | `myapp-shared-RESEND-API-KEY` |
+| `EMAIL_FROM` | `myapp-shared-EMAIL-FROM` |
+
+### Creating Secrets in Azure Portal
+
+1. Go to the [Azure Portal](https://portal.azure.com)
+2. Search for **"Key vaults"** and select your project's Key Vault (named `{project-name}-{env}-kv`, e.g., `myapp-dev-kv`)
+3. Click **Secrets** in the left menu
+4. Click **+ Generate/Import**
+5. **Upload options:** Manual
+6. **Name:** Enter the full secret name with hyphens (e.g., `myapp-shared-DOMAIN`)
+7. **Secret value:** Enter the value (e.g., `example.com`)
+8. Click **Create**
+
+Repeat for each required secret in each environment.
+
+### Alternative: Using the CLI
+
+If you have local credentials configured (see [Account Setup](/infrastructure/providers/azure/account-setup)), you can push user secrets from your machine:
+
+```bash
+npx tsdevstack cloud-secrets:push --env dev
+```
+
+This will prompt for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` interactively.
 
 ## Workflow Authentication Pattern
 

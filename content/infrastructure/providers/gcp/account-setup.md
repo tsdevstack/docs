@@ -49,14 +49,18 @@ Create `.tsdevstack/.credentials.gcp.json` with your key:
     "private_key": "-----BEGIN PRIVATE KEY-----\n...",
     "client_email": "tsdevstack-deploy@your-dev-project.iam.gserviceaccount.com",
     ...
+    "region": "us-central1"
   },
   "prod": {
     "type": "service_account",
     "project_id": "your-prod-project",
     ...
+    "region": "us-central1"
   }
 }
 ```
+
+The `region` field is added by the framework — it's not part of the downloaded JSON key. Add it manually to each environment.
 
 Each environment must have a different `project_id`.
 

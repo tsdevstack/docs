@@ -97,7 +97,62 @@ For each environment, set 2 secrets:
 | `AWS_ROLE_ARN_PROD` | Role ARN from prod account | `arn:aws:iam::345678901234:role/github-actions-deploy` |
 | `AWS_REGION_PROD` | AWS region | `us-east-1` |
 
-**Naming convention:** Workflows dynamically look up secrets by converting the environment name to uppercase. `dev` > `AWS_ROLE_ARN_DEV` + `AWS_REGION_DEV`.
+::: info Environment names are your choice
+The framework has no naming convention for environments. `dev`, `staging`, `prod` are common choices, but you can use any name. The suffix is always the UPPERCASE version of your environment name.
+:::
+
+## User Secrets (Required Before First Deployment)
+
+The CI workflow pushes framework-generated secrets automatically (`cloud-secrets:push --skip-user-secrets`), but **user secrets must be created manually** in AWS Secrets Manager before the first CI deployment.
+
+::: warning Required before running CI
+Without these secrets, deployment will fail. The CI pipeline cannot prompt for interactive input.
+:::
+
+### Required User Secrets
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DOMAIN` | Your base domain | `example.com` |
+| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+
+### Secret Naming Format
+
+Secrets in AWS Secrets Manager follow the format: `{project-name}-{scope}-{KEY}`
+
+Where `{project-name}` is the `project.name` from your `.tsdevstack/config.json`.
+
+For example, if your project name is `myapp`:
+
+| Secret Key | AWS Secrets Manager Name |
+|------------|------------------------|
+| `DOMAIN` | `myapp-shared-DOMAIN` |
+| `RESEND_API_KEY` | `myapp-shared-RESEND_API_KEY` |
+| `EMAIL_FROM` | `myapp-shared-EMAIL_FROM` |
+
+### Creating Secrets in AWS Console
+
+1. Switch to the member account for the target environment (e.g., dev)
+2. Go to [Secrets Manager](https://console.aws.amazon.com/secretsmanager/) and select your region
+3. Click **Store a new secret**
+4. **Secret type:** Select **Other type of secret**
+5. **Key/value:** Switch to **Plaintext** tab, enter only the value (e.g., `example.com`)
+6. Click **Next**
+7. **Secret name:** Enter the full name (e.g., `myapp-shared-DOMAIN`)
+8. Click **Next** > **Next** > **Store**
+
+Repeat for each required secret in each environment.
+
+### Alternative: Using the CLI
+
+If you have local credentials configured (see [Account Setup](/infrastructure/providers/aws/account-setup)), you can push user secrets from your machine:
+
+```bash
+npx tsdevstack cloud-secrets:push --env dev
+```
+
+This will prompt for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` interactively.
 
 ## Workflow Authentication Pattern
 
