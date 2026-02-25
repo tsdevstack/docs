@@ -8,12 +8,16 @@ Kong configuration uses a layered file system:
 
 | File | Purpose | Editable |
 |------|---------|----------|
-| `kong.tsdevstack.yml` | Framework-generated routes | No (regenerated) |
-| `kong.user.yml` | Your customizations | Yes |
+| `kong.tsdevstack.yml` | Framework-generated routes, consumers, and service-level auth plugins | No (regenerated) |
+| `kong.user.yml` | Your customizations (global plugins, custom services, consumers) | Yes |
 | `kong.custom.yml` | Complete override (optional) | Yes |
 | `kong.yml` | Final merged config | No (generated) |
 
-The framework merges `kong.tsdevstack.yml` and `kong.user.yml` to create the final `kong.yml`.
+The framework merges `kong.tsdevstack.yml` and `kong.user.yml` to create the final `kong.yml`. The merge is structured per key:
+
+- **Services** — combined from both files (framework routes first, then your custom services)
+- **Consumers** — combined from both files (framework-generated partner consumers first, then yours)
+- **Plugins** — come only from `kong.user.yml` (the framework doesn't generate root-level plugins; auth plugins like oidc and key-auth are attached inside individual service definitions)
 
 ## Customizing with kong.user.yml
 

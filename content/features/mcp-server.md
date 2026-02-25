@@ -1,6 +1,6 @@
 # MCP Server
 
-tsdevstack includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes all CLI commands as tools for AI agents. This lets tools like Claude Code, Claude Desktop, Cursor, and VS Code Copilot manage your infrastructure, deploy services, and query project state directly.
+tsdevstack includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes CLI commands and project context to AI agents. This gives tools like Claude Code, Claude Desktop, Cursor, and VS Code Copilot an understanding of your project structure, service configuration, and available workflows — so they can assist you accurately instead of guessing.
 
 ## Quick start
 

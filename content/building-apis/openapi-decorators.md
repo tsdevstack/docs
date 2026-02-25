@@ -12,24 +12,25 @@ When you add decorators to your controllers:
 
 ## Two-layer authentication
 
-Authentication happens at two independent layers, controlled by different decorators:
+Authentication is enforced at two independent layers. They look related but serve different purposes and are controlled by different decorators:
 
-| Layer | Decorator | Effect |
-|-------|-----------|--------|
-| **Kong (gateway)** | `@ApiBearerAuth()` | If present, JWT is required at gateway |
-| **AuthGuard (backend)** | `@Public()` | If present, AuthGuard skips validation |
+- **Kong (gateway layer)** — decides whether a valid JWT must be present *before the request reaches your service*. Controlled by `@ApiBearerAuth()`. This is about network-level access.
+- **AuthGuard (backend layer)** — runs inside NestJS on every request and extracts the authenticated user. Controlled by `@Public()` (which opts out). This is about application-level identity.
 
-**Important:** Without `@ApiBearerAuth()`, Kong treats the route as public (no JWT required). But AuthGuard still runs unless you also add `@Public()`.
+These two layers exist because Kong handles routing for all services, while AuthGuard runs per-service. They must be configured independently:
 
-For **fully public endpoints** (login, signup): use `@Public()` and omit `@ApiBearerAuth()`.
+| Layer | Decorator | Default behavior | Decorator changes it to |
+|-------|-----------|-----------------|------------------------|
+| **Kong** | `@ApiBearerAuth()` | Route is public (no JWT required) | JWT required at gateway |
+| **AuthGuard** | `@Public()` | Validates JWT and extracts user | Skips validation entirely |
 
 ### Endpoint type reference
 
 | Endpoint type | `@ApiBearerAuth()` | `@Public()` | Result |
 |---------------|-------------------|-------------|--------|
-| Fully public (login, signup) | No | Yes | No auth anywhere |
-| Protected (user profile) | Yes | No | JWT required, user extracted |
-| Public at gateway only | No | No | No JWT required, but AuthGuard fails |
+| Fully public (login, signup) | No | Yes | No auth at either layer |
+| Protected (user profile) | Yes | No | JWT required at gateway, user extracted in backend |
+| **Misconfigured** | No | No | Kong lets requests through without JWT, but AuthGuard rejects them because no token is present. **This is a bug** — add either `@ApiBearerAuth()` or `@Public()`. |
 
 ## Standard NestJS/Swagger Decorators
 

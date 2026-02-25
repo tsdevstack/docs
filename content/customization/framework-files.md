@@ -80,26 +80,28 @@ User values override framework values at each key:
 
 ### Arrays (concatenation)
 
-Arrays are typically appended, not replaced:
+When both files contain arrays for the same key, entries from both are combined. For example, Kong services from the framework file and custom services from the user file end up in the same list:
 
 ```yaml
-# kong.tsdevstack.yml
-plugins:
-  - name: jwt
+# kong.tsdevstack.yml (generated: routes from OpenAPI specs)
+services:
+  - name: auth-service-jwt
+    url: ${KONG_SERVICE_HOST}:3001
 
-# kong.user.yml
-plugins:
-  - name: rate-limiting
-    config:
-      minute: 100
+# kong.user.yml (yours: custom services)
+services:
+  - name: external-api
+    url: https://api.example.com
 
 # kong.yml (merged)
-plugins:
-  - name: jwt
-  - name: rate-limiting
-    config:
-      minute: 100
+services:
+  - name: auth-service-jwt
+    url: ${KONG_SERVICE_HOST}:3001
+  - name: external-api
+    url: https://api.example.com
 ```
+
+Not every key follows simple concatenation. Kong's merge is structured per key — see [Kong Customization](/customization/kong-customization) for details.
 
 ## When framework files regenerate
 
