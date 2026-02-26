@@ -196,7 +196,7 @@ npx tsdevstack cloud-secrets:remove <key> --env <environment>
 
 ## Infrastructure Commands
 
-All infrastructure commands use the `infra:` prefix and require cloud credentials.
+All infrastructure commands use the `infra:` prefix and require cloud credentials (except CI commands — see below).
 
 **Note:** Environment names (e.g., `dev`, `staging`, `prod`) are user-defined based on your cloud credentials configuration. The framework does not enforce specific environment names.
 
@@ -306,15 +306,23 @@ npx tsdevstack infra:remove-env-auth --env <environment>
 
 ### `infra:init-ci`
 
-Initialize CI/CD (generates GitHub Actions workflows).
+Initialize CI/CD (generates GitHub Actions workflows). No cloud credentials required.
 
 ```bash
-npx tsdevstack infra:init-ci --github
+npx tsdevstack infra:init-ci
+npx tsdevstack infra:init-ci --envs dev,prod
 ```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--github` | Use GitHub Actions (auto-selected if omitted) |
+| `--envs <envs>` | Environments, comma-separated (prompted if omitted) |
 
 ### `infra:generate-ci`
 
-Regenerate CI workflows from ci.json.
+Regenerate CI workflows from ci.json. No cloud credentials required.
 
 ```bash
 npx tsdevstack infra:generate-ci

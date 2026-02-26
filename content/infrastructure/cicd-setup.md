@@ -14,12 +14,23 @@ The CI/CD pipeline automates your deployment workflow:
 ### Initialize CI/CD
 
 ```bash
-npx tsdevstack infra:init-ci --github
+npx tsdevstack infra:init-ci
 ```
+
+The command prompts for your cloud provider (if not already set in `config.json`) and target environments. You can also pass environments directly:
+
+```bash
+npx tsdevstack infra:init-ci --envs dev,prod
+```
+
+::: info No cloud credentials required
+`infra:init-ci` and `infra:generate-ci` read your cloud provider from `.tsdevstack/config.json` and do not require local cloud credentials. This means you can set up CI/CD workflows without running `cloud:init` first.
+:::
 
 This command:
 - Creates `.tsdevstack/ci.json` configuration
 - Generates workflow files in `.github/workflows/`
+- Generates `infrastructure.schema.json` for your provider
 - Prints setup instructions for your cloud provider
 
 ### Configuration
