@@ -30,14 +30,16 @@ Do this **once per AWS account**.
 3. Fill in the GitHub repository restriction:
    - **GitHub organization:** Your GitHub username or org
    - **GitHub repository:** Your repo name (e.g., `my-project`)
-   - **GitHub branch:** Leave empty for all branches, or `main` for prod
+   - **GitHub branch:** `main` to restrict deploys to main only, or leave empty for all branches
 4. **Skip** attaching managed policies (you'll add an inline policy next)
 5. **Role name:** `github-actions-deploy`
 6. Click **Create role**
 
 ## Step 3: Verify Trust Policy
 
-The trust policy should look like:
+The trust policy depends on whether you set a branch restriction in Step 2.
+
+**Repository only** (any branch can deploy):
 
 ```json
 {
@@ -62,7 +64,39 @@ The trust policy should look like:
 }
 ```
 
+**Repository + branch** (only `main` can deploy):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main"
+        }
+      }
+    }
+  ]
+}
+```
+
 Replace `ACCOUNT_ID` and `YOUR_ORG/YOUR_REPO` with your values.
+
+| | Repository only | Repository + branch |
+|---|---|---|
+| Deploy from feature branches | Yes | No |
+| PR workflows (build/lint/test) | Not affected (no AWS auth) | Not affected (no AWS auth) |
+| Security | Any branch in your repo can trigger deploys | Only `main` can trigger deploys |
+| Recommended for | Teams that test deploys from branches | Most projects |
 
 ## Step 4: Add Inline Policy
 

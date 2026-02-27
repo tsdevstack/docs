@@ -11,6 +11,10 @@ WIF allows GitHub Actions to authenticate using short-lived OIDC tokens instead 
 - Short-lived tokens (valid only during the workflow run)
 - Full auditability under the service account identity
 
+## Prerequisites
+
+Complete [Account Setup](/infrastructure/providers/gcp/account-setup) first. You need a service account with roles already configured before setting up CI/CD.
+
 ## Setup
 
 ### 1. Enable Required APIs
@@ -36,13 +40,34 @@ WIF allows GitHub Actions to authenticate using short-lived OIDC tokens instead 
 5. Attribute mapping:
    - `google.subject` = `assertion.sub`
    - `attribute.repository` = `assertion.repository`
-6. Click **Save**
+6. Attribute condition (CEL) — choose one:
+
+   **Repository only** (any branch can deploy):
+   ```
+   assertion.repository == 'YOUR_ORG/YOUR_REPO'
+   ```
+
+   **Repository + branch** (only `main` can deploy):
+   ```
+   assertion.repository == 'YOUR_ORG/YOUR_REPO' && assertion.ref == 'refs/heads/main'
+   ```
+
+   Replace `YOUR_ORG/YOUR_REPO` with your GitHub repository (e.g., `myorg/myapp`).
+
+   | | Repository only | Repository + branch |
+   |---|---|---|
+   | Deploy from feature branches | Yes | No |
+   | PR workflows (build/lint/test) | Not affected (no GCP auth) | Not affected (no GCP auth) |
+   | Security | Any branch in your repo can trigger deploys | Only `main` can trigger deploys |
+   | Recommended for | Teams that test deploys from branches | Most projects |
+
+7. Click **Save**
 
 ### 4. Grant Service Account Access
 
 1. Go to [IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
-2. Click on your deploy service account
-3. Go to **Permissions** tab
+2. Click on your deploy service account (don't see one? Complete [Account Setup](/infrastructure/providers/gcp/account-setup) first)
+3. Go to **Permissions** tab > **Principals with access** tab
 4. Click **Grant Access**
 5. New principal: `principalSet://iam.googleapis.com/projects/{PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/{GITHUB_ORG}/{GITHUB_REPO}`
 6. Role: **Workload Identity User**
