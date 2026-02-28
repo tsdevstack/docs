@@ -67,11 +67,15 @@ After deploying infrastructure, add DNS records. The CLI outputs the required va
 
 Point all your domains to the Load Balancer IP:
 
-| Record Type | Name | Value |
-|-------------|------|-------|
-| A | `api.example.com` | Load Balancer IP |
-| A | `example.com` | Load Balancer IP |
-| A | `app.example.com` | Load Balancer IP |
+| Record Type | Registrar Host Field | Value |
+|-------------|---------------------|-------|
+| A | `api` | Load Balancer IP |
+| A | `@` (or blank) | Load Balancer IP |
+| A | `app` | Load Balancer IP |
+
+:::warning Registrar host field
+Most domain registrars automatically append your domain to the host field. Enter only the **relative** part — e.g., `api` instead of `api.example.com`. Using the full domain name would create a record at `api.example.com.example.com`, which is incorrect. For the root domain, use `@` or leave the host field blank.
+:::
 
 :::tip Email DNS records
 If you're setting up DNS records for your domain, this is also a good time to add the Resend email verification records (DKIM, SPF, DMARC). See [Resend setup](/integrations/resend#2-verify-your-domain).
@@ -81,7 +85,7 @@ If you're setting up DNS records for your domain, this is also a good time to ad
 
 For each domain, add the validation record output by the CLI. The format varies by cloud provider:
 
-- **GCP** — Certificate Manager DNS authorization. Each domain needs a CNAME record (e.g., `_acme-challenge.api.example.com` → `...certificatemanager.goog.`). See [GCP DNS & Domains](/infrastructure/providers/gcp/dns-and-domains).
+- **GCP** — Certificate Manager DNS authorization. Each domain needs a CNAME record (e.g., host `_acme-challenge.api` → `...certificatemanager.goog.`). See [GCP DNS & Domains](/infrastructure/providers/gcp/dns-and-domains).
 - **AWS** — ACM certificate validation. CNAME records are auto-created by Terraform in Route 53 — no manual DNS records needed if Route 53 manages your domain. See [AWS DNS & Domains](/infrastructure/providers/aws/dns-and-domains).
 - **Azure** — Front Door managed TLS. Certificates are auto-provisioned once nameservers point to Azure DNS — no manual validation records needed. See [Azure DNS & Domains](/infrastructure/providers/azure/dns-and-domains).
 
@@ -148,10 +152,11 @@ All traffic to redirect domains (and their subdomains) will 301 redirect to the 
 
 ### SSL Certificate Not Provisioning
 
-1. Verify DNS records are correct (both A record and SSL validation record)
-2. Check that SSL validation CNAME value matches exactly what was output
-3. Wait for DNS propagation (can take up to 48 hours for some providers)
-4. After fixing DNS, redeploy to refresh:
+1. **Check registrar host field** (GCP only) — enter relative names (e.g., `_acme-challenge.api`), not full domain names (e.g., `_acme-challenge.api.example.com`). Most registrars auto-append your domain. See [GCP DNS & Domains](/infrastructure/providers/gcp/dns-and-domains) for details.
+2. Verify DNS records are correct (both A record and SSL validation record)
+3. Check that SSL validation CNAME value matches exactly what was output
+4. Wait for DNS propagation (can take up to 48 hours for some providers)
+5. After fixing DNS, redeploy to refresh:
    ```bash
    npx tsdevstack infra:deploy-lb --env prod
    ```

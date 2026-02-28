@@ -20,12 +20,21 @@ Alternatively: **VPC network > IP addresses** > look for `{projectName}-lb-ip`
 
 Point all your domains to the Load Balancer IP with A records:
 
-| Record Type | Host | Value | Purpose |
-|-------------|------|-------|---------|
-| A | `api.example.com` | Load Balancer IP | API traffic |
-| A | `example.com` | Load Balancer IP | Frontend traffic |
-| A | `app.example.com` | Load Balancer IP | SPA traffic |
-| A | `redirect.example.io` | Load Balancer IP | Redirect domains |
+| Record Type | Registrar Host Field | Value | Purpose |
+|-------------|---------------------|-------|---------|
+| A | `api` | Load Balancer IP | API traffic |
+| A | `@` (or blank) | Load Balancer IP | Frontend traffic |
+| A | `app` | Load Balancer IP | SPA traffic |
+
+For redirect domains on a **separate TLD** (e.g., `example.io` redirecting to `example.com`), add an A record in that domain's DNS zone:
+
+| Record Type | Registrar Host Field | Value | Purpose |
+|-------------|---------------------|-------|---------|
+| A | `@` (or blank) | Load Balancer IP | Redirect domain |
+
+:::warning Registrar host field
+Most domain registrars automatically append your domain to the host field. Enter only the **relative** part — e.g., `api` instead of `api.example.com`. Using the full domain name would create a record at `api.example.com.example.com`, which is incorrect. For the root domain, use `@` or leave the host field blank.
+:::
 
 Create these records at your domain registrar.
 
@@ -47,10 +56,18 @@ The `infra:deploy-lb` command also prints all required DNS records after a succe
 
 ### Example Records
 
-| Record Type | Host | Value |
-|-------------|------|-------|
-| CNAME | `_acme-challenge.api.example.com` | `...authorize.certificatemanager.goog.` |
-| CNAME | `_acme-challenge.example.com` | `...authorize.certificatemanager.goog.` |
+For a domain `example.com`, the registrar entries would be:
+
+| Record Type | Registrar Host Field | Value |
+|-------------|---------------------|-------|
+| CNAME | `_acme-challenge.api` | `...authorize.certificatemanager.goog.` |
+| CNAME | `_acme-challenge` | `...authorize.certificatemanager.goog.` |
+
+:::warning Use relative host names
+The CLI outputs **fully qualified domain names** (e.g., `_acme-challenge.api.example.com`). When entering these at your registrar, drop the base domain suffix — enter `_acme-challenge.api` instead of `_acme-challenge.api.example.com`. Most registrars auto-append your domain, so using the full name would create a record at `_acme-challenge.api.example.com.example.com`.
+:::
+
+For redirect domains on a separate TLD, create the CNAME in **that domain's** DNS zone. For example, if `example.io` is a redirect domain, add the CNAME record in the `example.io` DNS zone with host `_acme-challenge`.
 
 ## Checking Certificate Status
 
@@ -81,7 +98,15 @@ To redirect alternate domains (e.g., `.io`, `.app`) to your canonical domain:
 
 ### SSL Certificate Not Provisioning
 
-1. Verify DNS records are correct (both A record and SSL validation CNAME)
-2. Check that SSL validation CNAME value matches exactly what Certificate Manager shows
-3. Wait for DNS propagation (can take up to 48 hours for some registrars)
-4. After fixing DNS, redeploy to refresh: `npx tsdevstack infra:deploy-lb --env prod`
+1. **Check CNAME host names** — the most common mistake is entering the full domain name in the registrar's host field. Use relative names (e.g., `_acme-challenge.api`, not `_acme-challenge.api.example.com`). You can verify with:
+   ```bash
+   # Should return the certificatemanager.goog value:
+   dig CNAME _acme-challenge.api.example.com +short
+
+   # If this returns the value instead, your host field is wrong:
+   dig CNAME _acme-challenge.api.example.com.example.com +short
+   ```
+2. Verify A records are also pointing to the Load Balancer IP
+3. Check that the CNAME value matches exactly what Certificate Manager shows
+4. Wait for DNS propagation (can take up to 48 hours for some registrars)
+5. After fixing DNS, redeploy to refresh: `npx tsdevstack infra:deploy-lb --env prod`
