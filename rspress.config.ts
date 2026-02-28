@@ -128,6 +128,15 @@ export default defineConfig({
           ],
         },
         {
+          text: "Third-Party Integrations",
+          items: [
+            {
+              text: "Resend (Email)",
+              link: "/integrations/resend",
+            },
+          ],
+        },
+        {
           text: "Infrastructure",
           items: [
             { text: "Architecture", link: "/infrastructure/architecture" },

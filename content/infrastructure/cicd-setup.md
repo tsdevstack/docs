@@ -107,7 +107,7 @@ See the provider-specific setup guides for where to find these values:
 | Secret | Example | Purpose |
 |--------|---------|---------|
 | `DOMAIN` | `example.com` | Base domain — API URL, CORS origins, and app URLs are derived from this |
-| `RESEND_API_KEY` | `re_xxx` | Email delivery (from [resend.com](https://resend.com)) |
+| `RESEND_API_KEY` | `re_xxx` | Email delivery — see [Resend setup](/integrations/resend) |
 | `EMAIL_FROM` | `noreply@example.com` | Sender address for transactional emails |
 
 Everything else is either auto-generated (JWT keys, API keys, database passwords) or auto-derived from your domain (`API_URL`, `APP_URL`, `KONG_CORS_ORIGINS`). Infrastructure secrets (`DATABASE_URL`, `REDIS_*`) are synced from Terraform outputs during deployment.

@@ -73,6 +73,10 @@ Point all your domains to the Load Balancer IP:
 | A | `example.com` | Load Balancer IP |
 | A | `app.example.com` | Load Balancer IP |
 
+:::tip Email DNS records
+If you're setting up DNS records for your domain, this is also a good time to add the Resend email verification records (DKIM, SPF, DMARC). See [Resend setup](/integrations/resend#2-verify-your-domain).
+:::
+
 ### SSL Validation Records
 
 For each domain, add the validation record output by the CLI. The format varies by cloud provider:

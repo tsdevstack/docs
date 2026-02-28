@@ -430,7 +430,7 @@ export class AuthService {
 | `console` | Local development (default) | Logs to terminal with sender, recipient, subject, body |
 | `resend` | Production | Sends via [Resend](https://resend.com) API |
 
-Provider is selected by the `EMAIL_PROVIDER` secret.
+Provider is selected by the `EMAIL_PROVIDER` secret. For production setup (account creation, domain verification, DNS records), see [Resend setup](/integrations/resend).
 
 ### Custom email provider
 
