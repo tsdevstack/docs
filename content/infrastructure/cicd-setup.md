@@ -9,6 +9,42 @@ The CI/CD pipeline automates your deployment workflow:
 1. **Quality checks** run on every pull request (build, lint, type-check, tests)
 2. **Deployments** are triggered manually per environment
 
+## Prerequisites
+
+### Set Your Cloud Provider
+
+Before generating workflows, your project needs a cloud provider configured in `.tsdevstack/config.json`. There are two ways to do this:
+
+**Option 1: Via `cloud:init`** (if you have local credentials set up)
+
+```bash
+npx tsdevstack cloud:init --azure   # or --gcp or --aws
+```
+
+This validates credentials, registers resource providers, and sets the provider in `config.json`.
+
+**Option 2: Manually** (CI-only setup, no local credentials needed)
+
+Edit `.tsdevstack/config.json` and set the `cloud.provider` field:
+
+```json
+{
+  "cloud": {
+    "provider": "gcp"
+  }
+}
+```
+
+Valid values: `"gcp"`, `"aws"`, `"azure"`.
+
+### Cloud Account Setup
+
+Each provider requires a cloud account with the right permissions before CI can deploy. Follow your provider's account setup guide:
+
+- [Azure Account Setup](/infrastructure/providers/azure/account-setup) — App Registration, Resource Group, Permissions
+- [GCP Account Setup](/infrastructure/providers/gcp/account-setup) — Project, Service Account
+- [AWS Account Setup](/infrastructure/providers/aws/account-setup) — Account, IAM User
+
 ## Generating Workflows
 
 ### Initialize CI/CD
@@ -17,17 +53,18 @@ The CI/CD pipeline automates your deployment workflow:
 npx tsdevstack infra:init-ci
 ```
 
-The command prompts for your cloud provider (if not already set in `config.json`) and target environments. You can also pass environments directly:
+The command reads your cloud provider from `config.json` and prompts for target environments. You can also pass environments directly:
 
 ```bash
 npx tsdevstack infra:init-ci --envs dev,prod
 ```
 
 ::: info No cloud credentials required
-`infra:init-ci` and `infra:generate-ci` read your cloud provider from `.tsdevstack/config.json` and do not require local cloud credentials. This means you can set up CI/CD workflows without running `cloud:init` first.
+`infra:init-ci` and `infra:generate-ci` only need the cloud provider set in `config.json`. No local cloud credentials (`.credentials.*.json`) are required. This means you can generate CI workflows without running `cloud:init`.
 :::
 
 This command:
+
 - Creates `.tsdevstack/ci.json` configuration
 - Generates workflow files in `.github/workflows/`
 - Generates `infrastructure.schema.json` for your provider
@@ -54,17 +91,17 @@ npx tsdevstack infra:generate-ci
 
 ## Generated Workflows
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `pr.yml` | Pull request | Build, lint, type-check, tests |
-| `deploy.yml` | Manual | Full deployment |
-| `deploy-services.yml` | Manual | Deploy services only (with per-service selection) |
-| `deploy-infra.yml` | Manual | Infrastructure (Terraform) only |
-| `deploy-kong.yml` | Manual | Kong gateway only |
-| `deploy-lb.yml` | Manual | Load balancer only (GCP only — AWS and Azure manage load balancing through `infra:deploy`) |
-| `deploy-scheduled-jobs.yml` | Manual | Deploy scheduled jobs |
-| `remove-service.yml` | Manual | Remove a service from cloud |
-| `remove-detached-worker.yml` | Manual | Remove a detached worker |
+| Workflow                     | Trigger      | Purpose                                                                                    |
+| ---------------------------- | ------------ | ------------------------------------------------------------------------------------------ |
+| `pr.yml`                     | Pull request | Build, lint, type-check, tests                                                             |
+| `deploy.yml`                 | Manual       | Full deployment                                                                            |
+| `deploy-services.yml`        | Manual       | Deploy services only (with per-service selection)                                          |
+| `deploy-infra.yml`           | Manual       | Infrastructure (Terraform) only                                                            |
+| `deploy-kong.yml`            | Manual       | Kong gateway only                                                                          |
+| `deploy-lb.yml`              | Manual       | Load balancer only (GCP only — AWS and Azure manage load balancing through `infra:deploy`) |
+| `deploy-scheduled-jobs.yml`  | Manual       | Deploy scheduled jobs                                                                      |
+| `remove-service.yml`         | Manual       | Remove a service from cloud                                                                |
+| `remove-detached-worker.yml` | Manual       | Remove a detached worker                                                                   |
 
 ## Running Deployments
 
@@ -85,15 +122,16 @@ Workflows need secrets to authenticate with your cloud provider. Add these as **
 
 Secrets are **environment-prefixed**: each secret name ends with the environment in uppercase (e.g., `_DEV`, `_STAGING`, `_PROD`). Workflows dynamically look up the right secret based on the selected environment.
 
-| Provider | Secrets per environment | Example (dev) |
-|----------|------------------------|---------------|
-| GCP | Workload Identity Provider, Service Account, Region | `GCP_WIF_DEV`, `GCP_SA_DEV`, `GCP_REGION_DEV` |
-| AWS | IAM Role ARN, Region | `AWS_ROLE_ARN_DEV`, `AWS_REGION_DEV` |
-| Azure | Client ID, Tenant ID, Subscription ID, Location | `AZURE_CLIENT_ID_DEV`, `AZURE_TENANT_ID_DEV`, `AZURE_SUBSCRIPTION_ID_DEV`, `AZURE_LOCATION_DEV` |
+| Provider | Secrets per environment                             | Example (dev)                                                                                   |
+| -------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| GCP      | Workload Identity Provider, Service Account, Region | `GCP_WIF_DEV`, `GCP_SA_DEV`, `GCP_REGION_DEV`                                                   |
+| AWS      | IAM Role ARN, Region                                | `AWS_ROLE_ARN_DEV`, `AWS_REGION_DEV`                                                            |
+| Azure    | Client ID, Tenant ID, Subscription ID, Location     | `AZURE_CLIENT_ID_DEV`, `AZURE_TENANT_ID_DEV`, `AZURE_SUBSCRIPTION_ID_DEV`, `AZURE_LOCATION_DEV` |
 
 For each environment, add the same set of secrets with the corresponding suffix (`_STAGING`, `_PROD`, etc.).
 
 See the provider-specific setup guides for where to find these values:
+
 - [GCP CI/CD](/infrastructure/providers/gcp/cicd) - Workload Identity Federation setup
 - [AWS CI/CD](/infrastructure/providers/aws/cicd) - IAM role setup
 - [Azure CI/CD](/infrastructure/providers/azure/cicd) - Federated credentials setup
@@ -104,11 +142,11 @@ See the provider-specific setup guides for where to find these values:
 
 `cloud-secrets:push` handles most secrets automatically. You only need to provide **3 values** per environment:
 
-| Secret | Example | Purpose |
-|--------|---------|---------|
-| `DOMAIN` | `example.com` | Base domain — API URL, CORS origins, and app URLs are derived from this |
-| `RESEND_API_KEY` | `re_xxx` | Email delivery — see [Resend setup](/integrations/resend) |
-| `EMAIL_FROM` | `noreply@example.com` | Sender address for transactional emails |
+| Secret           | Example               | Purpose                                                                 |
+| ---------------- | --------------------- | ----------------------------------------------------------------------- |
+| `DOMAIN`         | `example.com`         | Base domain — API URL, CORS origins, and app URLs are derived from this |
+| `RESEND_API_KEY` | `re_xxx`              | Email delivery — see [Resend setup](/integrations/resend)               |
+| `EMAIL_FROM`     | `noreply@example.com` | Sender address for transactional emails                                 |
 
 Everything else is either auto-generated (JWT keys, API keys, database passwords) or auto-derived from your domain (`API_URL`, `APP_URL`, `KONG_CORS_ORIGINS`). Infrastructure secrets (`DATABASE_URL`, `REDIS_*`) are synced from Terraform outputs during deployment.
 
@@ -164,4 +202,3 @@ npx tsdevstack infra:deploy-lb --env prod
 # Destroy environment
 npx tsdevstack infra:destroy --env prod
 ```
-

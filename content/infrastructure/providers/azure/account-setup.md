@@ -16,6 +16,18 @@ Setting up Azure for tsdevstack deployments. Each environment requires its own s
 
 The framework deploys Kong and Next.js on App Service Plans (default SKU: `B1`). Request a quota increase before the first deployment.
 
+### Register the Resource Provider
+
+New Azure subscriptions do not have the `Microsoft.Web` resource provider registered. The quota list will be **empty** until you register it.
+
+1. Go to the [Azure Portal](https://portal.azure.com) > **Subscriptions** > select your subscription
+2. In the left sidebar under **Settings**, click **Resource providers**
+3. Search for **`Microsoft.Web`**
+4. Select it and click **Register**
+5. Wait until the status changes to **Registered** (usually under a minute)
+
+This must be done manually — you need the provider registered to request the quota, and you need the quota before the first deploy.
+
 ### Navigate to Quotas
 
 1. Go to the [Azure Portal](https://portal.azure.com)
@@ -34,26 +46,25 @@ If the self-service option is not available, create a support request: **Help + 
 ## Step 1: Create App Registration
 
 1. Go to [Azure Portal](https://portal.azure.com) > search **"Microsoft Entra ID"**
-2. Click **App registrations** > **+ New registration**
-3. **Name:** `tsdevstack-dev`
+2. Under **Manage**, click **App registrations** > **+ New registration**
+3. **Name:** `{projectName}-{env}` (e.g., `myapp-dev`)
 4. **Supported account types:** "Accounts in this organizational directory only"
 5. **Redirect URI:** Leave blank
 6. Click **Register**
 
-Copy from the Overview page:
+From the **Overview** page, copy:
 - **Application (client) ID** > this is `clientId`
 - **Directory (tenant) ID** > this is `tenantId`
 
 ## Step 2: Create Client Secret
 
-1. On the App Registration page > **Certificates & secrets**
-2. Click **+ New client secret**
-3. **Description:** `tsdevstack-dev-key`
-4. **Expires:** 24 months
-5. Click **Add**
-6. **Immediately copy the "Value" column** — you cannot view it again
-
-This value is `clientSecret`.
+1. Click on your App Registration from the list to open it
+2. In the left sidebar under **Manage**, click **Certificates & secrets**
+3. Click **+ New client secret**
+4. **Description:** `{projectName}-{env}-key` (e.g., `myapp-dev-key`)
+5. **Expires:** 24 months
+6. Click **Add**
+7. Two fields appear side by side: **Secret ID** and **Value**. Copy the **Value** field (the long string) — this is your `clientSecret`. It is only shown once; if you navigate away, you cannot retrieve it.
 
 ## Step 3: Get Subscription ID
 
@@ -66,7 +77,7 @@ This value is `clientSecret`.
 1. Search for **"Resource groups"** > **+ Create**
 2. **Subscription:** Select from Step 3
 3. **Resource group:** `{projectName}-{env}-rg` (e.g., `tsdevstack-dev-rg`)
-4. **Region:** Choose your region (e.g., `East US`)
+4. **Region:** Choose your region (e.g., `East US 2`). Avoid `East US` — PostgreSQL Flexible Server is often restricted there.
 5. Click **Review + create** > **Create**
 
 ## Step 5: Grant Permissions
@@ -92,8 +103,9 @@ Go to the Resource Group > **Access control (IAM)** > assign each role:
 - **+ Add** > **Add role assignment**
 - Tab: **Privileged administrator roles** > select **User Access Administrator**
 - Select members > search for `tsdevstack-dev`
-- On the Conditions step: select **"Allow user to only assign selected roles to selected principals"**
-- Click **Configure** > **Constrain roles** > add:
+- On the Conditions step: click **Select roles and principals**
+- Select **Constrain roles** template
+- Click **+ Select roles** > search and add each:
   - Key Vault Secrets Officer
   - Key Vault Secrets User
   - AcrPull
@@ -118,7 +130,7 @@ Create `.tsdevstack/.credentials.azure.json`:
     "clientSecret": "<Secret Value from Step 2>",
     "tenantId": "<Directory (tenant) ID from Step 1>",
     "subscriptionId": "<Subscription ID from Step 3>",
-    "location": "eastus"
+    "location": "eastus2"
   }
 }
 ```

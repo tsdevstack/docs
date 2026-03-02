@@ -14,6 +14,10 @@ The CI/CD setup reuses the same App Registration (Service Principal) created dur
 | CI/CD (GitHub Actions) | OIDC Federated Credential (no secret) |
 | Runtime (containers) | Managed Identity (no credentials) |
 
+:::warning Prerequisite
+You need an App Registration for each environment before continuing. If you haven't created one yet, complete [Account Setup](/infrastructure/providers/azure/account-setup) Steps 1–5 first.
+:::
+
 ## Step 1: Add Federated Credential
 
 Do this for **each environment's App Registration** (dev, staging, prod).
@@ -21,8 +25,8 @@ Do this for **each environment's App Registration** (dev, staging, prod).
 ### Navigate to the App Registration
 
 1. Go to [Azure Portal](https://portal.azure.com) > search **"Microsoft Entra ID"**
-2. Click **App registrations** > **All applications**
-3. Click on the App Registration for this environment (e.g., `tsdevstack-dev`)
+2. Click **App registrations**, then select the **All applications** tab
+3. Click on your App Registration for this environment
 
 ### Add the Credential
 
@@ -72,19 +76,36 @@ The CI workflow pushes framework-generated secrets automatically (`cloud-secrets
 Without these secrets, deployment will fail. The CI pipeline cannot prompt for interactive input.
 :::
 
+### Create the Key Vault (if it doesn't exist)
+
+If you're setting up CI without running `cloud:init` locally, you need to create the Key Vault manually first.
+
+1. Go to the [Azure Portal](https://portal.azure.com) > search **"Key vaults"** > **+ Create**
+2. **Subscription:** Select the subscription for this environment
+3. **Resource group:** Select the resource group you created during Account Setup
+4. **Key vault name:** `{projectName}-{env}-kv` (e.g., `myapp-dev-kv`)
+5. **Region:** Must match your resource group region
+6. **Pricing tier:** Standard
+7. Click **Review + create** > **Create**
+8. Wait for the deployment to complete (a few minutes)
+9. After creation, open the Key Vault > **Access control (IAM)** > **+ Add** > **Add role assignment**
+10. Tab: **Job function roles** > search **Key Vault Secrets Officer**
+11. Select members > select your own user account > assign
+12. Wait a couple minutes for the role to take effect before creating secrets
+
 ### Required User Secrets
 
 | Secret | Description | Example |
 |--------|-------------|---------|
 | `DOMAIN` | Your base domain | `example.com` |
-| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+| `RESEND-API-KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL-FROM` | Sender email address | `noreply@example.com` |
+
+Azure Key Vault only allows alphanumeric characters and hyphens — no underscores. Use hyphens when creating secrets in the portal. The framework transforms them back to underscores (`RESEND-API-KEY` → `RESEND_API_KEY`) when injecting into your services.
 
 ### Secret Naming Format
 
 Secrets in Azure Key Vault follow the format: `{project-name}-{scope}-{KEY}`
-
-Azure Key Vault only allows alphanumeric characters and hyphens, so **underscores are automatically transformed to hyphens**.
 
 Where `{project-name}` is the `project.name` from your `.tsdevstack/config.json`.
 
@@ -99,7 +120,7 @@ For example, if your project name is `myapp`:
 ### Creating Secrets in Azure Portal
 
 1. Go to the [Azure Portal](https://portal.azure.com)
-2. Search for **"Key vaults"** and select your project's Key Vault (named `{project-name}-{env}-kv`, e.g., `myapp-dev-kv`)
+2. Search for **"Key vaults"** and select your project's Key Vault (`{projectName}-{env}-kv`)
 3. Click **Secrets** in the left menu
 4. Click **+ Generate/Import**
 5. **Upload options:** Manual
