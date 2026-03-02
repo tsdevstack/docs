@@ -21,32 +21,62 @@ Services get:
 
 ### Workers
 
-Workers handle background job processing within a service. They live inside the service folder and share its codebase:
+Workers process background jobs using [BullMQ](https://docs.bullmq.io/) and [Redis](https://redis.io/). They live inside a service's codebase and share its database access and dependencies.
+
+A worker has three parts: a **processor** that handles jobs, a **producer** (any service code) that enqueues them, and a **module** that wires everything together.
+
+#### Inline workers
+
+The simplest setup — import your processors directly into the service's `AppModule`. Jobs run in the same process as the HTTP server:
+
+```typescript
+// app.module.ts
+@Module({
+  imports: [
+    BullConfigModule.forRoot(),
+    BullModule.registerQueue({ name: 'notifications' }),
+  ],
+  providers: [NotificationProcessor],
+})
+export class AppModule {}
+```
+
+This is fine for lightweight async tasks like sending emails or logging events.
+
+#### Detached workers
+
+For heavy processing or independent scaling, you can run processors in a separate container. This requires two extra files:
 
 ```
-apps/
-└── auth-service/
-    └── src/
-        ├── app.module.ts      # Main service module
-        ├── main.ts            # Service entry point
-        ├── worker.module.ts   # Worker module
-        └── worker.ts          # Worker entry point
+apps/auth-service/src/
+├── main.ts            # HTTP service entry point
+├── app.module.ts      # Service module
+├── worker.ts          # Worker entry point
+└── worker.module.ts   # Worker module (no HTTP, just processors)
 ```
 
-By default, workers run in the same container as the service. If you need to scale workers independently, you can register them as detached workers for separate container deployment:
+`worker.ts` calls `startWorker()` from nest-common, which bootstraps a NestJS application context (no HTTP server) with a health endpoint for container orchestration.
+
+**These files alone do nothing.** The worker won't run unless you register it as a detached worker, which tells the framework to deploy a separate container using the same Docker image but with `node dist/worker.js` as the entrypoint:
 
 ```bash
-# Register for separate container deployment
-npx tsdevstack register-detached-worker --name email-worker --base-service auth-service
-
-# Unregister
-npx tsdevstack unregister-detached-worker --worker email-worker
+npx tsdevstack register-detached-worker --name auth-worker --base-service auth-service
 ```
 
-Workers can:
-- Process queued jobs
-- Handle scheduled tasks
-- Run long-running operations
+Detached workers get their own Cloud Run / ECS / Container Apps instance with CPU always allocated (no scale-to-zero) and a minimum of 1 instance.
+
+#### Enqueueing jobs
+
+Any service code can dispatch jobs by injecting a queue:
+
+```typescript
+@InjectQueue('notifications') private notificationQueue: Queue
+
+// Later:
+await this.notificationQueue.add('send-email', { to, subject, html });
+```
+
+The queue name must be registered in both the producer's module and the worker's module.
 
 ### Next.js Frontend
 
