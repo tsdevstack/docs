@@ -160,6 +160,10 @@ export default defineConfig({
                   link: "/infrastructure/providers/gcp/architecture",
                 },
                 {
+                  text: "Cost Estimation",
+                  link: "/infrastructure/providers/gcp/cost-estimation",
+                },
+                {
                   text: "DNS & Domains",
                   link: "/infrastructure/providers/gcp/dns-and-domains",
                 },
@@ -179,6 +183,10 @@ export default defineConfig({
                   link: "/infrastructure/providers/aws/architecture",
                 },
                 {
+                  text: "Cost Estimation",
+                  link: "/infrastructure/providers/aws/cost-estimation",
+                },
+                {
                   text: "DNS & Domains",
                   link: "/infrastructure/providers/aws/dns-and-domains",
                 },
@@ -196,6 +204,10 @@ export default defineConfig({
                 {
                   text: "Architecture",
                   link: "/infrastructure/providers/azure/architecture",
+                },
+                {
+                  text: "Cost Estimation",
+                  link: "/infrastructure/providers/azure/cost-estimation",
                 },
                 {
                   text: "DNS & Domains",

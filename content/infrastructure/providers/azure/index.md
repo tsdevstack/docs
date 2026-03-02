@@ -2,7 +2,11 @@
 
 tsdevstack on Azure uses [Container Apps](https://azure.microsoft.com/en-us/products/container-apps) for backend services, [App Service](https://azure.microsoft.com/en-us/products/app-service) for Kong and Next.js, [PostgreSQL Flexible Server](https://azure.microsoft.com/en-us/products/postgresql) for databases, and [Azure Managed Redis](https://azure.microsoft.com/en-us/products/cache). [Azure Front Door](https://azure.microsoft.com/en-us/products/frontdoor) provides a unified edge service combining CDN, WAF, SSL, and load balancing in one.
 
-Azure has the simplest architecture overall (~25-30 Terraform resources vs AWS's ~45). Front Door replaces three separate AWS services (CloudFront + ALB + ACM) with one unified service. There are two security tiers: Standard (~$99-109/month for dev with B1) and Premium (~$394-404/month for dev with B1, adding Private Link origins and managed WAF rulesets).
+Azure has the simplest architecture overall (~25-30 Terraform resources vs AWS's ~45). Front Door replaces three separate AWS services (CloudFront + ALB + ACM) with one unified service. There are two security tiers: Standard and Premium (adding Private Link origins and managed WAF rulesets).
+
+:::info Cost
+tsdevstack is free and open source — there are no license fees. You only pay Microsoft directly for the cloud resources. See [Azure Cost Estimation](/infrastructure/providers/azure/cost-estimation) for a full breakdown by scenario.
+:::
 
 ## Key Characteristics
 
@@ -22,13 +26,10 @@ Azure has the simplest architecture overall (~25-30 Terraform resources vs AWS's
 | WAF custom rules | ~79 | ~35 (managed rulesets cover the rest) |
 | Monthly cost delta | Base | +$295/month |
 
-:::info Cost note
-tsdevstack is free and open source — there are no license fees. The costs shown above are estimates for Azure cloud resources that you pay directly to Microsoft. Actual costs depend on your usage, region, and Azure pricing changes.
-:::
-
 ## Getting Started
 
 1. [Account Setup](/infrastructure/providers/azure/account-setup) — Create App Registration and configure credentials
 2. [Architecture](/infrastructure/providers/azure/architecture) — Understand what gets deployed
-3. [DNS & Domains](/infrastructure/providers/azure/dns-and-domains) — Configure Azure DNS and custom domains
-4. [CI/CD](/infrastructure/providers/azure/cicd) — Set up OIDC federation for GitHub Actions
+3. [Cost Estimation](/infrastructure/providers/azure/cost-estimation) — What you'll pay Microsoft (development, production, scaled)
+4. [DNS & Domains](/infrastructure/providers/azure/dns-and-domains) — Configure Azure DNS and custom domains
+5. [CI/CD](/infrastructure/providers/azure/cicd) — Set up OIDC federation for GitHub Actions

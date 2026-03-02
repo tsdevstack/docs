@@ -48,13 +48,29 @@ What gets deployed when you run `infra:deploy` on Azure and how traffic flows th
 
 The architecture has two security tiers controlled by the `frontdoorPremium` toggle in `infrastructure.json`.
 
+### Standard — secure by default
+
+Standard is the default and provides strong security within Azure's constraints. Front Door terminates TLS at the edge, applies WAF rules, and forwards traffic to your origins. Since Azure Standard Front Door doesn't include Microsoft's managed WAF rulesets, tsdevstack generates ~79 custom WAF rules that cover the same ground: SQLi, XSS, path traversal, command injection, SSRF, scanner fingerprints, known CVEs, rate limiting, and protocol abuse.
+
+Origin protection uses App Service Access Restrictions — a **platform-level** networking feature. The generated Terraform sets `ip_restriction_default_action = "Deny"` on each App Service, with a single Allow rule for the `AzureFrontDoor.Backend` service tag filtered by the Front Door instance's FDID (`x_azure_fdid` header). Traffic that doesn't match is rejected by Azure's platform before it ever reaches your container. The origins do have public endpoints, but the platform denies any request that didn't come through your specific Front Door instance.
+
+### Premium — Private Link + managed rulesets (+$295/month)
+
+Premium adds two things. First, **Private Link origins** — Front Door connects to App Service over Azure's backbone network instead of the public internet. Your origins have zero public surface. Second, **Microsoft managed WAF rulesets** (DRS 2.1 Default Rule Set + Bot Manager 1.1) — professionally maintained rules updated by Microsoft's security team. With managed rulesets handling SQLi, XSS, and common attack patterns, the custom rule count drops from ~79 to ~35 (covering rate limiting, restricted paths, scanner fingerprints, CVE patterns, and protocol abuse that managed rulesets don't address).
+
+### Comparison
+
 | Aspect | Standard | Premium |
 |--------|----------|---------|
 | SKU | `Standard_AzureFrontDoor` | `Premium_AzureFrontDoor` |
-| Origin connection | Public endpoints + Access Restrictions | Private Link (no public access) |
-| WAF managed rulesets | None | DRS 2.1 + Bot Manager 1.1 |
-| WAF custom rules | ~79 (full coverage) | ~35 (managed rulesets cover SQLi, XSS, etc.) |
-| Monthly cost delta | Base | +$295/month |
+| Origin connection | Public endpoints + Access Restrictions (FDID validation) | Private Link (zero public surface) |
+| WAF managed rulesets | None (not available on Standard) | DRS 2.1 + Bot Manager 1.1 |
+| WAF custom rules | ~79 (full coverage written by tsdevstack) | ~35 (managed rulesets cover the rest) |
+| Monthly cost delta | Base (~$35) | +$295/month (~$330 total) |
+
+Standard is production-ready — the 79 custom WAF rules provide equivalent coverage to the managed rulesets. Premium is worth it when you need Private Link for compliance requirements (e.g. zero public surface) or prefer Microsoft-maintained WAF rules over custom ones.
+
+WAF rules can be customized via `infrastructure.json`. See [Service Configuration — WAF Rules](/infrastructure/service-configuration#waf-rules) for details.
 
 ## Compute: App Service + Container Apps
 
@@ -150,7 +166,7 @@ Secret naming auto-transforms underscores to hyphens: `DATABASE_URL` > `DATABASE
 
 ## Scale-to-Zero
 
-Container Apps use KEDA HTTP scaling — services scale to zero when idle and wake automatically on the next request (2-5s cold start). No Lambda functions or wake-up mechanisms needed.
+Container Apps use KEDA HTTP scaling — services scale to zero when idle and wake automatically on the next request (2-5s cold start). No wake-up mechanisms needed.
 
 Kong runs on App Service with `always_on: true` — always available with no cold start.
 
@@ -162,26 +178,9 @@ Kong runs on App Service with `always_on: true` — always available with no col
 - NSG rules: Allow LoadBalancer + VNet traffic, deny all others
 - Managed Identity for zero-credential runtime (no secrets in containers)
 
-## Cost Estimate
+## Cost Estimation
 
-| Environment | App Service SKU | Monthly Cost |
-|-------------|----------------|-------------|
-| Dev Standard (B1) | B1 | ~$99-109 |
-| Dev Standard (S1) | S1 | ~$211-221 |
-| Dev Premium (B1) | B1 | ~$394-404 |
-| Prod Standard (S1, min=1) | S1 | ~$246-261 |
-
-**Base costs (excluding App Service plans):**
-
-| Service | Configuration | Monthly Cost |
-|---------|--------------|--------------|
-| Container Apps | Scale-to-zero | ~$5-15 |
-| PostgreSQL | B_Standard_B1ms, 32GB | ~$14 |
-| Redis | Managed Redis Balanced B0 | ~$13 |
-| Front Door (Standard) | CDN + WAF + SSL + LB | ~$35 |
-| ACR Basic | Container Registry | ~$5 |
-| DNS + Secrets + Logging | Minimal at dev scale | ~$1 |
-| **Base total** | | **~$73-83/month** |
+See [Azure Cost Estimation](/infrastructure/providers/azure/cost-estimation) for a detailed breakdown across development (scale-to-zero), production (always-on), and scaled scenarios, including Standard vs Premium tier comparisons and links to official Azure pricing pages.
 
 ## Terraform Resources
 

@@ -82,6 +82,7 @@ Kong and Next.js use `internal-load-balancer` ingress — their Cloud Run URLs a
 - SSRF protection (blocks metadata endpoint 169.254.169.254)
 - Custom rules for admin path blocking
 - Multi-level rate limiting (Cloud Armor + Kong + per-endpoint)
+- WAF rules can be customized via `infrastructure.json` — see [Service Configuration — WAF Rules](/infrastructure/service-configuration#waf-rules)
 
 ## Networking
 
@@ -113,7 +114,7 @@ projects/{project}/secrets/
 
 ## Scale-to-Zero
 
-Cloud Run handles scale-to-zero natively. Services with `minInstances: 0` scale down when idle and wake up on the next request with a 2-8 second cold start. No Lambda functions or wake-up mechanisms are needed.
+Cloud Run handles scale-to-zero natively. Services with `minInstances: 0` scale down when idle and wake up on the next request with a 2-8 second cold start. No wake-up mechanisms are needed.
 
 ## Security
 
@@ -123,17 +124,9 @@ Cloud Run handles scale-to-zero natively. Services with `minInstances: 0` scale 
 - Cloud Armor provides WAF protection at the edge
 - All data services (SQL, Redis) are on private IPs only
 
-## Cost Estimate (Dev Environment)
+## Cost Estimation
 
-| Service | Configuration | Monthly Cost |
-|---------|--------------|--------------|
-| Cloud Run | Scale-to-zero (4 services) | ~$5-15 |
-| Cloud SQL | db-f1-micro | ~$20-30 |
-| Memorystore | Basic, 1GB | ~$30 |
-| Load Balancer | Global HTTPS | ~$20 |
-| Cloud Armor | WAF rules | ~$5 |
-| Secret Manager | 10 secrets | ~$1 |
-| **Total** | | **~$100-120/month** |
+See [GCP Cost Estimation](/infrastructure/providers/gcp/cost-estimation) for a detailed breakdown across dev (scale-to-zero), production (always-on), and scaled scenarios, with links to official GCP pricing pages.
 
 ## Terraform Resources
 

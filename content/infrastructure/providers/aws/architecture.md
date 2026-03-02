@@ -91,6 +91,7 @@ What gets deployed when you run `infra:deploy` on AWS and how traffic flows thro
 - AWS Managed Rules: Common Rule Set, SQLi Rule Set, Known Bad Inputs
 - Custom SSRF protection (blocks metadata endpoint)
 - Rate limiting: 1000 requests per 5 minutes per IP
+- WAF rules can be customized via `infrastructure.json` — see [Service Configuration — WAF Rules](/infrastructure/service-configuration#waf-rules)
 
 ## Networking
 
@@ -165,22 +166,9 @@ secrets/
 +-- tsdevstack/dev/kong/            # Kong-specific
 ```
 
-## Cost Estimate (Dev Environment)
+## Cost Estimation
 
-| Service | Configuration | Monthly Cost |
-|---------|--------------|--------------|
-| ECS Fargate | 4 tasks x 0.5 vCPU x 1GB | ~$30 |
-| RDS | db.t3.micro | ~$15 |
-| ElastiCache | cache.t3.micro | ~$12 |
-| ALB | 1 ALB + data | ~$20 |
-| CloudFront | 100GB transfer | ~$10 |
-| NAT Gateway | 2 x per AZ | ~$65 |
-| Secrets Manager | 10 secrets | ~$4 |
-| **Total** | | **~$156/month** |
-
-:::info
-NAT Gateway is the largest cost. Consider NAT instances for dev environments.
-:::
+See [AWS Cost Estimation](/infrastructure/providers/aws/cost-estimation) for a detailed breakdown across development (scale-to-zero), production (always-on), and scaled scenarios, with links to official AWS pricing pages.
 
 ## Terraform Resources
 
