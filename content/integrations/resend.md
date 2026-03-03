@@ -50,19 +50,23 @@ npx tsdevstack generate-secrets
 
 ### 2. Verify Your Domain
 
-In the Resend dashboard, add your domain and create the DNS records it provides. These are separate from the infrastructure DNS records covered in [Domain Setup](/infrastructure/domain-setup).
+In the [Resend dashboard](https://resend.com/domains), add your domain. Resend will show the exact DNS records you need to create (DKIM, SPF, MX, and optionally DMARC). Follow their instructions — the records and values may change over time, so always use what the dashboard shows.
 
-| Record Type | Host | Value | Purpose |
-|-------------|------|-------|---------|
-| TXT | `resend._domainkey` | _(provided by Resend)_ | DKIM signing |
-| TXT | `send` | `v=spf1 include:amazonses.com ~all` | SPF authorization |
-| TXT | `_dmarc` | `v=DMARC1; p=none;` | DMARC policy (recommended) |
+These records are separate from the infrastructure DNS records covered in [Domain Setup](/infrastructure/domain-setup).
 
-DNS propagation can take up to 48 hours, but usually completes within minutes.
+#### Where to add these records
+
+Where you create the DNS records depends on your cloud provider:
+
+- **GCP** — Add the records at your **domain registrar** (Namecheap, Cloudflare, GoDaddy, etc.). GCP does not manage your DNS zone, so all DNS records (infrastructure and Resend) go to the registrar.
+- **AWS** — Add the records in **Route 53**. Since your nameservers point to Route 53, it is the authoritative DNS for your domain. Go to [Route 53](https://console.aws.amazon.com/route53/) > Hosted zones > your domain > Create record.
+- **Azure** — Add the records in **Azure DNS**. Since your nameservers point to Azure DNS, it is the authoritative DNS for your domain. Go to [Azure Portal](https://portal.azure.com) > DNS zones > your domain > + Record set.
 
 :::tip
 Set up Resend domain verification alongside your [infrastructure DNS records](/infrastructure/domain-setup#dns-records). You'll be adding DNS records for both at the same time, so doing them together avoids waiting for propagation twice.
 :::
+
+DNS propagation can take up to 48 hours, but usually completes within minutes.
 
 ### 3. Push Secrets
 
