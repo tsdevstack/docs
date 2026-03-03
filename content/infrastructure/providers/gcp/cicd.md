@@ -147,13 +147,13 @@ Repeat for each required secret. You can also add any custom secrets your applic
 
 ### Alternative: Using the CLI
 
-If you have local credentials configured (see [Account Setup](/infrastructure/providers/gcp/account-setup)), you can push user secrets from your machine:
+If you have local credentials configured (see [Account Setup](/infrastructure/providers/gcp/account-setup)), you can push all user secrets from your machine:
 
 ```bash
 npx tsdevstack cloud-secrets:push --env dev
 ```
 
-This will prompt for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` interactively.
+This will prompt for `DOMAIN`, `RESEND_API_KEY`, `EMAIL_FROM`, and any custom secrets interactively.
 
 ## Workflow Authentication Pattern
 

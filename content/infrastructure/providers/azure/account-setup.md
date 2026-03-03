@@ -12,21 +12,50 @@ Setting up Azure for tsdevstack deployments. Each environment requires its own s
 - One Azure subscription per environment (dev, staging, prod)
 - App Service plan quota in your target region (Basic/B-series)
 
+## Register Resource Providers
+
+Azure subscriptions do not have all resource providers enabled by default. You must register every provider the framework uses before running `cloud:init`. This is a one-time operation per subscription.
+
+### How to Register
+
+1. Go to the [Azure Portal](https://portal.azure.com)
+2. Search for **"Subscriptions"** and click on your subscription
+3. In the left sidebar under **Settings**, click **Resource providers**
+4. For each provider listed below:
+   - Type the provider name in the **search box**
+   - Select it from the list
+   - Click **Register** at the top
+   - The status progress message may disappear from the list. Click the **bell icon** (notifications) in the top-right navbar to track progress and verify registration succeeded.
+   - Wait until the status shows **Registered** (usually under a minute)
+
+### Required Providers
+
+Register all 12 providers:
+
+| Provider | Used For |
+|----------|----------|
+| `Microsoft.App` | Container Apps (backend services) |
+| `Microsoft.Cache` | Azure Cache for Redis |
+| `Microsoft.Cdn` | Azure Front Door (CDN / load balancer) |
+| `Microsoft.ContainerRegistry` | Container Registry (Docker images) |
+| `Microsoft.DBforPostgreSQL` | PostgreSQL Flexible Server |
+| `microsoft.insights` | Monitor Diagnostic Settings |
+| `Microsoft.KeyVault` | Key Vault (secrets management) |
+| `Microsoft.ManagedIdentity` | Managed Identities for containers |
+| `Microsoft.Network` | Virtual Networks, subnets, NSGs |
+| `Microsoft.OperationalInsights` | Log Analytics workspace |
+| `Microsoft.Storage` | Storage Accounts (Terraform state, SPA hosting) |
+| `Microsoft.Web` | App Service Plans (Kong, Next.js) |
+
+:::warning
+The `Microsoft.Web` provider must be registered before you can request App Service quota (next section). The quota page will be empty without it.
+:::
+
 ## App Service Quota
 
-The framework deploys Kong and Next.js on App Service Plans (default SKU: `B1`). Request a quota increase before the first deployment.
+The framework deploys Kong on a dedicated App Service Plan. If your project includes Next.js apps, they share a second App Service Plan. New subscriptions often have **zero quota** for these VM families, so you must request an increase before the first deployment.
 
-### Register the Resource Provider
-
-New Azure subscriptions do not have the `Microsoft.Web` resource provider registered. The quota list will be **empty** until you register it.
-
-1. Go to the [Azure Portal](https://portal.azure.com) > **Subscriptions** > select your subscription
-2. In the left sidebar under **Settings**, click **Resource providers**
-3. Search for **`Microsoft.Web`**
-4. Select it and click **Register**
-5. Wait until the status changes to **Registered** (usually under a minute)
-
-This must be done manually — you need the provider registered to request the quota, and you need the quota before the first deploy.
+The default SKU is `B1`. If you override it to an S-series SKU in `infrastructure.json`, you need quota for that family instead (or both, if you mix SKUs).
 
 ### Navigate to Quotas
 
@@ -36,9 +65,16 @@ This must be done manually — you need the provider registered to request the q
 ### Find and Request
 
 1. Filter: **Service:** App Service, **Location:** your deployment region
-2. Find **"B1 VMs"** (shows "0 of 0")
-3. Select the row > click **Request increase**
-4. Set new limit to **10**
+2. Request quota for each VM family you need:
+
+| SKU in infrastructure.json | Quota to Request |
+|----------------------------|------------------|
+| B1, B2, B3 (default)      | B1/B2/B3 VMs     |
+| S1, S2, S3                | S1/S2/S3 VMs     |
+| P1v3, P2v3, P3v3          | P1v3/P2v3/P3v3 VMs |
+
+3. Select the row (e.g., **"B1 VMs"**, showing "0 of 0") > click **Request increase**
+4. Set the new limit based on your needs — 1 for Kong, plus 1 if your project includes Next.js apps (all Next.js apps share one plan)
 5. Submit and wait for approval (usually 1-4 hours, often minutes)
 
 If the self-service option is not available, create a support request: **Help + support** > **+ Create a support request** > Issue type: "Service and subscription limits (quotas)" > Quota type: "App Service"
@@ -73,6 +109,10 @@ From the **Overview** page, copy:
 3. Copy the **Subscription ID**
 
 ## Step 4: Create Resource Group
+
+:::danger Naming is required
+The resource group **must** be named exactly `{projectName}-{env}-rg`. The framework derives this name from your project name and environment — there is no way to override it. If the name doesn't match, all commands will fail.
+:::
 
 1. Search for **"Resource groups"** > **+ Create**
 2. **Subscription:** Select from Step 3
@@ -117,7 +157,7 @@ Go to the Resource Group > **Access control (IAM)** > assign each role:
 | Key Vault Secrets Officer | Read, write, and delete secrets in Key Vault |
 | User Access Administrator (constrained) | Assign only Key Vault + AcrPull roles to Container App Managed Identities |
 
-All roles are scoped to the resource group only — not the subscription.
+All roles above are scoped to the resource group. Provider registration (done earlier) is a separate subscription-level operation.
 
 ## Step 6: Save Credentials
 
@@ -145,7 +185,7 @@ npx tsdevstack cloud:init --azure
 
 This will:
 1. Validate each environment has a unique subscription
-2. Register required Azure resource providers
+2. Verify resource providers are registered (skips already-registered providers)
 3. Create Key Vault with RBAC authorization enabled
 4. Assign Key Vault Secrets Officer role to the SP
 5. Test connection to Key Vault
@@ -172,6 +212,10 @@ Each environment must use a separate subscription (unique `subscriptionId`). The
 1. Check the SP has all three roles on the resource group (Step 5)
 2. Verify credentials match the App Registration
 3. Verify `subscriptionId` matches the subscription containing the resource group
+
+### "does not have authorization to perform action ... register/action"
+
+Resource providers are not registered on the subscription. Go to **Subscriptions** > your subscription > **Resource providers** and register all providers listed in [Register Resource Providers](#register-resource-providers).
 
 ### "Key Vault not found"
 

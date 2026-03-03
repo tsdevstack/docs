@@ -130,15 +130,21 @@ For example, if your project name is `myapp`:
 
 Repeat for each required secret in each environment.
 
+### Custom User Secrets
+
+If your application uses additional secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`), create them the same way. Any secret defined in `.secrets.user.json` that is not a framework-generated secret must be created manually in Azure Key Vault before deployment.
+
+Use the same naming format: `{project-name}-shared-{KEY}` (with hyphens instead of underscores).
+
 ### Alternative: Using the CLI
 
-If you have local credentials configured (see [Account Setup](/infrastructure/providers/azure/account-setup)), you can push user secrets from your machine:
+If you have local credentials configured (see [Account Setup](/infrastructure/providers/azure/account-setup)), you can push all user secrets from your machine:
 
 ```bash
 npx tsdevstack cloud-secrets:push --env dev
 ```
 
-This will prompt for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` interactively.
+This will prompt for `DOMAIN`, `RESEND_API_KEY`, `EMAIL_FROM`, and any custom secrets interactively.
 
 ## Workflow Authentication Pattern
 
@@ -204,3 +210,9 @@ Check: App Registration > Certificates & secrets > Federated credentials tab.
 ### ACR push fails with "unauthorized: authentication required"
 
 The `azure/login` OIDC session wasn't established before the CLI tried to push images. Ensure `azure/login@v2` runs before any deploy commands.
+
+### "does not have authorization to perform action ... register/action"
+
+Resource providers are not registered on the subscription. The CI service principal has resource-group-scoped roles, which are not sufficient for provider registration (a subscription-level operation).
+
+Register all required providers in the Azure Portal before running CI. See [Register Resource Providers](/infrastructure/providers/azure/account-setup#register-resource-providers) in the Account Setup guide.
