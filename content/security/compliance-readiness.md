@@ -42,7 +42,7 @@ Services never run in public subnets. Databases and caches have no public endpoi
 
 | Control | GCP | AWS | Azure |
 |---------|-----|-----|-------|
-| Runtime auth | Service Account binding | IAM Task Role | Managed Identity + RBAC |
+| Runtime auth | Service Account binding | IAM Task Role | Managed Identity + RBAC (User-Assigned MI for Container Apps, System MI for App Service) |
 | CI/CD auth | Workload Identity Federation | OIDC to IAM Role | Federated Identity Credentials |
 | API auth | Kong JWT validation | Kong JWT validation | Kong JWT validation |
 | Per-service DB credentials | Unique `DATABASE_URL` per service | Unique `DATABASE_URL` per service | Unique `DATABASE_URL` per service |

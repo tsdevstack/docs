@@ -158,9 +158,10 @@ Kong (App Service) resolves Container App FQDNs via a private DNS zone with a wi
 | Principal | Role | Purpose |
 |-----------|------|---------|
 | Service Principal (from `cloud:init`) | Key Vault Secrets Officer | CLI: read + write + delete |
-| Managed Identity (from Terraform) | Key Vault Secrets User | Runtime: read-only |
+| App Service System MI (from Terraform) | Key Vault Secrets User | Runtime: read-only (Kong, Next.js) |
+| Container Apps User-Assigned MI (from Terraform) | AcrPull + Key Vault Secrets User | Runtime: image pull + read-only secrets (NestJS backends, workers, jobs) |
 
-**Zero-credential runtime:** Container Apps only need `SECRETS_PROVIDER=azure` and `AZURE_KEYVAULT_NAME` as env vars. Managed Identity handles authentication automatically.
+**Zero-credential runtime:** Container Apps need `SECRETS_PROVIDER=azure`, `AZURE_CLIENT_ID` (set to the managed identity's client ID), and `AZURE_KEYVAULT_NAME` as env vars. No service principal credentials are needed — the user-assigned managed identity handles both ACR image pulls and Key Vault access.
 
 Secret naming auto-transforms underscores to hyphens: `DATABASE_URL` > `DATABASE-URL`.
 

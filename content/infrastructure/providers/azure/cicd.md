@@ -183,7 +183,7 @@ steps:
 
 The `id-token: write` permission is **required** — without it, GitHub won't issue the OIDC token and `azure/login` will fail.
 
-**No separate Docker auth step needed.** Unlike GCP or AWS, Azure Container Registry auth is handled by the CLI via `DefaultAzureCredential`, which picks up the OIDC session.
+**No separate Docker auth step needed.** Container Apps and Container Apps Jobs use a **user-assigned managed identity** with `AcrPull` and `Key Vault Secrets User` roles (provisioned by Terraform) to pull images from ACR and access secrets in Key Vault. No tokens, passwords, or service principal credentials are involved — the identity is permanent and works reliably with scale-to-zero. Docker build/push in CI still uses `DefaultAzureCredential` (picks up the OIDC session).
 
 ## Troubleshooting
 
