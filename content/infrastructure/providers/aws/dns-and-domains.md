@@ -11,7 +11,7 @@ AWS uses Route 53 for DNS management and ACM (AWS Certificate Manager) for SSL c
 ## Step 1: Create Hosted Zone
 
 1. Go to [Route 53](https://console.aws.amazon.com/route53/)
-2. Click **Hosted zones** > **Create hosted zone**
+2. Click **Get started** > select **Create hosted zones** > click **Get started**
 3. **Domain name:** Your domain (e.g., `example.com`)
 4. **Type:** Public hosted zone
 5. Click **Create hosted zone**

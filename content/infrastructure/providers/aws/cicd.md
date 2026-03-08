@@ -2,6 +2,8 @@
 
 Set up OIDC (OpenID Connect) federation for GitHub Actions to authenticate with AWS without storing long-lived access keys.
 
+For generating workflow files and general CI/CD setup, see [CI/CD Setup](/infrastructure/cicd-setup).
+
 ## Overview
 
 GitHub Actions mints a short-lived OIDC token for each workflow run. AWS verifies this token against the IAM Identity Provider and issues temporary credentials for the specified IAM Role. No access keys are stored in GitHub.
@@ -14,8 +16,7 @@ Do this **once per AWS account** (repeat in each member account that CI will dep
 2. Go to [IAM](https://console.aws.amazon.com/iam/) > **Identity Providers** > **Add provider**
 3. Enter:
    - **Provider type:** OpenID Connect
-   - **Provider URL:** `https://token.actions.githubusercontent.com`
-   - Click **Get thumbprint**
+   - **Provider URL:** `https://token.actions.githubusercontent.com` (thumbprint is fetched automatically)
    - **Audience:** `sts.amazonaws.com`
 4. Click **Add provider**
 
@@ -33,90 +34,194 @@ Do this **once per AWS account**.
    - **GitHub branch:** `main` to restrict deploys to main only, or leave empty for all branches
 4. **Skip** attaching managed policies (you'll add an inline policy next)
 5. **Role name:** `github-actions-deploy`
-6. Click **Create role**
+6. **Verify the trust policy** — AWS shows it before creation. Confirm the `StringLike` condition matches your intent:
 
-## Step 3: Verify Trust Policy
+   **Repository only** (any branch can deploy — use `*` wildcard):
+   ```json
+   "StringLike": {
+     "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
+   }
+   ```
 
-The trust policy depends on whether you set a branch restriction in Step 2.
+   **Repository + branch** (only `main` can deploy):
+   ```json
+   "StringLike": {
+     "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main"
+   }
+   ```
 
-**Repository only** (any branch can deploy):
+   Replace `YOUR_ORG/YOUR_REPO` with your values. Edit the policy JSON directly if needed.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
-        }
-      }
-    }
-  ]
-}
-```
+   | | Repository only | Repository + branch |
+   |---|---|---|
+   | Deploy from feature branches | Yes | No |
+   | PR workflows (build/lint/test) | Not affected (no AWS auth) | Not affected (no AWS auth) |
+   | Security | Any branch in your repo can trigger deploys | Only `main` can trigger deploys |
+   | Recommended for | Teams that test deploys from branches | Most projects |
 
-**Repository + branch** (only `main` can deploy):
+7. Click **Create role**
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main"
-        }
-      }
-    }
-  ]
-}
-```
-
-Replace `ACCOUNT_ID` and `YOUR_ORG/YOUR_REPO` with your values.
-
-| | Repository only | Repository + branch |
-|---|---|---|
-| Deploy from feature branches | Yes | No |
-| PR workflows (build/lint/test) | Not affected (no AWS auth) | Not affected (no AWS auth) |
-| Security | Any branch in your repo can trigger deploys | Only `main` can trigger deploys |
-| Recommended for | Teams that test deploys from branches | Most projects |
-
-## Step 4: Add Inline Policy
+## Step 3: Add Inline Policy
 
 AWS limits roles to 10 managed policies. Use a single inline policy to cover all services needed for deployment.
 
-1. Go to the role > **Permissions** > **Add permissions** > **Create inline policy**
-2. Click **JSON** and paste a policy covering: S3, DynamoDB, Secrets Manager, ECR, ECS, RDS, ElastiCache, EC2/ELB (VPC + networking), CloudFront, ACM, Lambda, EventBridge, CloudWatch, IAM, Route 53, WAF, KMS, App Runner, Service Discovery, Application Auto Scaling, and STS
-3. **Policy name:** `tsdevstack-deploy`
+1. Go to [IAM](https://console.aws.amazon.com/iam/) > **Roles** > click the **github-actions-deploy** role you just created
+2. Go to **Permissions** tab > **Add permissions** > **Create inline policy**
+3. Click **JSON** and paste this policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3TerraformStateAndSPA",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "DynamoDBTerraformLocking",
+      "Effect": "Allow",
+      "Action": "dynamodb:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SecretsManager",
+      "Effect": "Allow",
+      "Action": "secretsmanager:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECRContainerRegistry",
+      "Effect": "Allow",
+      "Action": "ecr:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECSFargate",
+      "Effect": "Allow",
+      "Action": "ecs:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "RDSPostgreSQL",
+      "Effect": "Allow",
+      "Action": "rds:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ElastiCacheRedis",
+      "Effect": "Allow",
+      "Action": "elasticache:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "VPCAndNetworking",
+      "Effect": "Allow",
+      "Action": ["ec2:*", "elasticloadbalancing:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudFrontCDN",
+      "Effect": "Allow",
+      "Action": "cloudfront:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ACMCertificates",
+      "Effect": "Allow",
+      "Action": "acm:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "LambdaFunctions",
+      "Effect": "Allow",
+      "Action": "lambda:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EventBridgeScheduler",
+      "Effect": "Allow",
+      "Action": ["events:*", "scheduler:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchLogsAndMetrics",
+      "Effect": "Allow",
+      "Action": ["logs:*", "cloudwatch:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMServiceRoles",
+      "Effect": "Allow",
+      "Action": "iam:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Route53DNS",
+      "Effect": "Allow",
+      "Action": "route53:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "WAFFirewall",
+      "Effect": "Allow",
+      "Action": "wafv2:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSEncryption",
+      "Effect": "Allow",
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AppRunnerFrontend",
+      "Effect": "Allow",
+      "Action": "apprunner:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ServiceDiscovery",
+      "Effect": "Allow",
+      "Action": "servicediscovery:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ApplicationAutoScaling",
+      "Effect": "Allow",
+      "Action": "application-autoscaling:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudTrailAudit",
+      "Effect": "Allow",
+      "Action": "cloudtrail:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "STSIdentity",
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+4. **Policy name:** `tsdevstack-deploy`
 
 :::info
 Why an inline policy? AWS limits roles to 10 managed policies by default. A single inline policy covers all 15+ services needed for deployment without hitting that limit.
 :::
 
-## Step 5: Copy the Role ARN
+## Step 4: Copy the Role ARN
 
 Copy the **ARN** from the role page. Format: `arn:aws:iam::123456789012:role/github-actions-deploy`
 
-## Step 6: Repeat for Each Environment
+## Step 5: Repeat for Each Environment
 
-Switch to each member account (staging, prod) and repeat Steps 1-5.
+Switch to each member account (staging, prod) and repeat Steps 1-4.
 
 ## GitHub Secrets
 
@@ -143,13 +248,18 @@ The CI workflow pushes framework-generated secrets automatically (`cloud-secrets
 Without these secrets, deployment will fail. The CI pipeline cannot prompt for interactive input.
 :::
 
-### Required User Secrets
+### Creating Secrets in AWS Console
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOMAIN` | Your base domain | `example.com` |
-| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+1. Switch to the member account for the target environment (e.g., dev)
+2. Go to [Secrets Manager](https://console.aws.amazon.com/secretsmanager/) and select your region
+3. Click **Store a new secret**
+4. **Secret type:** Select **Other type of secret**
+5. **Key/value:** Switch to **Plaintext** tab, enter only the value (e.g., `example.com`)
+6. Click **Next**
+7. **Secret name:** Enter the full name (e.g., `myapp-shared-DOMAIN`)
+8. Click **Next** > **Next** > **Store**
+
+Repeat for each required secret in each environment.
 
 ### Secret Naming Format
 
@@ -165,24 +275,19 @@ For example, if your project name is `myapp`:
 | `RESEND_API_KEY` | `myapp-shared-RESEND_API_KEY` |
 | `EMAIL_FROM` | `myapp-shared-EMAIL_FROM` |
 
-### Creating Secrets in AWS Console
+### Required User Secrets
 
-1. Switch to the member account for the target environment (e.g., dev)
-2. Go to [Secrets Manager](https://console.aws.amazon.com/secretsmanager/) and select your region
-3. Click **Store a new secret**
-4. **Secret type:** Select **Other type of secret**
-5. **Key/value:** Switch to **Plaintext** tab, enter only the value (e.g., `example.com`)
-6. Click **Next**
-7. **Secret name:** Enter the full name (e.g., `myapp-shared-DOMAIN`)
-8. Click **Next** > **Next** > **Store**
+These are the minimum secrets required by the framework:
 
-Repeat for each required secret in each environment.
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DOMAIN` | Your base domain | `example.com` |
+| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
 
-### Custom User Secrets
-
-If your application uses additional secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`), create them the same way. Any secret defined in `.secrets.user.json` that is not a framework-generated secret must be created manually in AWS Secrets Manager before deployment.
-
-Use the same naming format: `{project-name}-shared-{KEY}`.
+::: warning Check your .secrets.user.json
+Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in AWS Secrets Manager before deployment. Use the same naming format: `{project-name}-shared-{KEY}`.
+:::
 
 ### Alternative: Using the CLI
 

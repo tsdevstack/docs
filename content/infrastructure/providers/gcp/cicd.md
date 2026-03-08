@@ -2,6 +2,8 @@
 
 Set up Workload Identity Federation (WIF) for GitHub Actions to authenticate with GCP without storing service account keys.
 
+For generating workflow files and general CI/CD setup, see [CI/CD Setup](/infrastructure/cicd-setup).
+
 ## Overview
 
 WIF allows GitHub Actions to authenticate using short-lived OIDC tokens instead of exported key files. The GitHub Actions runner gets a token from GitHub, exchanges it for GCP credentials, and authenticates as the service account.
@@ -111,13 +113,17 @@ The CI workflow pushes framework-generated secrets automatically (`cloud-secrets
 Without these secrets, deployment will fail. The CI pipeline cannot prompt for interactive input.
 :::
 
-### Required User Secrets
+### Creating Secrets in GCP Console
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOMAIN` | Your base domain | `example.com` |
-| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+1. Go to [Secret Manager](https://console.cloud.google.com/security/secret-manager) and select your project
+2. If Secret Manager is not enabled, click **Enable** when prompted
+3. Click **Create Secret**
+4. **Name:** Enter the full secret name (e.g., `myapp-shared-DOMAIN`)
+5. **Secret value:** Enter the value (e.g., `example.com`)
+6. Leave all other settings as default
+7. Click **Create Secret**
+
+Repeat for each required secret in each environment.
 
 ### Secret Naming Format
 
@@ -133,17 +139,19 @@ For example, if your project name is `myapp`:
 | `RESEND_API_KEY` | `myapp-shared-RESEND_API_KEY` |
 | `EMAIL_FROM` | `myapp-shared-EMAIL_FROM` |
 
-### Creating Secrets in GCP Console
+### Required User Secrets
 
-1. Go to [Secret Manager](https://console.cloud.google.com/security/secret-manager) and select your project
-2. If Secret Manager is not enabled, click **Enable** when prompted
-3. Click **Create Secret**
-4. **Name:** Enter the full secret name (e.g., `myapp-shared-DOMAIN`)
-5. **Secret value:** Enter the value (e.g., `example.com`)
-6. Leave all other settings as default
-7. Click **Create Secret**
+These are the minimum secrets required by the framework:
 
-Repeat for each required secret. You can also add any custom secrets your application needs (e.g., third-party API keys) using the same `{project-name}-shared-{KEY}` naming pattern.
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DOMAIN` | Your base domain | `example.com` |
+| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+
+::: warning Check your .secrets.user.json
+Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in GCP Secret Manager before deployment. Use the same naming format: `{project-name}-shared-{KEY}`.
+:::
 
 ### Alternative: Using the CLI
 

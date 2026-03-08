@@ -60,33 +60,13 @@ Click on the account in the Organizations page and **copy the 12-digit Account I
 
 ### 3.5 Attach Policies
 
-**For secrets + infrastructure (recommended):**
+**For simplicity:**
 
-Attach `AdministratorAccess` for simplicity.
+Attach `AdministratorAccess`.
 
-**For least-privilege (production):**
+**For least-privilege:**
 
-Attach these 17 managed policies:
-
-| Policy | Services |
-|--------|----------|
-| `AmazonS3FullAccess` | Terraform state bucket, SPA hosting |
-| `AmazonDynamoDBFullAccess` | Terraform state locking |
-| `AmazonECS_FullAccess` | ECS Fargate services, task definitions |
-| `AmazonEC2ContainerRegistryFullAccess` | ECR image registry |
-| `AmazonRDSFullAccess` | PostgreSQL database |
-| `AmazonElastiCacheFullAccess` | Redis |
-| `AmazonVPCFullAccess` | VPC, subnets, security groups, NAT |
-| `ElasticLoadBalancingFullAccess` | Application Load Balancer |
-| `CloudFrontFullAccess` | CDN + distributions |
-| `AWSLambda_FullAccess` | Wake-up Lambda, Job Invoker Lambda |
-| `AmazonEventBridgeFullAccess` | Scheduled jobs |
-| `SecretsManagerReadWrite` | Secret storage |
-| `IAMFullAccess` | Create roles/policies for services |
-| `AWSCertificateManagerFullAccess` | SSL certificates |
-| `AmazonRoute53FullAccess` | DNS |
-| `CloudWatchFullAccess` | Logs, alarms |
-| `AWSWAFFullAccess` | Web application firewall |
+Use a single inline policy instead of managed policies (AWS limits roles to 10 managed policies). See the [inline policy in the CI/CD guide](/infrastructure/providers/aws/cicd#step-3-add-inline-policy) — the same policy works for IAM users.
 
 ### 3.6 Create Access Key
 
@@ -136,6 +116,14 @@ This will:
 3. Verify credentials belong to the specified account (via STS API)
 4. Test connection to Secrets Manager
 5. Update `.tsdevstack/config.json` with `cloud.provider: "aws"`
+
+## Next Steps: Route 53 (Required for Custom Domains)
+
+If you plan to use a custom domain (e.g., `api.example.com`), you must set up Route 53 **before deploying infrastructure**. Without it, ACM certificate validation fails and deployment will error out.
+
+See [DNS & Domains](/infrastructure/providers/aws/dns-and-domains) for the full setup guide.
+
+If you don't need a custom domain, services will use default AWS URLs (`*.elb.amazonaws.com`, `*.cloudfront.net`).
 
 ## Environment Isolation
 

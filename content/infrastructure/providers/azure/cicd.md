@@ -2,6 +2,8 @@
 
 Set up OIDC (OpenID Connect) federation for GitHub Actions to authenticate with Azure without storing client secrets.
 
+For generating workflow files and general CI/CD setup, see [CI/CD Setup](/infrastructure/cicd-setup).
+
 ## Overview
 
 GitHub Actions mints a short-lived OIDC token for each workflow run. Azure verifies this token against the Federated Credential on the App Registration and grants access. No `clientSecret` is stored in GitHub.
@@ -93,15 +95,18 @@ If you're setting up CI without running `cloud:init` locally, you need to create
 11. Select members > select your own user account > assign
 12. Wait a couple minutes for the role to take effect before creating secrets
 
-### Required User Secrets
+### Creating Secrets in Azure Portal
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOMAIN` | Your base domain | `example.com` |
-| `RESEND-API-KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL-FROM` | Sender email address | `noreply@example.com` |
+1. Go to the [Azure Portal](https://portal.azure.com)
+2. Search for **"Key vaults"** and select your project's Key Vault (`{projectName}-{env}-kv`)
+3. Click **Secrets** in the left menu
+4. Click **+ Generate/Import**
+5. **Upload options:** Manual
+6. **Name:** Enter the full secret name with hyphens (e.g., `myapp-shared-DOMAIN`)
+7. **Secret value:** Enter the value (e.g., `example.com`)
+8. Click **Create**
 
-Azure Key Vault only allows alphanumeric characters and hyphens — no underscores. Use hyphens when creating secrets in the portal. The framework transforms them back to underscores (`RESEND-API-KEY` → `RESEND_API_KEY`) when injecting into your services.
+Repeat for each required secret in each environment.
 
 ### Secret Naming Format
 
@@ -117,24 +122,21 @@ For example, if your project name is `myapp`:
 | `RESEND_API_KEY` | `myapp-shared-RESEND-API-KEY` |
 | `EMAIL_FROM` | `myapp-shared-EMAIL-FROM` |
 
-### Creating Secrets in Azure Portal
+### Required User Secrets
 
-1. Go to the [Azure Portal](https://portal.azure.com)
-2. Search for **"Key vaults"** and select your project's Key Vault (`{projectName}-{env}-kv`)
-3. Click **Secrets** in the left menu
-4. Click **+ Generate/Import**
-5. **Upload options:** Manual
-6. **Name:** Enter the full secret name with hyphens (e.g., `myapp-shared-DOMAIN`)
-7. **Secret value:** Enter the value (e.g., `example.com`)
-8. Click **Create**
+These are the minimum secrets required by the framework:
 
-Repeat for each required secret in each environment.
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DOMAIN` | Your base domain | `example.com` |
+| `RESEND-API-KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL-FROM` | Sender email address | `noreply@example.com` |
 
-### Custom User Secrets
+Azure Key Vault only allows alphanumeric characters and hyphens — no underscores. Use hyphens when creating secrets in the portal. The framework transforms them back to underscores (`RESEND-API-KEY` → `RESEND_API_KEY`) when injecting into your services.
 
-If your application uses additional secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`), create them the same way. Any secret defined in `.secrets.user.json` that is not a framework-generated secret must be created manually in Azure Key Vault before deployment.
-
-Use the same naming format: `{project-name}-shared-{KEY}` (with hyphens instead of underscores).
+::: warning Check your .secrets.user.json
+Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in Azure Key Vault before deployment. Use the same naming format: `{project-name}-shared-{KEY}` (with hyphens instead of underscores).
+:::
 
 ### Alternative: Using the CLI
 

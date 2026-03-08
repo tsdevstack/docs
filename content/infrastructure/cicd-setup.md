@@ -18,7 +18,7 @@ Before generating workflows, your project needs a cloud provider configured in `
 **Option 1: Via `cloud:init`** (if you have local credentials set up)
 
 ```bash
-npx tsdevstack cloud:init --azure   # or --gcp or --aws
+npx tsdevstack cloud:init --<provider>   # gcp, aws, or azure
 ```
 
 This validates credentials, registers resource providers, and sets the provider in `config.json`.
@@ -30,7 +30,7 @@ Edit `.tsdevstack/config.json` and set the `cloud.provider` field:
 ```json
 {
   "cloud": {
-    "provider": "gcp"
+    "provider": "<provider>"
   }
 }
 ```
@@ -136,35 +136,13 @@ See the provider-specific setup guides for where to find these values:
 - [AWS CI/CD](/infrastructure/providers/aws/cicd) - IAM role setup
 - [Azure CI/CD](/infrastructure/providers/azure/cicd) - Federated credentials setup
 
-## Secret Handling
+## User Secrets
 
-### What You Need to Set
+Before the first deployment, you need to create user secrets in your cloud provider's secret manager. Each provider's CI/CD guide covers which secrets are required and how to create them:
 
-`cloud-secrets:push` handles most secrets automatically. You only need to provide **3 values** per environment:
-
-| Secret           | Example               | Purpose                                                                 |
-| ---------------- | --------------------- | ----------------------------------------------------------------------- |
-| `DOMAIN`         | `example.com`         | Base domain — API URL, CORS origins, and app URLs are derived from this |
-| `RESEND_API_KEY` | `re_xxx`              | Email delivery — see [Resend setup](/integrations/resend)               |
-| `EMAIL_FROM`     | `noreply@example.com` | Sender address for transactional emails                                 |
-
-Everything else is either auto-generated (JWT keys, API keys, database passwords) or auto-derived from your domain (`API_URL`, `APP_URL`, `KONG_CORS_ORIGINS`). Infrastructure secrets (`DATABASE_URL`, `REDIS_*`) are synced from Terraform outputs during deployment.
-
-### Pushing Secrets
-
-```bash
-npx tsdevstack cloud-secrets:push --env prod
-```
-
-The command generates framework secrets, prompts for the 3 values above, and pushes everything to your cloud provider's secret manager.
-
-To set or override individual secrets:
-
-```bash
-npx tsdevstack cloud-secrets:set RESEND_API_KEY --value "re_xxx" --env prod
-```
-
-See [Cloud Secrets](/secrets/cloud-secrets) for the full reference.
+- [AWS CI/CD — User Secrets](/infrastructure/providers/aws/cicd#user-secrets-required-before-first-deployment)
+- [GCP CI/CD — User Secrets](/infrastructure/providers/gcp/cicd#user-secrets-required-before-first-deployment)
+- [Azure CI/CD — User Secrets](/infrastructure/providers/azure/cicd#user-secrets-required-before-first-deployment)
 
 ## Adding a New Environment
 
