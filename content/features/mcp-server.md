@@ -29,7 +29,7 @@ The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `
 
 ## Tools
 
-The server exposes 51 tools organized into query tools (read-only) and action tools (mutating).
+The server exposes 54 tools organized into query tools (read-only) and action tools (mutating).
 
 ### Query tools (13)
 
@@ -51,7 +51,7 @@ Safe, read-only operations. No confirmation needed.
 | `infra_plan` | Terraform plan — preview infrastructure changes |
 | `infra_status` | Check if infrastructure config is in sync |
 
-### Action tools — local (12)
+### Action tools — local (14)
 
 Low-risk operations that modify local files only.
 
@@ -64,13 +64,15 @@ Low-risk operations that modify local files only.
 | `add_service` | Add a new service (nestjs, nextjs, or spa) |
 | `remove_service` | Remove a service from the local project |
 | `generate_client` | Generate TypeScript HTTP client from a service's OpenAPI spec |
+| `add_bucket_storage` | Add an object storage bucket |
+| `remove_bucket_storage` | Remove an object storage bucket |
 | `register_detached_worker` | Register a detached worker in config |
 | `unregister_detached_worker` | Remove a detached worker from config |
 | `add_messaging_topic` | Add a messaging topic to config |
 | `remove_messaging_topic` | Remove a messaging topic from config |
 | `update_messaging_topic` | Update publishers/subscribers for a topic |
 
-### Action tools — cloud (12)
+### Action tools — cloud (14)
 
 Higher-risk operations that modify cloud infrastructure.
 
@@ -81,15 +83,17 @@ Higher-risk operations that modify cloud infrastructure.
 | `cloud_secrets_remove` | Yes | Remove a secret from cloud |
 | `infra_deploy` | No | Full deployment (Terraform + build + deploy all) |
 | `deploy_services` | No | Deploy code changes to existing services |
+| `deploy_service` | No | Build, push, and deploy a single service |
 | `deploy_kong` | No | Rebuild and deploy Kong gateway |
 | `deploy_lb` | No | Deploy/update the load balancer |
 | `run_db_migrate` | No | Apply pending database migrations |
 | `deploy_schedulers` | No | Deploy all scheduled jobs |
+| `deploy_scheduler` | No | Deploy a single scheduled job |
 | `remove_service_cloud` | Yes | Remove a service from cloud (permanent) |
 | `remove_detached_worker` | Yes | Remove a worker from cloud (permanent) |
 | `infra_destroy` | Yes | Destroy ALL cloud infrastructure for an environment |
 
-### Action tools — setup and CI (14)
+### Action tools — setup and CI (13)
 
 Infrastructure setup, Docker builds, and CI/CD operations.
 
@@ -102,11 +106,10 @@ Infrastructure setup, Docker builds, and CI/CD operations.
 | `infra_generate_docker` | Generate Dockerfiles for services |
 | `infra_build_docker` | Build Docker images |
 | `infra_push_docker` | Push Docker images to registry |
+| `infra_generate_kong` | Generate Kong declarative config from OpenAPI specs |
 | `infra_build_kong` | Build Kong Docker image |
 | `infra_init_ci` | Initialize CI/CD workflows |
 | `infra_generate_ci` | Regenerate CI workflows |
-| `deploy_service` | Build, push, deploy a single service |
-| `deploy_scheduler` | Deploy a single scheduled job |
 | `remove_scheduler` | Remove a scheduled job from cloud |
 | `validate_service` | Validate service naming conventions and structure |
 

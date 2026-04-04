@@ -69,5 +69,5 @@ Key terms used throughout the tsdevstack documentation.
 | **Hot reload** | Automatic restart when source files change during development. |
 | **OpenAPI spec** | API documentation generated from NestJS decorators. Powers [Swagger UI](https://swagger.io/tools/swagger-ui/) and client generation. |
 | **Generated client** | Type-safe TypeScript HTTP client generated from a service's OpenAPI spec via `generate-client`. Placed in `packages/shared/` for use by other services. |
-| **MCP** | [Model Context Protocol](https://modelcontextprotocol.io/) — the standard for AI agent tool integration. The built-in MCP server exposes 50 tools and 12 resources so agents like Claude Code can deploy, query, and debug your project. See [MCP Server](/features/mcp-server). |
+| **MCP** | [Model Context Protocol](https://modelcontextprotocol.io/) — the standard for AI agent tool integration. The built-in MCP server exposes 54 tools and 12 resources so agents like Claude Code can deploy, query, and debug your project. See [MCP Server](/features/mcp-server). |
 
