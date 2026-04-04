@@ -210,7 +210,27 @@ consumers:
           hour: 50000
 ```
 
-### Add request size limits
+### Configure upload size limits
+
+The default maximum request body size is 10MB, configurable via `infrastructure.json`:
+
+```json
+{
+  "prod": {
+    "kong": {
+      "maxUploadSize": "25m"
+    }
+  }
+}
+```
+
+This sets Kong's nginx `client_max_body_size`. Values use nginx-style format: `"10m"`, `"50m"`, `"1g"`, `"0"` for unlimited. Requests exceeding this limit receive `413 Content Too Large`.
+
+For files larger than the configured limit, use presigned URL uploads which bypass Kong entirely. See [Object Storage — File Uploads](/features/object-storage#file-uploads).
+
+### Add request size limits (per-route via plugin)
+
+For more granular control, use the Kong request-size-limiting plugin in `kong.user.yml`:
 
 ```yaml
 plugins:

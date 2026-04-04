@@ -82,12 +82,22 @@ npx tsdevstack cloud:init --gcp   # or --aws or --azure
 
 This validates credentials, enables APIs, and grants required permissions automatically.
 
-### 4. Configure Domains and Push Secrets
+### 4. Initialize Infrastructure
+
+```bash
+npx tsdevstack infra:init --env dev
+```
+
+Creates the Terraform state backend and the infrastructure config schema for your provider.
+
+### 5. Configure Domains
 
 If you have frontend apps, add their domains to `.tsdevstack/infrastructure.json`:
 
 ```json
 {
+  "$schema": "./infrastructure.schema.json",
+  "version": "1.0.0",
   "dev": {
     "frontend": {
       "domain": "example.com"
@@ -96,19 +106,13 @@ If you have frontend apps, add their domains to `.tsdevstack/infrastructure.json
 }
 ```
 
-Then push secrets. The command prompts for `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM` — everything else is auto-generated or auto-derived:
-
-```bash
-npx tsdevstack cloud-secrets:push --env dev
-```
-
-### 5. Deploy
+### 6. Deploy
 
 ```bash
 npx tsdevstack infra:deploy --env dev
 ```
 
-### 6. Configure DNS
+### 7. Configure DNS
 
 The deploy command outputs:
 
@@ -122,7 +126,7 @@ Add these to your domain provider:
 
 See [Domain Setup](/infrastructure/domain-setup) for details.
 
-### 7. Wait for SSL
+### 8. Wait for SSL
 
 SSL certificates provision in 30-60 minutes. Then you're live.
 
@@ -146,13 +150,3 @@ Replace `DEV` with `STAGING`, `PROD`, etc. for each environment.
 
 See [CI/CD Setup](/infrastructure/cicd-setup) and the provider-specific CI/CD pages for details.
 
-## Summary
-
-| Step             | Command                                  | Time   |
-| ---------------- | ---------------------------------------- | ------ |
-| Local setup      | `init` → `npm i` → `sync` → `dev`        | 5 min  |
-| Cloud setup      | `cloud:init` → `secrets:push` → `deploy` | 15 min |
-| DNS + SSL        | Configure DNS, wait                      | 1 hour |
-| CI/CD            | `init-ci` + GitHub secrets               | 15 min |
-
-**Total: ~1.5 hours to production** (mostly waiting for SSL)

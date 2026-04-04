@@ -78,24 +78,24 @@ volumes:
   elasticsearch-data:
 ```
 
-### Message queue with [RabbitMQ](https://www.rabbitmq.com/)
+### Cache with [Memcached](https://memcached.org/)
 
-Add a message broker:
+Add a Memcached instance for specialized caching needs beyond what Redis provides:
 
 ```yaml
 # docker-compose.user.yml
 services:
-  rabbitmq:
-    image: rabbitmq:3-management
+  memcached:
+    image: memcached:1.6-alpine
     ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # Management UI
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      - "11211:11211"
     networks:
       - tsdevstack-network
 ```
+
+:::tip
+For inter-service messaging, use the built-in [Async Messaging](/features/async-messaging) feature (Redis Streams) instead of adding a separate message broker. For background jobs, use the built-in BullMQ integration.
+:::
 
 ## Mounting volumes
 
@@ -289,7 +289,7 @@ To configure backend services to use these infrastructure services, add to `.sec
 
 `docker-compose.user.yml` is for local development only. For cloud environments, you need to:
 
-1. **Provision managed services** - Use cloud-native equivalents (Elastic Cloud, Amazon SES, Cloud Pub/Sub)
+1. **Provision managed services** - Use cloud-native equivalents (Elastic Cloud, Amazon SES, etc.)
 
 2. **Configure connection strings** - Add URLs via cloud secrets:
 

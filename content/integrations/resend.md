@@ -121,6 +121,12 @@ export class AuthService {
 
 For the full API reference (email options, custom providers, testing), see [NotificationModule in nest-common](/packages/nest-common#notifications).
 
+## Using a Different Email Provider
+
+Resend is the default, but you can replace it with SendGrid, Mailgun, Postmark, or any other provider by implementing the `EmailProvider` interface and overriding the `EMAIL_PROVIDER` injection token.
+
+See [Custom Email Provider](/customization/email-provider) for a full walkthrough with code examples, secrets setup, and testing patterns.
+
 ## Secrets Reference
 
 | Secret | Required | Default | Description |

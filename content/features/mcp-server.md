@@ -29,7 +29,7 @@ The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `
 
 ## Tools
 
-The server exposes 48 tools organized into query tools (read-only) and action tools (mutating).
+The server exposes 51 tools organized into query tools (read-only) and action tools (mutating).
 
 ### Query tools (13)
 
@@ -51,7 +51,7 @@ Safe, read-only operations. No confirmation needed.
 | `infra_plan` | Terraform plan — preview infrastructure changes |
 | `infra_status` | Check if infrastructure config is in sync |
 
-### Action tools — local (9)
+### Action tools — local (12)
 
 Low-risk operations that modify local files only.
 
@@ -66,6 +66,9 @@ Low-risk operations that modify local files only.
 | `generate_client` | Generate TypeScript HTTP client from a service's OpenAPI spec |
 | `register_detached_worker` | Register a detached worker in config |
 | `unregister_detached_worker` | Remove a detached worker from config |
+| `add_messaging_topic` | Add a messaging topic to config |
+| `remove_messaging_topic` | Remove a messaging topic from config |
+| `update_messaging_topic` | Update publishers/subscribers for a topic |
 
 ### Action tools — cloud (12)
 

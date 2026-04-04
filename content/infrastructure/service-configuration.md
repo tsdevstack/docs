@@ -68,10 +68,12 @@ If autocomplete isn't working, ensure the `infrastructure.schema.json` file exis
 |--------|---------|-------------|
 | `minInstances` | `0` | Minimum running instances (0 = scale to zero) |
 | `maxInstances` | `10` | Maximum instances for auto-scaling |
-| `cpu` | `"1"` | CPU allocation: `"0.5"`, `"1"`, `"2"`, `"4"`, `"8"` |
-| `memory` | `"512Mi"` | Memory: `"256Mi"`, `"512Mi"`, `"1Gi"`, `"2Gi"`, `"4Gi"`, `"8Gi"` |
+| `cpu` | `"1"` | CPU allocation (valid values vary by provider — see below) |
+| `memory` | `"512Mi"` | Memory allocation (valid values vary by provider — see below) |
 | `timeout` | `"300s"` | Request timeout (30s-3600s) |
 | `concurrency` | `80` | Max concurrent requests per instance |
+
+The JSON schema is provider-aware — IDE autocomplete will only show values valid for your cloud provider.
 
 ## Scaling Configuration
 
@@ -81,13 +83,21 @@ Controls the minimum number of instances always running.
 
 | Value | Behavior | Cost | Startup |
 |-------|----------|------|---------|
-| `0` | Scale to zero when idle | Pay only when used | Cold start (~2-5s) |
+| `0` | Scale to zero when idle | Pay only when used | Cold start (see below) |
 | `1+` | Always-on instances | Continuous cost | No cold start |
+
+Cold start times vary by provider:
+
+| Provider | Typical Cold Start |
+|----------|--------------------|
+| GCP (Cloud Run) | ~2-5s |
+| AWS (ECS Fargate) | ~10-30s |
+| Azure (Container Apps) | ~5-15s |
 
 **Recommendations:**
 - **Dev**: `0` - Save costs, cold starts are acceptable
 - **Prod critical paths**: `1+` - Avoid cold starts for user-facing APIs
-- **Background workers**: `0` - Scale to zero when no work
+- **Detached workers**: `1+` - Workers must always be running to poll Redis queues. The framework enforces a minimum of 1 instance for workers regardless of what you set
 
 ### maxInstances
 
@@ -103,29 +113,29 @@ Limits how many instances can run during high traffic.
 
 ### CPU
 
-More CPU means faster processing but higher cost.
-
-| Value | Use Case | Cost Multiplier |
-|-------|----------|-----------------|
-| `"0.5"` | Light workloads | 0.5x |
-| `"1"` | Standard services (default) | 1x |
-| `"2"` | CPU-intensive operations | 2x |
-| `"4"` | Heavy computation | 4x |
-| `"8"` | Extreme workloads | 8x |
+| Value | GCP | AWS | Azure |
+|-------|-----|-----|-------|
+| `"0.25"` | Yes | Yes | Yes |
+| `"0.5"` | Yes | Yes | Yes |
+| `"1"` | Yes (default) | Yes (default) | Yes (default) |
+| `"2"` | Yes | Yes | Yes |
+| `"4"` | Yes | Yes | Yes |
+| `"8"` | Yes | — | — |
 
 ### Memory
 
-More memory for larger datasets or caching.
+| Value | GCP | AWS | Azure |
+|-------|-----|-----|-------|
+| `"256Mi"` | Yes | — | — |
+| `"512Mi"` | Yes (default) | Yes (default) | — |
+| `"0.5Gi"` | Yes | — | Yes (default) |
+| `"1Gi"` | Yes | Yes | Yes |
+| `"2Gi"` | Yes | Yes | Yes |
+| `"4Gi"` | Yes | Yes | Yes |
+| `"8Gi"` | Yes | Yes | — |
+| `"16Gi"` | — | Yes | — |
 
-| Value | Use Case |
-|-------|----------|
-| `"256Mi"` | Minimal services |
-| `"512Mi"` | Standard services (default) |
-| `"1Gi"` | Services with caching |
-| `"2Gi"` | Large in-memory datasets |
-| `"4Gi"` / `"8Gi"` | Memory-intensive workloads |
-
-**Note:** Memory and CPU are linked - higher CPU tiers require more memory.
+GCP has the widest range (256Mi–8Gi). AWS supports larger instances (up to 16Gi). Azure is the most constrained (0.5Gi–4Gi, no sub-Gi values).
 
 ## Kong Gateway
 
@@ -152,6 +162,40 @@ Kong defaults:
 - `memory`: `"1Gi"`
 
 For production, consider `minInstances: 1` to avoid cold starts on the API gateway.
+
+## Detached Workers
+
+Configure BullMQ worker scaling and resources:
+
+```json
+{
+  "version": "1.0.0",
+  "dev": {
+    "auth-worker": {
+      "minInstances": 1,
+      "maxInstances": 3,
+      "cpu": "0.25",
+      "memory": "512Mi"
+    }
+  },
+  "prod": {
+    "auth-worker": {
+      "minInstances": 2,
+      "maxInstances": 10,
+      "cpu": "1",
+      "memory": "1Gi"
+    }
+  }
+}
+```
+
+Workers support the same options as services (`minInstances`, `maxInstances`, `cpu`, `memory`). The framework enforces `minInstances >= 1` because workers must always be running to poll Redis queues — setting `0` will be overridden to `1`.
+
+On AWS, workers get auto-scaling resources (CPU-based target tracking at 70%). On GCP and Azure, the container runtime handles scaling natively.
+
+:::note
+Changing a worker's `maxInstances` affects the database connection pool calculation. After changing scaling config, redeploy all services and workers to rebalance pool sizes.
+:::
 
 ## Database
 
@@ -380,7 +424,41 @@ async cleanupTokens() {
 
 ## WAF Rules
 
-Add custom Web Application Firewall rules:
+The framework includes default WAF rules for common attacks (SQL injection, XSS, path traversal, command injection, SSRF, scanner fingerprints, and more). You can customize the global rate limit and add custom rules per provider.
+
+### Global rate limit
+
+Override the default rate limit (1000 requests per 60 seconds per IP) across all providers:
+
+```json
+{
+  "version": "1.0.0",
+  "prod": {
+    "security": {
+      "waf": {
+        "rateLimit": {
+          "count": 500,
+          "intervalSec": 60
+        }
+      }
+    }
+  }
+}
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `count` | Yes | Requests allowed per interval |
+| `intervalSec` | Yes | Interval in seconds (1-3600) |
+
+The framework translates this to each provider's native format:
+- **GCP:** Direct pass-through to Cloud Armor throttle rule
+- **AWS:** Scaled to 5-minute window (AWS minimum). 1000/60s becomes 5000 per 5 minutes
+- **Azure:** Scaled to per-minute buckets. 500/30s becomes 1000 per 1 minute
+
+### Custom rules (GCP)
+
+GCP uses [CEL expressions](https://cloud.google.com/armor/docs/rules-language-reference) for custom rules:
 
 ```json
 {
@@ -414,8 +492,6 @@ Add custom Web Application Firewall rules:
 }
 ```
 
-### Rule options
-
 | Option | Required | Description |
 |--------|----------|-------------|
 | `name` | Yes | Unique identifier for the rule |
@@ -425,14 +501,158 @@ Add custom Web Application Firewall rules:
 | `description` | No | Human-readable description |
 | `rateLimit` | For throttle | Required when action is `"throttle"` |
 
-### Rate limit options
+### Custom rules (AWS)
 
-| Option | Description |
-|--------|-------------|
-| `count` | Requests allowed per interval |
-| `intervalSec` | Interval in seconds (1-3600) |
+AWS uses statement-based rules with byte match, rate-based, and geo match types:
 
-The framework includes default WAF rules for common attacks (SQL injection, XSS, etc.). Custom rules are added alongside these defaults.
+```json
+{
+  "version": "1.0.0",
+  "prod": {
+    "security": {
+      "waf": {
+        "awsCustomRules": [
+          {
+            "name": "block-country",
+            "priority": 100,
+            "action": "block",
+            "matchType": "geo_match",
+            "geoMatch": {
+              "countryCodes": ["CN", "RU"]
+            },
+            "description": "Block traffic from specific countries"
+          },
+          {
+            "name": "block-bad-path",
+            "priority": 200,
+            "action": "block",
+            "matchType": "byte_match",
+            "byteMatch": {
+              "searchString": "/internal",
+              "fieldToMatch": "uri_path",
+              "positionalConstraint": "STARTS_WITH"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `name` | Yes | Unique identifier |
+| `priority` | Yes | 100-899 (managed rules use 1-99) |
+| `action` | Yes | `"block"`, `"allow"`, or `"count"` |
+| `matchType` | Yes | `"byte_match"`, `"rate_based"`, or `"geo_match"` |
+| `byteMatch` | For byte_match | Search string, field, and positional constraint |
+| `geoMatch` | For geo_match | ISO 3166-1 alpha-2 country codes |
+| `rateLimit` | For rate_based | Requests per 5-minute window (minimum 100) |
+
+### Custom rules (Azure)
+
+Azure uses match conditions with operators and transforms:
+
+```json
+{
+  "version": "1.0.0",
+  "prod": {
+    "security": {
+      "waf": {
+        "azureCustomRules": [
+          {
+            "name": "BlockBadBot",
+            "type": "MatchRule",
+            "priority": 1000,
+            "action": "Block",
+            "matchConditions": [
+              {
+                "matchVariable": "RequestHeader",
+                "operator": "Contains",
+                "matchValues": ["bad-bot", "scraper"],
+                "selector": "User-Agent",
+                "transforms": ["Lowercase"]
+              }
+            ],
+            "description": "Block known bad bots"
+          },
+          {
+            "name": "RateLimitExpensiveAPI",
+            "type": "RateLimitRule",
+            "priority": 1001,
+            "action": "Block",
+            "rateLimitDurationInMinutes": 5,
+            "rateLimitThreshold": 100,
+            "matchConditions": [
+              {
+                "matchVariable": "RequestUri",
+                "operator": "Contains",
+                "matchValues": ["/api/expensive"]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `name` | Yes | Unique name (alphanumeric only) |
+| `type` | Yes | `"MatchRule"` or `"RateLimitRule"` |
+| `priority` | Yes | Use 1000+ to avoid conflicts with framework rules |
+| `action` | Yes | `"Block"`, `"Allow"`, or `"Log"` |
+| `matchConditions` | Yes | Array of match conditions (all must match) |
+| `rateLimitDurationInMinutes` | For RateLimitRule | Window in minutes |
+| `rateLimitThreshold` | For RateLimitRule | Request threshold |
+
+**Match condition options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `matchVariable` | Yes | `"RequestUri"`, `"RequestMethod"`, `"RequestHeader"`, `"RequestBody"`, `"SocketAddr"`, `"QueryString"` |
+| `operator` | Yes | `"Contains"`, `"Equal"`, `"IPMatch"`, `"GreaterThan"` |
+| `matchValues` | Yes | Values to match against |
+| `selector` | For headers | Header name (e.g., `"User-Agent"`) |
+| `transforms` | No | `["Lowercase"]`, `["UrlDecode"]`, or `["Lowercase", "UrlDecode"]` |
+
+### Schema validation
+
+The `infrastructure.schema.json` is provider-aware — it only shows the custom rule format relevant to your cloud provider. IDE autocomplete will guide you to the correct syntax.
+
+## Upload Size Limits
+
+Configure the maximum traditional upload size through Kong:
+
+```json
+{
+  "version": "1.0.0",
+  "prod": {
+    "kong": {
+      "maxUploadSize": "10m"
+    }
+  }
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `maxUploadSize` | `"10m"` | Maximum request body size. Uses nginx-style values: `"10m"`, `"50m"`, `"1g"`, `"0"` for unlimited |
+
+This sets Kong's `client_max_body_size`. Requests exceeding this limit receive a `413 Content Too Large` response.
+
+**Hard ceilings per provider** (cannot be exceeded even with higher configuration):
+
+| Provider | Ceiling | Reason |
+|----------|---------|--------|
+| GCP | 32MB | Cloud Run request size limit |
+| AWS | No documented limit | — |
+| Azure | 100MB (Standard Front Door) | Front Door tier limit |
+
+For files larger than these limits, use presigned URL uploads which bypass the WAF/LB/Kong chain entirely. See [Object Storage](/features/object-storage) for details.
 
 ## Cost Optimization
 

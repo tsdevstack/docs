@@ -31,7 +31,9 @@ All encryption is enforced by default. There are no flags to disable it.
 | Subnet segmentation | Private subnets | Three-tier (public, private, database) | Three subnets (apps, database, container env) |
 | Database access | Private IP only | Database subnet + security group | Private DNS zone + VNet integration |
 | Redis access | Private IP only | Private subnet + security group | Private Endpoint |
-| WAF | Cloud Armor | AWS WAF on CloudFront | Front Door WAF |
+| WAF | Cloud Armor (managed rulesets) | AWS WAF (managed + custom rules) | Front Door WAF (custom rules or DRS 2.1 on Premium) |
+| WAF rate limiting | 1000 req/60s per IP (configurable) | 5000 req/5min per IP (configurable) | 1000 req/min per IP (configurable) |
+| Access logging | LB backend service logs + Cloud Armor verbose | ALB logs (S3) + CloudFront logs (S3) + WAF logs (CloudWatch) | Front Door diagnostic settings (Access, HealthProbe, WAF logs) |
 | Origin verification | Cloud Armor rules | X-Origin-Verify header | X-Azure-FDID header |
 | Environment isolation | Separate GCP Project | Separate AWS Account | Separate Azure Subscription |
 | VPC Flow Logs | Enabled | Enabled (KMS-encrypted) | Planned |
@@ -84,7 +86,7 @@ Zero credentials are stored in containers. Runtime authentication uses cloud-nat
 | **CC6.6** Security boundaries | VPC/VNet, WAF, private subnets, origin verification |
 | **CC6.7** Restrict data movement | Private subnets for DB/Redis, no public endpoints |
 | **CC6.8** Unauthorized software | Non-root containers, image scanning, multi-stage builds |
-| **CC7.1** Detect anomalies | VPC Flow Logs, WAF metrics, structured audit logs |
+| **CC7.1** Detect anomalies | VPC Flow Logs, WAF verbose logging, access logs (LB/CDN/WAF per provider), structured audit logs |
 | **CC8.1** Change management | Git-based IaC, CI/CD with OIDC, Terraform plan/apply |
 
 Every SOC 2 technical control listed above is enforced by default. The remaining requirements — formal change approval workflows, access review cadence, incident response playbooks — are organizational processes that vary by company and don't require infrastructure changes.
@@ -107,7 +109,7 @@ GDPR technical measures (Articles 25 and 32) are fully covered. Data subject rig
 |----------------|-----------------|
 | **A.8.5** Secure authentication | JWT, OIDC, Managed Identity, zero-credential runtime |
 | **A.8.9** Configuration management | Terraform IaC, git-based, reproducible |
-| **A.8.15** Logging | VPC Flow Logs, CloudWatch/Log Analytics, WAF metrics |
+| **A.8.15** Logging | VPC Flow Logs, access logs (LB/CDN/WAF per provider), CloudWatch/Log Analytics |
 | **A.8.20** Network security | VPC/VNet, subnets, WAF, private endpoints |
 | **A.8.21** Web service security | TLS, WAF OWASP rules, rate limiting, CORS |
 | **A.8.24** Cryptography | Encryption at rest + transit, KMS key rotation |

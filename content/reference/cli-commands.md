@@ -136,6 +136,121 @@ Remove a detached worker registration.
 npx tsdevstack unregister-detached-worker --worker <worker-name>
 ```
 
+## Storage Commands
+
+### `add-bucket-storage`
+
+Add an object storage bucket to the project.
+
+```bash
+npx tsdevstack add-bucket-storage --name <name>
+```
+
+**What it does:**
+
+- Adds bucket to `storage.buckets` in `config.json`
+- Regenerates `docker-compose.yml` with MinIO (first bucket adds MinIO container + minio-init job)
+- Regenerates secrets with `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET_{NAME}`
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Bucket logical name (kebab-case, 2-30 chars). Prompted if omitted. |
+
+**Example:**
+
+```bash
+npx tsdevstack add-bucket-storage --name uploads
+npx tsdevstack add-bucket-storage --name media-assets
+```
+
+After adding, run `docker compose up -d` to start MinIO. Console at http://localhost:9001 (minioadmin/minioadmin).
+
+### `remove-bucket-storage`
+
+Remove a storage bucket from the project.
+
+```bash
+npx tsdevstack remove-bucket-storage [--name <name>]
+```
+
+Removes the bucket from `config.json` and regenerates docker-compose and secrets. If no name is provided, prompts for selection. Does **not** delete local MinIO data or cloud resources.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Bucket name to remove. Prompted if omitted. |
+| `--force` | Skip confirmation prompt. |
+
+## Messaging Commands
+
+### `add-messaging-topic`
+
+Add an async messaging topic to the project.
+
+```bash
+npx tsdevstack add-messaging-topic --name <name> --publishers <services> --subscribers <services>
+```
+
+**What it does:**
+
+- Adds topic to `messaging.topics` in `config.json`
+- Validates name (kebab-case, no duplicates)
+- Validates publisher/subscriber service names exist and are NestJS type
+- Runs `sync`
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Topic name (kebab-case). Prompted if omitted. |
+| `--publishers <services>` | Comma-separated publishing services. Prompted if omitted. |
+| `--subscribers <services>` | Comma-separated subscribing services. Prompted if omitted. |
+
+**Example:**
+
+```bash
+npx tsdevstack add-messaging-topic --name user-created --publishers auth-service --subscribers offers-service,notifications-service
+```
+
+### `remove-messaging-topic`
+
+Remove a messaging topic from the project.
+
+```bash
+npx tsdevstack remove-messaging-topic [--name <name>]
+```
+
+Removes the topic from `config.json` and runs `sync`. Does not delete stream data in Redis.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Topic name to remove. Prompted if omitted. |
+
+### `update-messaging-topic`
+
+Update publishers and subscribers for an existing topic.
+
+```bash
+npx tsdevstack update-messaging-topic --name <name> --publishers <services> --subscribers <services>
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Existing topic name. Prompted if omitted. |
+| `--publishers <services>` | Comma-separated list (**replaces** current list entirely). Prompted if omitted. |
+| `--subscribers <services>` | Comma-separated list (**replaces** current list entirely). Prompted if omitted. |
+
+:::warning
+`--publishers` and `--subscribers` use **replace semantics** — always pass the complete desired list, not just additions.
+:::
+
 ## Cloud Secrets Commands
 
 ### `cloud:init`

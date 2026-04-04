@@ -176,12 +176,6 @@ AWS limits roles to 10 managed policies. Use a single inline policy to cover all
       "Resource": "*"
     },
     {
-      "Sid": "AppRunnerFrontend",
-      "Effect": "Allow",
-      "Action": "apprunner:*",
-      "Resource": "*"
-    },
-    {
       "Sid": "ServiceDiscovery",
       "Effect": "Allow",
       "Action": "servicediscovery:*",

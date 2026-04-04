@@ -63,7 +63,7 @@ apps/auth-service/src/
 npx tsdevstack register-detached-worker --name auth-worker --base-service auth-service
 ```
 
-Detached workers get their own Cloud Run / ECS / Container Apps instance with CPU always allocated (no scale-to-zero) and a minimum of 1 instance.
+Detached workers get their own Cloud Run / ECS / Container Apps instance with CPU always allocated. Like services, workers are configurable in `infrastructure.json` — you can set `minInstances`, `maxInstances`, `cpu`, and `memory`. Workers enforce a minimum of 1 instance (they must always be running to poll Redis queues).
 
 #### Enqueueing jobs
 

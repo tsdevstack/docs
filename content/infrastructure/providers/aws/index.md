@@ -1,6 +1,6 @@
 # Amazon Web Services (AWS)
 
-tsdevstack on AWS uses [ECS Fargate](https://aws.amazon.com/fargate/) for backend services, [App Runner](https://aws.amazon.com/apprunner/) for Next.js frontends, [RDS](https://aws.amazon.com/rds/) PostgreSQL for databases, and [ElastiCache](https://aws.amazon.com/elasticache/) for Redis. [CloudFront](https://aws.amazon.com/cloudfront/) provides CDN and edge caching, with [AWS WAF](https://aws.amazon.com/waf/) for security.
+tsdevstack on AWS uses [ECS Fargate](https://aws.amazon.com/fargate/) for all containerized services (backends, Next.js frontends, workers), [RDS](https://aws.amazon.com/rds/) PostgreSQL for databases, and [ElastiCache](https://aws.amazon.com/elasticache/) for Redis. [CloudFront](https://aws.amazon.com/cloudfront/) provides CDN and edge caching, with [AWS WAF](https://aws.amazon.com/waf/) for security.
 
 The AWS architecture is more complex than GCP due to the scale-to-zero mechanism — Kong uses upstream failover to a Lambda function that wakes ECS services when they've scaled to zero. The architecture uses ~45 Terraform resources.
 
@@ -10,7 +10,7 @@ tsdevstack is free and open source — there are no license fees. You only pay A
 
 ## Key Characteristics
 
-- **Compute:** ECS Fargate for backends + Kong, App Runner for Next.js
+- **Compute:** ECS Fargate for all services (backends, Next.js, Kong, workers)
 - **Data:** RDS PostgreSQL + ElastiCache Redis
 - **Edge:** CloudFront + ALB + AWS WAF
 - **Scale-to-zero:** Kong upstream failover + Lambda wake-up (more complex than GCP)

@@ -6,6 +6,8 @@
 npm install @tsdevstack/nest-common
 ```
 
+Pre-installed in all NestJS service templates — no separate setup needed.
+
 ## Quick start
 
 A typical `AppModule` imports the modules you need:
@@ -19,6 +21,8 @@ import {
   RedisModule,
   BullConfigModule,
   NotificationModule,
+  StorageModule,
+  MessagingModule,
 } from '@tsdevstack/nest-common';
 import { BullModule } from '@nestjs/bullmq';
 
@@ -31,6 +35,8 @@ import { BullModule } from '@nestjs/bullmq';
     BullConfigModule.forRoot(),                  // BullMQ with Redis
     BullModule.registerQueue({ name: 'emails' }),
     NotificationModule,                          // Email notifications
+    StorageModule.forRoot({ buckets: ['uploads'] }), // Object storage
+    MessagingModule.forRoot({ consumerGroup: 'my-service', topics: ['user-created'] }), // Async messaging
   ],
 })
 export class AppModule {}
@@ -50,6 +56,8 @@ All modules are global — import once in `AppModule` and they're available ever
 | `NotificationModule` | Email notifications (console in dev, Resend in prod) |
 | `RateLimitModule` | Redis-backed rate limiting |
 | `EmailRateLimitModule` | Per-email rate limiting |
+| `StorageModule` | Unified object storage (S3, GCS, Azure Blob, MinIO) |
+| `MessagingModule` | Inter-service event broadcasting via Redis Streams |
 
 ## Bootstrap
 
@@ -308,7 +316,7 @@ Abstract base class for typed HTTP clients. Use with generated clients from `gen
 ```typescript
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { BaseServiceClient, SecretsService } from '@tsdevstack/nest-common';
-import { Api } from '@tsdevstack/auth-client';
+import { Api } from '@shared/auth-service-client';
 
 @Injectable()
 export class AuthClient extends BaseServiceClient<Api<unknown>> implements OnModuleInit {
@@ -434,19 +442,194 @@ Provider is selected by the `EMAIL_PROVIDER` secret. For production setup (accou
 
 ### Custom email provider
 
-To add a provider (SendGrid, Mailgun, etc.):
+You can replace Resend with SendGrid, Mailgun, Postmark, or any other provider by implementing the `EmailProvider` interface and overriding the `EMAIL_PROVIDER` token. See [Custom Email Provider](/customization/email-provider) for a full walkthrough.
 
-1. Create a class implementing `EmailProvider`:
+## Storage
+
+`StorageModule` provides unified object storage across all cloud providers. The same code works on local [MinIO](https://min.io/), AWS S3, GCP Cloud Storage, and Azure Blob Storage.
 
 ```typescript
-interface EmailProvider {
-  send(options: EmailOptions): Promise<void>;
-  getName(): string;
+import { Module } from '@nestjs/common';
+import { StorageModule } from '@tsdevstack/nest-common';
+
+@Module({
+  imports: [
+    StorageModule.forRoot({ buckets: ['uploads'] }),
+  ],
+})
+export class AppModule {}
+```
+
+Use `@InjectStorage` to get a `StorageProvider` for a specific bucket:
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { InjectStorage } from '@tsdevstack/nest-common';
+import type { StorageProvider } from '@tsdevstack/nest-common';
+
+@Injectable()
+export class FileService {
+  constructor(
+    @InjectStorage('uploads') private readonly storage: StorageProvider,
+  ) {}
+
+  async uploadFile(key: string, data: Buffer, contentType: string): Promise<void> {
+    await this.storage.upload(key, data, contentType);
+  }
+
+  async getDownloadUrl(key: string): Promise<string> {
+    return this.storage.getPresignedUrl(key, 3600);
+  }
 }
 ```
 
-2. Override the email provider token in your service's `AppModule` using a custom factory
-3. Read provider-specific API keys via `SecretsService`
+### Methods
+
+| Method | Return | Description |
+|--------|--------|-------------|
+| `upload(key, data, contentType?)` | `Promise<void>` | Upload file (Buffer or stream) |
+| `download(key)` | `Promise<Buffer>` | Download file as Buffer |
+| `downloadStream(key)` | `Promise<Readable>` | Download as readable stream |
+| `delete(key)` | `Promise<void>` | Delete file (no error if missing) |
+| `list(prefix?)` | `Promise<StorageObject[]>` | List files by prefix |
+| `copy(src, dest)` | `Promise<void>` | Copy within same bucket |
+| `getMetadata(key)` | `Promise<StorageMetadata>` | Get file metadata |
+| `getPresignedUrl(key, expiresIn?)` | `Promise<string>` | Generate temporary download URL |
+| `exists(key)` | `Promise<boolean>` | Check if file exists |
+| `getNativeClient()` | Provider SDK client | Get underlying S3/GCS/Blob client |
+
+### Provider selection
+
+The adapter is selected automatically from the `SECRETS_PROVIDER` environment variable:
+
+| `SECRETS_PROVIDER` | Adapter | Environment |
+|-------------------|---------|-------------|
+| `local` | S3 (MinIO) | Local development |
+| `aws` | S3 (AWS) | AWS cloud |
+| `gcp` | GCS | Google Cloud |
+| `azure` | Azure Blob | Azure cloud |
+
+:::info
+Never install `@aws-sdk/client-s3`, `@google-cloud/storage`, or `@azure/storage-blob` directly — `StorageModule` handles all provider SDKs internally.
+:::
+
+For setup instructions, bucket naming, secrets, and cloud deployment details, see [Object Storage](/features/object-storage).
+
+## Messaging
+
+`MessagingModule` provides inter-service event broadcasting via Redis Streams. Services publish events to topics, and all subscribing services receive every message independently.
+
+```typescript
+import { Module } from '@nestjs/common';
+import { MessagingModule } from '@tsdevstack/nest-common';
+import { UserEventsHandler } from './handlers/user-events.handler';
+
+@Module({
+  imports: [
+    MessagingModule.forRoot({
+      consumerGroup: 'offers-service',
+      topics: ['user-created'],
+    }),
+  ],
+  providers: [UserEventsHandler],
+})
+export class AppModule {}
+```
+
+### `MessagingModule.forRoot()` options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `consumerGroup` | `string` | — | This service's name (e.g., `'offers-service'`) |
+| `topics` | `string[]` | `[]` | Topics to subscribe to |
+| `maxRetries` | `number` | `3` | Delivery attempts before sending to DLQ |
+| `blockTimeMs` | `number` | `5000` | XREADGROUP block time in ms |
+| `maxLen` | `number` | `10000` | Stream MAXLEN trim per topic |
+| `claimMinIdleMs` | `number` | `60000` | Reclaim stuck messages after (ms) |
+
+`forRootAsync` is available as an escape hatch for dynamic configuration.
+
+Publishing-only services (no subscriptions) omit `topics`:
+
+```typescript
+MessagingModule.forRoot({ consumerGroup: 'auth-service' })
+```
+
+### Publishing
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { MessagingService } from '@tsdevstack/nest-common';
+
+@Injectable()
+export class AuthService {
+  constructor(private messaging: MessagingService) {}
+
+  async register(dto: RegisterDto): Promise<User> {
+    const user = await this.usersRepo.save(dto);
+    await this.messaging.publish('user-created', {
+      userId: user.id,
+      email: user.email,
+    });
+    return user;
+  }
+}
+```
+
+`publish()` returns the Redis stream entry ID.
+
+### Subscribing — `@OnMessage` decorator
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { OnMessage } from '@tsdevstack/nest-common';
+import type { IncomingMessage } from '@tsdevstack/nest-common';
+
+@Injectable()
+export class UserEventsHandler {
+  @OnMessage('user-created')
+  async handleUserCreated(message: IncomingMessage): Promise<void> {
+    const { userId } = message.data as { userId: string };
+    await this.offersRepo.createDefaultProfile(userId);
+    // Returning without error → auto-XACK (acknowledged)
+  }
+}
+```
+
+Handler contract:
+
+- Handler returns (resolves) → message is **XACK**'d
+- Handler throws → message stays pending, will be retried
+- After `maxRetries` attempts → message moves to DLQ stream
+
+### `IncomingMessage`
+
+```typescript
+interface IncomingMessage {
+  id: string;            // Redis stream entry ID (e.g., '1709312000000-0')
+  topic: string;         // Stream name
+  data: Record<string, unknown>; // Parsed message payload
+  publishedAt: Date;     // Extracted from stream ID timestamp
+  retryCount: number;    // Delivery attempts so far
+}
+```
+
+### Error handling
+
+```typescript
+import { MessagingError, MessagingErrorCode } from '@tsdevstack/nest-common';
+
+// MessagingErrorCode values:
+// PUBLISH_FAILED — XADD failed
+// CONSUMER_FAILED — consumer loop error
+// SERIALIZATION_FAILED — JSON parse error
+```
+
+### Graceful shutdown
+
+On `SIGTERM`/`SIGINT`, the module stops accepting new messages, waits for in-flight handlers to complete (5s timeout), and disconnects. Pending messages are reclaimed by another instance or retried on next startup.
+
+For topic management, naming conventions, and flow diagrams, see [Async Messaging](/features/async-messaging).
 
 ## Observability
 

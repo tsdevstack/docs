@@ -105,6 +105,12 @@ Bypass the framework's auth service entirely by using an external identity provi
 - Your provider handles all authentication flows
 - `kong.user.yml` is generated with commented-out JWT claim headers — uncomment the claims your provider uses (see [Kong Customization](/customization/kong-customization#template-aware-defaults))
 
+### Email: Custom provider
+
+Replace the default Resend email provider with SendGrid, Mailgun, Postmark, or any other service by implementing the `EmailProvider` interface and overriding the `EMAIL_PROVIDER` injection token.
+
+See [Custom Email Provider](/customization/email-provider) for a full walkthrough with code examples and secrets setup.
+
 ## Tradeoffs of breaking conventions
 
 Using escape hatches involves tradeoffs. Understand these before committing.

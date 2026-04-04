@@ -18,6 +18,7 @@ This starts:
 - **Kong Gateway** at `http://localhost:8000`
 - **PostgreSQL** database
 - **Redis** cache
+- **MinIO** object storage at `http://localhost:9001` (if storage buckets configured)
 - **All your services** with hot reload
 
 ## Local architecture
@@ -48,6 +49,7 @@ These regenerate framework-managed files:
 
 Run generation after:
 - Adding or removing a service
+- Adding or removing storage buckets
 - Changing OpenAPI decorators
 - Adding custom secrets to `.secrets.user.json`
 

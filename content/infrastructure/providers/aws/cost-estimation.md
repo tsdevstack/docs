@@ -16,7 +16,7 @@ A typical tsdevstack project (3 NestJS backends + 1 Next.js frontend) creates th
 |----------|------------|----------------------|
 | Kong gateway | ECS Fargate | 1 vCPU, 2 GiB memory, **min 1 instance** (always on) |
 | Backend services (x3) | ECS Fargate | 0.5 vCPU, 1 GiB memory, configurable min instances |
-| Frontend | App Runner | 0.5 vCPU, 1 GiB memory, configurable min instances |
+| Frontend | ECS Fargate | 0.25 vCPU, 512 MiB memory, configurable min instances |
 | Database | RDS PostgreSQL 16 | `db.t3.micro`, 20 GB disk |
 | Cache | ElastiCache Redis 7 | `cache.t3.micro` |
 | Load Balancer | Application Load Balancer | 4 listeners, target groups |
@@ -40,7 +40,7 @@ Backend services set to `minInstances: 0`. Kong stays on (`minInstances: 1`). Mi
 |----------|--------------|---------------------|-------------|
 | Kong (ECS Fargate) | 1 vCPU, 2 GiB, min=1 | 1 task × 730 hrs × ($0.04048/vCPU-hr + $0.004445/GiB-hr × 2) | ~$36 |
 | Backend services ×3 | 0.5 vCPU, 1 GiB, min=0 | Stopped tasks don't incur Fargate charges | ~$0-2 |
-| Frontend (App Runner) | 0.5 vCPU, 1 GiB | Provisioned instance + request charges | ~$7-10 |
+| Frontend (ECS Fargate) | 0.25 vCPU, 512 MiB, min=1 | 1 task × 730 hrs | ~$8-12 |
 | RDS PostgreSQL | db.t3.micro, 20 GB | Instance + storage | ~$22 |
 | ElastiCache Redis | cache.t3.micro | Single node, no replication | ~$12 |
 | ALB | 4 listeners, low traffic | $0.0225/hr base + LCU charges | ~$20 |
@@ -68,7 +68,7 @@ All services set to `minInstances: 1`. Moderate traffic (~100k requests/day).
 |----------|--------------|---------------------|-------------|
 | Kong (ECS Fargate) | 1 vCPU, 2 GiB, min=1 | 1 task × 730 hrs | ~$36 |
 | Backend services ×3 | 0.5 vCPU, 1 GiB, min=1 each | 3 tasks × 730 hrs × ($0.02024 + $0.004445) | ~$54 |
-| Frontend (App Runner) | 0.5 vCPU, 1 GiB, min=1 | Provisioned instance running 24/7 | ~$18 |
+| Frontend (ECS Fargate) | 0.25 vCPU, 512 MiB, min=1 | 1 task × 730 hrs | ~$8-12 |
 | RDS PostgreSQL | db.t3.micro, 20 GB | Instance + storage | ~$22 |
 | ElastiCache Redis | cache.t3.micro | Single node | ~$12 |
 | ALB | 4 listeners, moderate traffic | Base + LCU charges | ~$22-28 |
@@ -89,7 +89,7 @@ Services auto-scale to 3 instances average. Heavy sustained traffic for 30 days.
 |----------|--------------|---------------------|-------------|
 | Kong (ECS Fargate) | 1 vCPU, 2 GiB, avg 3 tasks | 3 × 730 hrs × $0.04934 | ~$108 |
 | Backend services ×3 | 0.5 vCPU, 1 GiB, avg 3 each | 9 tasks × 730 hrs × $0.02469 | ~$162 |
-| Frontend (App Runner) | 0.5 vCPU, 1 GiB, avg 3 | 3 instances × 730 hrs | ~$54 |
+| Frontend (ECS Fargate) | 0.25 vCPU, 512 MiB, avg 3 | 3 tasks × 730 hrs | ~$25-35 |
 | RDS PostgreSQL | db.t3.small or db.t3.medium | Upgraded tier for load | ~$30-60 |
 | ElastiCache Redis | cache.t3.small | Upgraded for load | ~$25 |
 | ALB | 4 listeners, high traffic | Base + higher LCU charges | ~$30-50 |
@@ -152,7 +152,6 @@ See [Service Configuration](/infrastructure/service-configuration) for all avail
 ## AWS Pricing References
 
 - [Fargate Pricing](https://aws.amazon.com/fargate/pricing/)
-- [App Runner Pricing](https://aws.amazon.com/apprunner/pricing/)
 - [RDS PostgreSQL Pricing](https://aws.amazon.com/rds/postgresql/pricing/)
 - [ElastiCache Pricing](https://aws.amazon.com/elasticache/pricing/)
 - [Elastic Load Balancing Pricing](https://aws.amazon.com/elasticloadbalancing/pricing/)

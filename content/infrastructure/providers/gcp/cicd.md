@@ -37,12 +37,13 @@ Complete [Account Setup](/infrastructure/providers/gcp/account-setup) first. You
 
 1. Provider: **OpenID Connect (OIDC)**
 2. Provider name: `github-provider`
-3. Issuer URL: `https://token.actions.githubusercontent.com`
-4. Audiences: **Default audience**
-5. Attribute mapping:
+3. Provider ID: `github-provider` (auto-generated from name — keep the default)
+4. Issuer URL: `https://token.actions.githubusercontent.com`
+5. Audiences: **Default audience**
+6. Attribute mapping:
    - `google.subject` = `assertion.sub`
    - `attribute.repository` = `assertion.repository`
-6. Attribute condition (CEL) — choose one:
+7. Attribute condition (CEL) — choose one:
 
    **Repository only** (any branch can deploy):
    ```
@@ -63,13 +64,13 @@ Complete [Account Setup](/infrastructure/providers/gcp/account-setup) first. You
    | Security | Any branch in your repo can trigger deploys | Only `main` can trigger deploys |
    | Recommended for | Teams that test deploys from branches | Most projects |
 
-7. Click **Save**
+8. Click **Save**
 
 ### 4. Grant Service Account Access
 
 1. Go to [IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
 2. Click on your deploy service account (don't see one? Complete [Account Setup](/infrastructure/providers/gcp/account-setup) first)
-3. Go to **Permissions** tab > **Principals with access** tab
+3. Go to the **Principals with access** tab
 4. Click **Grant Access**
 5. New principal: `principalSet://iam.googleapis.com/projects/{PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/{GITHUB_ORG}/{GITHUB_REPO}`
 6. Role: **Workload Identity User**

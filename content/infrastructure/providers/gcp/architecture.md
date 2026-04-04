@@ -70,6 +70,23 @@ Kong and Next.js use `internal-load-balancer` ingress — their Cloud Run URLs a
 - Private IP only
 - Tiers: `BASIC` (dev) or `STANDARD_HA` (prod with automatic failover)
 
+## Storage: Cloud Storage (GCS)
+
+When storage buckets are configured in `config.json`, Terraform creates GCS buckets:
+
+- One bucket per logical name: `{project}-{name}-{env}`
+- Uniform bucket-level access (no per-object ACLs)
+- Private access only — presigned URLs are the access mechanism
+- CORS set to `*` (presigned URLs are the security boundary)
+
+**IAM:**
+- `roles/storage.objectUser` per bucket × Cloud Run service account (read/write access)
+- `roles/iam.serviceAccountTokenCreator` per service account (required for presigned URL signing)
+
+No storage access keys in containers — Cloud Run uses its service account identity automatically.
+
+For setup and usage, see [Object Storage](/features/object-storage).
+
 ## Edge: Load Balancer + Cloud Armor
 
 **Global HTTPS Load Balancer:**
@@ -78,11 +95,17 @@ Kong and Next.js use `internal-load-balancer` ingress — their Cloud Run URLs a
 - Static IP address for DNS A records
 
 **Cloud Armor WAF:**
-- OWASP Core Rule Set (SQLi, XSS, LFI, RFI, RCE, Node.js attacks)
+- OWASP Core Rule Set (SQLi, XSS, LFI, RFI, RCE, protocol attacks, session fixation, scanner detection, Node.js attacks)
 - SSRF protection (blocks metadata endpoint 169.254.169.254)
-- Custom rules for admin path blocking
-- Multi-level rate limiting (Cloud Armor + Kong + per-endpoint)
-- WAF rules can be customized via `infrastructure.json` — see [Service Configuration — WAF Rules](/infrastructure/service-configuration#waf-rules)
+- Rate limiting: 1000 requests per 60 seconds per IP (configurable via `infrastructure.json`)
+- Multipart/form-data safe — CR/LF rules (921120, 921150) excluded to prevent false positives on file uploads
+- Custom rules via CEL expressions in `infrastructure.json`
+- See [Service Configuration — WAF Rules](/infrastructure/service-configuration#waf-rules) for configuration details
+
+**Access Logging:**
+- Backend service logs enabled on Load Balancer (`log_config` on backend services)
+- Cloud Armor verbose logging enabled (WAF allow/block decisions)
+- SPA backend buckets: no logging (not supported on `google_compute_backend_bucket`)
 
 ## Networking
 
@@ -127,6 +150,10 @@ Cloud Run handles scale-to-zero natively. Services with `minInstances: 0` scale 
 ## Cost Estimation
 
 See [GCP Cost Estimation](/infrastructure/providers/gcp/cost-estimation) for a detailed breakdown across dev (scale-to-zero), production (always-on), and scaled scenarios, with links to official GCP pricing pages.
+
+## Async Messaging
+
+Async messaging uses Redis Streams on the same Memorystore instance used for caching and BullMQ. No additional GCP resources are created — messaging is a framework-level feature that runs on existing infrastructure. See [Async Messaging](/features/async-messaging) for details.
 
 ## Terraform Resources
 

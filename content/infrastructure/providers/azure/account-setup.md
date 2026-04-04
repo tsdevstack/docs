@@ -84,7 +84,7 @@ If the self-service option is not available, create a support request: **Help + 
 1. Go to [Azure Portal](https://portal.azure.com) > search **"Microsoft Entra ID"**
 2. Under **Manage**, click **App registrations** > **+ New registration**
 3. **Name:** `{projectName}-{env}` (e.g., `myapp-dev`)
-4. **Supported account types:** "Accounts in this organizational directory only"
+4. **Supported account types:** "Single tenant" (Accounts in this organizational directory only)
 5. **Redirect URI:** Leave blank
 6. Click **Register**
 
@@ -149,13 +149,14 @@ Go to the Resource Group > **Access control (IAM)** > assign each role:
   - Key Vault Secrets Officer
   - Key Vault Secrets User
   - AcrPull
+  - Storage Blob Data Contributor
 - Save and assign
 
 | Role | Purpose |
 |------|---------|
 | Contributor | Create and manage resources (Key Vault, Container Apps, databases, etc.) |
 | Key Vault Secrets Officer | Read, write, and delete secrets in Key Vault |
-| User Access Administrator (constrained) | Assign only Key Vault + AcrPull roles to Container App Managed Identities |
+| User Access Administrator (constrained) | Assign only Key Vault, AcrPull, and Storage roles to Container App Managed Identities |
 
 All roles above are scoped to the resource group. Provider registration (done earlier) is a separate subscription-level operation.
 

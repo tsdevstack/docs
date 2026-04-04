@@ -76,6 +76,8 @@ export default defineConfig({
           text: "Features",
           items: [
             { text: "Observability", link: "/features/observability" },
+            { text: "Object Storage", link: "/features/object-storage" },
+            { text: "Async Messaging", link: "/features/async-messaging" },
             { text: "MCP Server", link: "/features/mcp-server" },
           ],
         },
@@ -115,6 +117,14 @@ export default defineConfig({
             {
               text: "Kong Customization",
               link: "/customization/kong-customization",
+            },
+            {
+              text: "WAF Customization",
+              link: "/customization/waf-customization",
+            },
+            {
+              text: "Custom Email Provider",
+              link: "/customization/email-provider",
             },
           ],
         },
@@ -220,13 +230,27 @@ export default defineConfig({
         },
         {
           text: "Packages",
-          items: [{ text: "nest-common", link: "/packages/nest-common" }],
+          items: [
+            { text: "tsdevstack (CLI)", link: "/packages/tsdevstack" },
+            { text: "nest-common", link: "/packages/nest-common" },
+            { text: "cli-mcp", link: "/packages/cli-mcp" },
+            {
+              text: "react-bot-detection",
+              link: "/packages/react-bot-detection",
+            },
+          ],
         },
         {
           text: "Reference",
           items: [
             { text: "CLI Commands", link: "/reference/cli-commands" },
             { text: "Glossary", link: "/reference/glossary" },
+          ],
+        },
+        {
+          text: "Releases",
+          items: [
+            { text: "v0.2.0", link: "/releases/v0.2.0" },
           ],
         },
       ],

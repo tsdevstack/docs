@@ -20,6 +20,7 @@ import { CloudArchitectureDiagram } from '../../components/CloudArchitectureDiag
 | SPA Apps | Bucket + CDN | Static hosting |
 | Database | Managed PostgreSQL | Private IP, automated backups |
 | Cache | Managed Redis | Private IP, HA |
+| Object Storage | Cloud Storage / S3 / Azure Blob | Per-bucket, private access |
 | Secrets | Secret Manager | Versioned, access-controlled |
 
 ## Network isolation
@@ -35,11 +36,12 @@ Backend services are deployed with **internal-only ingress**. Only the Load Bala
 | BFF Service | Internal | Kong only |
 | PostgreSQL | None | Private VPC only |
 | Redis | None | Private VPC only |
+| Object Storage | None | Private VPC only |
 
 This isolation ensures:
 - Services only accept requests from Kong (validated by trust headers)
 - External attackers cannot bypass authentication
-- Database and cache are never exposed to the internet
+- Database, cache, and storage buckets are never exposed to the internet
 
 ## Terraform resources
 
@@ -59,6 +61,12 @@ Infrastructure is managed with [Terraform](https://www.terraform.io/). The frame
 - Managed PostgreSQL with per-service databases
 - Managed Redis for rate limiting and caching
 - Private IP connectivity only
+
+### Storage
+- Cloud-native object storage buckets (GCS, S3, Azure Blob)
+- Private access only — no public bucket URLs
+- IAM/managed identity access from services
+- See [Object Storage](/features/object-storage) for details
 
 ### Load balancing
 - Global load balancer with TLS certificates
@@ -90,6 +98,7 @@ Infrastructure is managed with [Terraform](https://www.terraform.io/). The frame
 | Database | Container | Managed service |
 | Secrets | `.secrets.local.json` | Secret Manager |
 | Scaling | Single instance | Auto-scaling |
+| Object Storage | MinIO container | Cloud-native (GCS/S3/Azure Blob) |
 | Observability | Local Prometheus/Jaeger | Cloud Monitoring |
 
 Your code works identically in both environments. Only configuration differs.

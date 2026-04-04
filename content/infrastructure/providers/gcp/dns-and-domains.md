@@ -44,15 +44,14 @@ GCP uses Certificate Manager with DNS authorization. Each domain needs a CNAME r
 
 ### Finding Validation Records
 
-1. Navigate to [Security > Certificate Manager](https://console.cloud.google.com/security/ccm)
-2. Click the **DNS Authorizations** tab
-3. Each domain has an authorization entry showing:
-   - **DNS Record Name** — the CNAME host to create (e.g., `_acme-challenge.api.example.com`)
+1. Search for **Certificate Manager** in the GCP console search bar
+2. In the **Certificates** tab, click on each certificate (one per domain/subdomain)
+3. The certificate detail page shows the CNAME record:
+   - **DNS Record Name** — the full domain (e.g., `_acme-challenge.api.example.com`)
    - **DNS Record Type** — always `CNAME`
    - **DNS Record Data** — the value to point to (e.g., `abc123...authorize.certificatemanager.goog.`)
-4. Create these CNAME records at your domain registrar
-
-The `infra:deploy-lb` command also prints all required DNS records after a successful deployment.
+4. Repeat for every certificate — each domain and subdomain has its own
+5. At your registrar, create CNAME records using only the **relative** host — drop your base domain from the name. For example, `_acme-challenge.api.example.com` becomes `_acme-challenge.api`
 
 ### Example Records
 
@@ -71,8 +70,8 @@ For redirect domains on a separate TLD, create the CNAME in **that domain's** DN
 
 ## Checking Certificate Status
 
-1. Navigate to [Security > Certificate Manager > Certificates](https://console.cloud.google.com/security/ccm/list/certificates)
-2. Click on the certificate (named `{projectName}-cert`)
+1. Search for **Certificate Manager** in the GCP console search bar
+2. Click the **Certificates** tab, then click on your certificate (named `{projectName}-cert`)
 3. Status should be **ACTIVE** once DNS records propagate (can take up to 60 minutes)
 4. If stuck on **PROVISIONING**, verify your CNAME records are correctly set
 
@@ -91,8 +90,13 @@ To redirect alternate domains (e.g., `.io`, `.app`) to your canonical domain:
    }
    ```
 2. Deploy: `npx tsdevstack infra:deploy-lb --env prod`
-3. Add A records for each redirect domain pointing to the Load Balancer IP
-4. Add SSL validation CNAME records for each redirect domain
+3. **At each redirect domain's registrar**, add:
+   - **A record** `@` → Load Balancer IP (same IP as your main domain)
+   - **CNAME record** for SSL validation — use the values printed by the CLI
+
+:::warning Redirect domains need their own DNS records
+Each redirect domain (e.g., `example.com`, `example.app`) requires records configured **at that domain's registrar**, not your main domain's registrar. The `infra:deploy-lb` command prints all required records for every domain including redirects.
+:::
 
 ## Troubleshooting
 
