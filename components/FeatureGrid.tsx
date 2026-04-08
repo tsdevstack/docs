@@ -151,7 +151,7 @@ const features: Feature[] = [
   {
     icon: <MCPIcon />,
     title: 'Built for AI agents',
-    details: 'MCP server included. Claude Code, Cursor, VS Code Copilot manage your stack — deploy, query, debug with 31 tools.',
+    details: 'MCP server with 54 tools. Your AI agent understands the framework — deploy, query, configure infrastructure without hallucinating CLI commands.',
   },
   {
     icon: <CloudProviderLogos />,
@@ -222,6 +222,18 @@ export function FeatureGrid() {
           </p>
         </div>
       ))}
+      <style>{`
+        @media (max-width: 768px) {
+          .feature-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .feature-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

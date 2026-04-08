@@ -72,12 +72,32 @@ export function HomeHero() {
           fontSize: "clamp(1rem, 2vw, 1.35rem)",
           fontWeight: 500,
           color: "var(--rp-c-text-2)",
-          margin: "0 0 2rem",
+          margin: "0 0 0.75rem",
           lineHeight: 1.5,
         }}
       >
         From zero to production in an hour, not months.
       </p>
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          padding: "0.6rem 1.25rem",
+          borderRadius: "8px",
+          background: "var(--rp-c-bg-soft)",
+          border: "1px solid var(--rp-c-divider)",
+          fontFamily:
+            'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+          fontSize: "0.95rem",
+          color: "var(--rp-c-text-1)",
+          marginBottom: "2rem",
+          userSelect: "all",
+        }}
+      >
+        <span style={{ color: "var(--rp-c-text-2)" }}>$</span>
+        <span>npx @tsdevstack/cli init</span>
+      </div>
       <div
         style={{
           display: "flex",
@@ -120,24 +140,52 @@ export function HomeHero() {
           Why tsdevstack?
         </a>
       </div>
-      <a
-        href="mailto:hello@tsdevstack.dev"
+      <div
         style={{
-          display: "inline-block",
+          display: "flex",
+          gap: "0.75rem",
           marginTop: "1.5rem",
-          padding: "0.5rem 1.5rem",
-          borderRadius: "24px",
-          fontSize: "0.9rem",
-          fontWeight: 500,
-          color: "var(--rp-c-text-2)",
-          background: "var(--rp-c-bg-soft)",
-          border: "1px solid var(--rp-c-divider)",
-          textDecoration: "none",
-          transition: "opacity 0.2s",
         }}
       >
-        Contact us
-      </a>
+        <a
+          href="https://discord.gg/2EMFkqc8QR"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            padding: "0.5rem 1.5rem",
+            borderRadius: "24px",
+            fontSize: "0.9rem",
+            fontWeight: 500,
+            color: "var(--rp-c-text-2)",
+            background: "var(--rp-c-bg-soft)",
+            border: "1px solid var(--rp-c-divider)",
+            textDecoration: "none",
+            transition: "opacity 0.2s",
+          }}
+        >
+          Discord
+        </a>
+        <a
+          href="mailto:hello@tsdevstack.dev"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            padding: "0.5rem 1.5rem",
+            borderRadius: "24px",
+            fontSize: "0.9rem",
+            fontWeight: 500,
+            color: "var(--rp-c-text-2)",
+            background: "var(--rp-c-bg-soft)",
+            border: "1px solid var(--rp-c-divider)",
+            textDecoration: "none",
+            transition: "opacity 0.2s",
+          }}
+        >
+          Contact
+        </a>
+      </div>
     </div>
   );
 }
