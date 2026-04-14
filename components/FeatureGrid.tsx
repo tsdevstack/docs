@@ -116,12 +116,32 @@ function ObservabilityLogos() {
 
 function AuthIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
       {/* Shield with lock */}
-      <path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z" stroke="var(--rp-c-brand)" strokeWidth="1.5" fill="none"/>
-      <rect x="9" y="10" width="6" height="5" rx="1" fill="var(--rp-c-brand)"/>
-      <circle cx="12" cy="8.5" r="2.5" stroke="var(--rp-c-brand)" strokeWidth="1.5" fill="none"/>
-    </svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z" stroke="var(--rp-c-brand)" strokeWidth="1.5" fill="none"/>
+        <rect x="9" y="10" width="6" height="5" rx="1" fill="var(--rp-c-brand)"/>
+        <circle cx="12" cy="8.5" r="2.5" stroke="var(--rp-c-brand)" strokeWidth="1.5" fill="none"/>
+      </svg>
+      {/* OWASP wasp logo */}
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Wasp body */}
+        <ellipse cx="12" cy="14" rx="5" ry="6" fill="#2D2D2D"/>
+        {/* Yellow stripes */}
+        <rect x="7.5" y="11" width="9" height="1.8" rx="0.9" fill="#F5A623"/>
+        <rect x="7.5" y="14.5" width="9" height="1.8" rx="0.9" fill="#F5A623"/>
+        {/* Head */}
+        <circle cx="12" cy="7" r="3" fill="#2D2D2D"/>
+        {/* Eyes */}
+        <circle cx="10.5" cy="6.5" r="0.8" fill="#F5A623"/>
+        <circle cx="13.5" cy="6.5" r="0.8" fill="#F5A623"/>
+        {/* Wings */}
+        <ellipse cx="6" cy="10" rx="3" ry="2" fill="#2D2D2D" opacity="0.3" transform="rotate(-20 6 10)"/>
+        <ellipse cx="18" cy="10" rx="3" ry="2" fill="#2D2D2D" opacity="0.3" transform="rotate(20 18 10)"/>
+        {/* Stinger */}
+        <path d="M12 20l-1 2.5h2L12 20z" fill="#2D2D2D"/>
+      </svg>
+    </div>
   );
 }
 
@@ -170,8 +190,8 @@ const features: Feature[] = [
   },
   {
     icon: <AuthIcon />,
-    title: 'Authentication built in',
-    details: 'JWT token management, protected routes, session handling. Or bring your own OIDC.',
+    title: 'OWASP-aligned authentication',
+    details: 'JWT token management, protected routes, session handling — following OWASP security guidelines. Or bring your own OIDC.',
   },
   {
     icon: <ObservabilityLogos />,

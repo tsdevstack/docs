@@ -79,6 +79,10 @@ export class UsersController {
 
 See [Protected Routes](/authentication/protected-routes) for more patterns.
 
+## Security standards
+
+The auth service template follows [OWASP](https://owasp.org/) security guidelines for authentication, session management, and cryptographic storage. See [JWT Tokens](/authentication/jwt-tokens#owasp-alignment) for the full mapping, and [Compliance Readiness](/security/compliance-readiness) for infrastructure-level controls.
+
 ## Quick start
 
 1. Authentication is enabled by default (AuthGuard is global)

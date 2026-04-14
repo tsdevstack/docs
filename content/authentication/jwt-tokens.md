@@ -81,6 +81,21 @@ To customize token expiry, add to `.secrets.user.json`:
 }
 ```
 
+## OWASP alignment
+
+The auth service template implements cryptographic best practices aligned with OWASP guidelines:
+
+| Practice | Implementation | OWASP Reference |
+|----------|---------------|-----------------|
+| Asymmetric signing | RS256 (RSA-SHA256) — preferred over symmetric HS256 | [JWT Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html) |
+| Key rotation | Current + previous key pairs with `kid` headers | [Key Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html) |
+| Short-lived access tokens | Configurable TTL (default 15 min) | [JWT Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html) |
+| Refresh token hashing | SHA-256 hash stored in database, never plain text | [Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) |
+| Refresh token rotation | Each refresh issues a new token and invalidates the old one | [Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) |
+| CSPRNG token generation | `crypto.randomBytes` (64 bytes for refresh tokens) | [Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html) |
+| Password hashing | bcrypt with configurable rounds (default 12) | [Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) |
+| Timing-safe comparison | `crypto.timingSafeEqual` for token/key validation | [Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) |
+
 ## Key rotation
 
 The framework supports seamless key rotation:

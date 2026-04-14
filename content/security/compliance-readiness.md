@@ -74,6 +74,38 @@ Zero credentials are stored in containers. Runtime authentication uses cloud-nat
 | Naming isolation | `{project}-{scope}-{KEY}` convention |
 | Credential files gitignored | Framework enforces `.gitignore` rules |
 
+## OWASP Compliance
+
+The optional auth service template aligns with OWASP security guidelines across authentication, session management, and cryptographic storage:
+
+### OWASP Top 10 Coverage
+
+| OWASP Top 10 | Mitigation | Component |
+|-------------|-----------|-----------|
+| **A01 Broken Access Control** | Global AuthGuard, Kong JWT validation, `@Public()` opt-in | Auth template + nest-common |
+| **A02 Cryptographic Failures** | RS256 JWT signing, bcrypt password hashing, SHA-256 token storage, CSPRNG token generation | Auth template |
+| **A03 Injection** | WAF with OWASP Core Rule Set (SQLi, XSS, LFI, RFI, RCE) | Infrastructure (all providers) |
+| **A04 Insecure Design** | BFF pattern (tokens never in browser JS), defense-in-depth (Kong + AuthGuard) | Auth template + frontend |
+| **A05 Security Misconfiguration** | Encryption enforced by default, no flags to disable, environment isolation | Infrastructure |
+| **A07 Auth Failures** | Timing-safe comparison, configurable bcrypt rounds, refresh token rotation | Auth template + nest-common |
+| **A08 Data Integrity Failures** | Asymmetric JWT signing (RS256), JWKS key discovery, CI/CD via OIDC | Auth template + infrastructure |
+| **A09 Logging & Monitoring** | VPC Flow Logs, WAF verbose logging, structured audit logs | Infrastructure (all providers) |
+| **A10 Server-Side Request Forgery** | Private subnets for databases/caches, no public endpoints, WAF request filtering | Infrastructure (all providers) |
+
+### OWASP Cheat Sheet Alignment
+
+| Cheat Sheet | Implementation |
+|-------------|---------------|
+| [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) | bcrypt password hashing (configurable rounds), timing-safe comparison, account confirmation flow |
+| [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) | HTTP-only cookies, Secure flag, SameSite=lax, short-lived access tokens, refresh token rotation |
+| [JWT Security](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html) | RS256 (asymmetric), configurable TTL, audience/issuer validation, JWKS key discovery |
+| [Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) | bcrypt with 12 rounds default, configurable via secret |
+| [Cryptographic Storage](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html) | Refresh tokens hashed (SHA-256) before storage, CSPRNG for all token generation |
+| [Key Management](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html) | RSA 2048-bit keys, key rotation with `kid` headers, cloud-native secret storage |
+| [Secrets Management](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) | Cloud secret managers (GCP/AWS/Azure), zero-credential runtimes, no secrets in images |
+
+> **Note:** The auth service is an optional template. Projects that use it get these controls out of the box. The infrastructure-level controls (WAF, encryption, network isolation) apply to all tsdevstack projects regardless of the auth template.
+
 ## Compliance Framework Mapping
 
 ### SOC 2 Type II

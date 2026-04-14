@@ -141,9 +141,13 @@ export function setHttpOnlyCookie(
 
 ## Security considerations
 
+The auth service template's session management follows the [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html):
+
 - **HTTP-only cookies** - Cannot be accessed by JavaScript (XSS protection)
 - **Secure flag** - Only sent over HTTPS in production
 - **SameSite=lax** - Protects against CSRF attacks
 - **Short access token lifetime** - Limits exposure if compromised (15 min default)
 - **BFF pattern** - Tokens never exposed to browser JavaScript
+- **Refresh token rotation** - Each refresh invalidates the previous token, limiting replay windows
+- **Hashed token storage** - Refresh tokens are SHA-256 hashed before database storage, per [OWASP Cryptographic Storage](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
 
