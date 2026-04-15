@@ -78,6 +78,7 @@ export default defineConfig({
             { text: "Observability", link: "/features/observability" },
             { text: "Object Storage", link: "/features/object-storage" },
             { text: "Async Messaging", link: "/features/async-messaging" },
+            { text: "Scheduled Jobs", link: "/features/scheduled-jobs" },
             { text: "MCP Server", link: "/features/mcp-server" },
           ],
         },

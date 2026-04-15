@@ -361,66 +361,7 @@ npx tsdevstack infra:remove-env-auth --env dev
 
 ## Scheduled Jobs
 
-Configure cron-based scheduled jobs that call your service endpoints:
-
-```json
-{
-  "version": "1.0.0",
-  "prod": {
-    "scheduledJobs": [
-      {
-        "name": "cleanup-tokens",
-        "schedule": "0 */4 * * *",
-        "targetService": "auth-service",
-        "endpoint": "/auth/jobs/cleanup-tokens",
-        "method": "POST",
-        "httpTimeout": 300
-      },
-      {
-        "name": "send-daily-digest",
-        "schedule": "0 8 * * *",
-        "targetService": "notifications-service",
-        "endpoint": "/notifications/jobs/daily-digest",
-        "timezone": "America/New_York"
-      }
-    ]
-  }
-}
-```
-
-| Option | Required | Default | Description |
-|--------|----------|---------|-------------|
-| `name` | Yes | - | Unique job identifier |
-| `schedule` | Yes | - | Cron expression (e.g., `"0 */4 * * *"` for every 4 hours) |
-| `targetService` | Yes | - | Service to call (e.g., `"auth-service"`) |
-| `endpoint` | Yes | - | HTTP path to call (e.g., `"/auth/jobs/cleanup-tokens"`) |
-| `method` | No | `"POST"` | HTTP method: `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, `"PATCH"` |
-| `httpTimeout` | No | `300` | Request timeout in seconds (1-1800) |
-| `timezone` | No | `"UTC"` | Timezone for the cron schedule |
-
-### Cron schedule examples
-
-| Schedule | Description |
-|----------|-------------|
-| `"0 * * * *"` | Every hour |
-| `"0 */4 * * *"` | Every 4 hours |
-| `"0 0 * * *"` | Daily at midnight |
-| `"0 8 * * 1"` | Every Monday at 8am |
-| `"0 0 1 * *"` | First day of each month |
-
-### Protecting job endpoints
-
-Use the `@UseGuards(SchedulerGuard)` decorator from `@tsdevstack/nest-common` to ensure endpoints are only called by the scheduler:
-
-```typescript
-import { SchedulerGuard } from '@tsdevstack/nest-common';
-
-@Post('jobs/cleanup-tokens')
-@UseGuards(SchedulerGuard)
-async cleanupTokens() {
-  // This endpoint can only be called by the scheduler
-}
-```
+Configure cron-based scheduled jobs in the `scheduledJobs` array. See the [Scheduled Jobs](/features/scheduled-jobs) guide for full configuration, service-side implementation, authentication, and provider architecture.
 
 ## WAF Rules
 

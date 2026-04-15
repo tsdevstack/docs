@@ -38,7 +38,7 @@ Key terms used throughout the tsdevstack documentation.
 |------|-------------|
 | **Environment** | Deployment target: `dev`, `staging`, or `prod`. Each has isolated infrastructure and secrets. |
 | **CI workflows** | GitHub Actions workflows generated for build, test, and deploy pipelines. |
-| **Scheduled job** | A job that runs on a cron schedule. Cloud Scheduler (GCP), EventBridge (AWS), or Container App Jobs (Azure). Configured in `.tsdevstack/config.json` and deployed via `deploy-scheduler`. |
+| **Scheduled job** | A job that runs on a cron schedule. Cloud Scheduler (GCP), EventBridge (AWS), or Container App Jobs (Azure). Configured in `.tsdevstack/infrastructure.json` and deployed via `deploy-scheduler`. See [Scheduled Jobs](/features/scheduled-jobs). |
 | **Database migration** | Schema changes applied via [Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate). Preview with `plan-db-migrate`, apply with `run-db-migrate`. |
 
 ## Authentication
