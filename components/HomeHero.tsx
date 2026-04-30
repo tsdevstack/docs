@@ -1,3 +1,5 @@
+import { Prompt } from "@rspress/core/theme";
+
 export function HomeHero() {
   return (
     <div
@@ -7,7 +9,7 @@ export function HomeHero() {
         flexDirection: "column",
         alignItems: "center",
         textAlign: "center",
-        padding: "6rem 1.5rem 3rem",
+        padding: "4rem 1.5rem 3rem",
         maxWidth: "800px",
         margin: "0 auto",
       }}
@@ -185,6 +187,39 @@ export function HomeHero() {
         >
           Contact
         </a>
+      </div>
+      <div
+        style={{
+          width: "100%",
+          marginTop: "2.5rem",
+          textAlign: "left",
+        }}
+      >
+        <Prompt
+          title="Scaffold a tsdevstack project in one shot"
+          description="Paste this into Claude Code, Cursor, or your AI agent of choice. It scaffolds a fullstack-auth project locally and brings up Kong, Postgres, and Redis."
+          prompt={`Scaffold a new tsdevstack fullstack-auth project end-to-end, fully non-interactively:
+
+1. Ask me for a project name in lowercase kebab-case (e.g. \`my-app\`). I'll refer to it below as <PROJECT_NAME>.
+2. Make sure Docker Desktop is running (the init step starts local infrastructure).
+3. Run \`npx --yes @tsdevstack/cli init --name <PROJECT_NAME> --template fullstack-auth --frontend-name frontend\`. The \`--yes\` skips npx's "Ok to proceed?" prompt; the three flags skip the interactive name/template/frontend prompts. This scaffolds the project (NestJS auth-service + Next.js frontend + Kong + Postgres + Redis), installs dependencies, builds shared libs, generates Kong/docker-compose configs, brings up local infra, and creates the initial database migration.
+4. \`cd <PROJECT_NAME>\` and run \`npm run dev\` to start all services with hot reload.
+5. Verify the Kong gateway responds at http://localhost:8000 and the auth-service Swagger UI renders at http://localhost:3001/api.
+6. Wire up the built-in tsdevstack MCP server so I can use you for everything that follows (adding services, deploying, secrets management, etc.). Create or update \`.mcp.json\` in the project root with:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "tsdevstack": {
+      "command": "npx",
+      "args": ["tsdevstack", "mcp:serve"]
+    }
+  }
+}
+\`\`\`
+
+Then tell me to restart my AI client so it picks up the new MCP server.`}
+        />
       </div>
     </div>
   );

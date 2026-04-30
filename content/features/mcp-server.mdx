@@ -1,5 +1,7 @@
 # MCP Server
 
+import { Prompt } from '@rspress/core/theme';
+
 tsdevstack includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes CLI commands and project context to AI agents. This gives tools like Claude Code, Claude Desktop, Cursor, and VS Code Copilot an understanding of your project structure, service configuration, and available workflows — so they can assist you accurately instead of guessing.
 
 ## Quick start
@@ -18,6 +20,23 @@ Add the MCP server to your project's `.mcp.json`:
 ```
 
 Restart your AI client. The tools and resources will be available immediately.
+
+## Try it
+
+Once the MCP server is connected, paste this read-only health-check prompt into your AI client. It exercises several query tools at once and gives you a one-shot view of your project's local config, cloud deployments, and secret drift.
+
+<Prompt
+  title="Project health check"
+  description="Read-only audit across services, environments, and secret drift."
+  prompt={`Give me a health check of my tsdevstack project using the tsdevstack MCP server.
+
+1. Call list_services to show what's defined locally.
+2. Call list_environments to see configured cloud environments.
+3. For each environment, call infra_status and list_deployed_services.
+4. For the dev environment, call diff_secrets to flag any drift between local and cloud.
+
+Summarize the findings as a punch list (in sync vs. needs attention) and recommend next actions. Do NOT call any mutating tools — read-only only.`}
+/>
 
 ## How it works
 

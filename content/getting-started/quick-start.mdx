@@ -8,21 +8,23 @@ import { Prerequisites } from "../../components/Prerequisites";
 
 ## Local Development
 
+Make sure Docker Desktop is running, then:
+
 ```bash
-# 1. Create your project
+# 1. Create your project (installs deps, builds libs, generates configs,
+#    starts local infra, and creates the initial database migration)
 npx @tsdevstack/cli init --template fullstack-auth
 
-# 2. Install dependencies
-npm install
+# 2. Enter the project
+cd <your-project-name>
 
-# 3. Generate configs and start infrastructure
-npx tsdevstack sync
-
-# 4. Start development
+# 3. Start development
 npm run dev
 ```
 
 That's it. Your microservices are running locally with [Kong](https://konghq.com/) gateway, [PostgreSQL](https://www.postgresql.org/), and [Redis](https://redis.io/).
+
+If Docker wasn't running during step 1, start it and run `npx tsdevstack sync` from the project directory before `npm run dev`.
 
 ### What you'll have
 

@@ -2,6 +2,7 @@
   "name": "tsdevstack-docs",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Documentation site for tsdevstack — a full-stack TypeScript microservices framework",
   "repository": {
     "type": "git",
@@ -31,9 +32,9 @@
   "author": "tsdevstack",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "devDependencies": {
-    "rspress": "^1.47.0"
+    "@rspress/core": "^2.0.10"
   }
 }
