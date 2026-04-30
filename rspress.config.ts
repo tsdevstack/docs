@@ -1,6 +1,9 @@
 import path from "node:path";
 import { defineConfig } from "@rspress/core";
 
+const SITE_URL = "https://tsdevstack.dev";
+const OG_IMAGE = `${SITE_URL}/favicon-180.png`;
+
 export default defineConfig({
   root: "content",
   globalStyles: path.join(__dirname, "global-styles.css"),
@@ -8,6 +11,20 @@ export default defineConfig({
   description:
     "Full-stack, cloud-native TypeScript framework for production microservices",
   icon: "/favicon.svg",
+  head: [
+    ["meta", { property: "og:site_name", content: "tsdevstack" }],
+    ["meta", { property: "og:image", content: OG_IMAGE }],
+    ["meta", { property: "og:image:width", content: "180" }],
+    ["meta", { property: "og:image:height", content: "180" }],
+    ["meta", { property: "og:image:alt", content: "tsdevstack logo" }],
+    ["meta", { name: "twitter:card", content: "summary" }],
+    ["meta", { name: "twitter:image", content: OG_IMAGE }],
+    ["meta", { name: "twitter:site", content: "@tsdevstack" }],
+    (route) => [
+      "meta",
+      { property: "og:url", content: `${SITE_URL}${route.routePath}` },
+    ],
+  ],
   themeConfig: {
     socialLinks: [
       {
