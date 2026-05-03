@@ -435,6 +435,10 @@ npx tsdevstack infra:init-ci --envs dev,prod
 | `--github` | Use GitHub Actions (auto-selected if omitted) |
 | `--envs <envs>` | Environments, comma-separated (prompted if omitted) |
 
+::: info Auto-detected `NPM_TOKEN`
+If your project root has an `.npmrc`, generated workflows automatically include a job-level `env: NPM_TOKEN: ${{ secrets.NPM_TOKEN }}` block (single global secret, not per-env) so private npm packages can be installed in CI. See [CI/CD Setup — Private npm packages](/infrastructure/cicd-setup#private-npm-packages).
+:::
+
 ### `infra:generate-ci`
 
 Regenerate CI workflows from ci.json. No cloud credentials required.
@@ -442,6 +446,10 @@ Regenerate CI workflows from ci.json. No cloud credentials required.
 ```bash
 npx tsdevstack infra:generate-ci
 ```
+
+::: info Auto-detected `NPM_TOKEN`
+Like `init-ci`, this re-emits the `NPM_TOKEN` env block into every workflow if `.npmrc` exists at the project root. Re-run after creating an `.npmrc` to wire private-registry auth through the workflows.
+:::
 
 ### `infra:status`
 
@@ -543,6 +551,10 @@ Generate Dockerfiles for services.
 npx tsdevstack infra:generate-docker --env <environment>
 ```
 
+::: info Auto-detected private-registry auth
+If `.npmrc` exists at the project root, generated Dockerfiles include `.npmrc` in the deps-stage `COPY` and emit a BuildKit env-source secret mount on `npm ci` (`--mount=type=secret,id=npm_token,env=NPM_TOKEN`). See [CI/CD Setup — Private npm packages](/infrastructure/cicd-setup#private-npm-packages).
+:::
+
 ### `infra:build-docker`
 
 Build Docker images with BuildKit.
@@ -550,6 +562,10 @@ Build Docker images with BuildKit.
 ```bash
 npx tsdevstack infra:build-docker [service-name] --env <environment>
 ```
+
+::: info Auto-detected `NPM_TOKEN`
+If `.npmrc` exists at the project root, the docker build invocation appends `--secret id=npm_token,env=NPM_TOKEN` automatically. Make sure `NPM_TOKEN` is exported in your shell (`export NPM_TOKEN=…` or `~/.zshrc`) before running.
+:::
 
 ### `infra:push-docker`
 

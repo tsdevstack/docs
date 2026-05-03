@@ -23,7 +23,7 @@ The CLI is the single entry point for all framework operations. You never write 
 | Database | Preview and apply Prisma migrations in cloud |
 | Scheduled jobs | Deploy, list, and remove cron-based jobs |
 | Workers | Register and deploy detached background workers |
-| CI/CD | Generate GitHub Actions workflows |
+| CI/CD | Generate GitHub Actions workflows; auto-detect private-npm-package auth (`.npmrc` → `NPM_TOKEN` wired through workflows + docker builds) |
 | Client generation | Type-safe HTTP clients from OpenAPI specs |
 
 ## Commands

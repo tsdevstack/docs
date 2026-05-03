@@ -4,13 +4,13 @@ Before installing tsdevstack, make sure you have the following:
 
 ## Required
 
-### Node.js 20+
+### Node.js 22+
 
-tsdevstack requires Node.js 20 or later.
+tsdevstack requires Node.js 22 or later.
 
 ```bash
 node --version
-# v20.x.x or higher
+# v22.x.x or higher
 ```
 
 [Install Node.js](https://nodejs.org/en/download/) if you don't have it.

@@ -2,6 +2,12 @@
 
 tsdevstack uses a structured secrets system that eliminates manual `.env` file management. Instead of scattering environment variables across multiple files, secrets are centrally defined and automatically distributed to each service.
 
+::: info Scope of this section
+This section covers **runtime secrets** — values your backend services read at request time (DB credentials, JWT keys, API URLs, third-party API keys). They live in `.secrets.*.json` files locally and in your cloud secret manager in production.
+
+**Build-time secrets** (auth tokens needed during `docker build` / host `npm ci` to install private packages — currently `NPM_TOKEN`) live outside this system. They're forwarded directly to BuildKit via env-source secret mounts and never land in image layers, never go through Secret Manager. See [CI/CD Setup — Private npm packages](/infrastructure/cicd-setup#private-npm-packages).
+:::
+
 ## The Problem with .env Files
 
 Traditional approaches to secrets management often involve:

@@ -75,6 +75,8 @@ npx tsdevstack infra:generate-ci
    - `GCP_SA_STAGING`
    - `GCP_REGION_STAGING`
 
+   `NPM_TOKEN` (if your project uses private npm packages) is the only generated-workflow secret that is **not** per-environment — add it once globally, no `_STAGING` / `_PROD` variant. See [Private npm packages](/infrastructure/cicd-setup#private-npm-packages).
+
 6. **Push secrets**:
 ```bash
 npx tsdevstack cloud-secrets:push --env staging

@@ -136,6 +136,91 @@ See the provider-specific setup guides for where to find these values:
 - [AWS CI/CD](/infrastructure/providers/aws/cicd) - IAM role setup
 - [Azure CI/CD](/infrastructure/providers/azure/cicd) - Federated credentials setup
 
+## Private npm packages
+
+If your project depends on private npm packages (private GitHub Packages, private scoped packages on `registry.npmjs.org`, internal company registries), tsdevstack auto-wires `NPM_TOKEN` through both local docker builds and CI workflows.
+
+**Trigger:** presence of an `.npmrc` file at the project root with `${NPM_TOKEN}`-style env-var interpolation:
+
+```
+//registry.npmjs.org/:_authToken=${NPM_TOKEN}
+```
+
+::: info Commit `.npmrc` — it has no secrets
+The file contains **no actual secret** — `${NPM_TOKEN}` is an env-var reference; npm interpolates from the environment at install time. Committing the template is the standard npm-ecosystem pattern, and **required for CI** (CI runners only see committed files).
+
+If your `.gitignore` blanket-excludes `**/.npmrc`, add an exception so the project-root template is tracked:
+
+```
+**/.npmrc
+!/.npmrc
+```
+
+The blanket-ignore is a defensive default that catches `npm login`-generated files containing *real* tokens. A hand-written template with `${NPM_TOKEN}` interpolation is safe to commit.
+:::
+
+### Setup
+
+1. **Create `.npmrc`** at the project root and commit it. Add lines for any additional private registries you use.
+
+2. **Locally** — export `NPM_TOKEN` in your shell:
+
+   ```bash
+   export NPM_TOKEN=<your-token>
+   ```
+
+   Or persist it in `~/.zshrc` / `~/.bashrc`. `npx tsdevstack infra:build-docker` and `infra:deploy` automatically forward it as a BuildKit env-source secret.
+
+3. **In CI** — add `NPM_TOKEN` as a single GitHub repository secret (Settings → Secrets and variables → Actions). **Single value, not per-environment** — registry tokens identify your developer / org account, not a deployment target.
+
+4. **Regenerate** workflows so the `NPM_TOKEN` env block lands in the generated YAML:
+
+   ```bash
+   npx tsdevstack infra:generate-ci
+   npx tsdevstack infra:generate-docker
+   ```
+
+### How it threads through
+
+| Layer                     | Mechanism                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Generated Dockerfiles** | `COPY .npmrc ./` in deps stage + `--mount=type=secret,id=npm_token,env=NPM_TOKEN` on the `npm ci` line |
+| **`infra:build-docker`**  | Adds `--secret id=npm_token,env=NPM_TOKEN` to the `docker build` argv (BuildKit reads from process env) |
+| **CI workflows**          | Job-level `env: { NPM_TOKEN: ${{ secrets.NPM_TOKEN }} }` cascades to every step                    |
+
+### Security properties
+
+- `NPM_TOKEN` is mounted only during the `npm ci` `RUN` step — **never** persisted in image layers, never visible in `docker history`.
+- The `.npmrc` lives only in the `deps` and `build` intermediate stages; the `production` stage starts fresh and does not COPY it across, so the final shipped image is clean.
+- The `.npmrc` content itself is just `${NPM_TOKEN}` template (no real secret), so even cache layers pushed to a registry leak nothing sensitive.
+- If `.npmrc` is present but `NPM_TOKEN` is unset, BuildKit fails fast with a clear error — misconfiguration is loud.
+- If `.npmrc` is absent, generated workflows and Dockerfiles emit no `NPM_TOKEN` wiring at all (behavior identical to public-only projects).
+
+### Verification
+
+After regeneration, inspect any generated `.github/workflows/*.yml` — you should see the `env:` block at the job level (sibling of `permissions:` and `steps:`):
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      …
+```
+
+And in `infrastructure/docker/<service>.Dockerfile`:
+
+```dockerfile
+COPY package.json package-lock.json .npmrc ./
+…
+RUN --mount=type=cache,target=/root/.npm --mount=type=secret,id=npm_token,env=NPM_TOKEN npm ci
+```
+
 ## User Secrets
 
 Before the first deployment, you need to create user secrets in your cloud provider's secret manager. Each provider's CI/CD guide covers which secrets are required and how to create them:

@@ -3,7 +3,7 @@ export function Prerequisites() {
     <div className="prerequisites-box">
       <p><strong>Prerequisites:</strong></p>
       <ul>
-        <li>Node.js 20+</li>
+        <li>Node.js 22+</li>
         <li>Docker Desktop</li>
         <li>Terraform (for cloud deployment)</li>
       </ul>

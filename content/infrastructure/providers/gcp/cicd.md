@@ -106,6 +106,16 @@ The framework has no naming convention for environments. `dev`, `staging`, `prod
 
 Repeat for each environment you have configured.
 
+### Private npm packages — `NPM_TOKEN` (optional, single global secret)
+
+If your project depends on private npm packages, add a single `NPM_TOKEN` repository secret — **not** per-environment. Registry tokens identify your developer / org account, not a deployment target, so the same value works for every env.
+
+| Secret | Value |
+|--------|-------|
+| `NPM_TOKEN` | Token from your npm registry (e.g. `npm token create` or a GitHub Packages PAT) |
+
+The token is auto-detected and wired through generated workflows when an `.npmrc` exists at your project root. See [CI/CD Setup — Private npm packages](/infrastructure/cicd-setup#private-npm-packages) for the full setup.
+
 ## User Secrets (Required Before First Deployment)
 
 The CI workflow pushes framework-generated secrets automatically (`cloud-secrets:push --skip-user-secrets`), but **user secrets must be created manually** in GCP Secret Manager before the first CI deployment.

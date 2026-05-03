@@ -150,5 +150,7 @@ Then add environment-prefixed secrets to your repository (**Settings > Secrets a
 
 Replace `DEV` with `STAGING`, `PROD`, etc. for each environment.
 
+If your project uses private npm packages, also add a single `NPM_TOKEN` repo secret (global, not per-env) and create an `.npmrc` at project root with `${NPM_TOKEN}` interpolation — tsdevstack auto-detects and threads it through generated workflows and docker builds. See [Private npm packages](/infrastructure/cicd-setup#private-npm-packages).
+
 See [CI/CD Setup](/infrastructure/cicd-setup) and the provider-specific CI/CD pages for details.
 

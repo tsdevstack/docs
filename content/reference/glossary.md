@@ -40,6 +40,8 @@ Key terms used throughout the tsdevstack documentation.
 | **CI workflows** | GitHub Actions workflows generated for build, test, and deploy pipelines. |
 | **Scheduled job** | A job that runs on a cron schedule. Cloud Scheduler (GCP), EventBridge (AWS), or Container App Jobs (Azure). Configured in `.tsdevstack/infrastructure.json` and deployed via `deploy-scheduler`. See [Scheduled Jobs](/features/scheduled-jobs). |
 | **Database migration** | Schema changes applied via [Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate). Preview with `plan-db-migrate`, apply with `run-db-migrate`. |
+| **`NPM_TOKEN`** | Single global GitHub repository secret (not per-env) for authenticating against private npm registries during host `npm ci` and tsdevstack-spawned docker builds. Auto-detected when `.npmrc` exists at project root. See [Private npm packages](/infrastructure/cicd-setup#private-npm-packages). |
+| **BuildKit secret mount** | Docker BuildKit `--mount=type=secret,...` directive that exposes a secret only during a single `RUN` step — never persisted in image layers, never visible in `docker history`. Used for `NPM_TOKEN` on the `npm ci` line in generated Dockerfiles. |
 
 ## Authentication
 
