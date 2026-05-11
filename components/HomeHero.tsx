@@ -1,5 +1,18 @@
 import { Prompt } from "@rspress/core/theme";
 
+const CAPABILITIES = [
+  "Local Docker stack",
+  "Microservices + SPAs",
+  "Database + migrations",
+  "Workers + scheduled jobs",
+  "API gateway",
+  "Multi-cloud Terraform",
+  "Observability",
+  "DNS + WAF",
+  "Cloud secrets",
+  "54-tool MCP server",
+];
+
 export function HomeHero() {
   return (
     <div
@@ -14,24 +27,6 @@ export function HomeHero() {
         margin: "0 auto",
       }}
     >
-      <span
-        style={{
-          display: "inline-block",
-          padding: "0.25rem 0.75rem",
-          borderRadius: "999px",
-          fontSize: "0.8rem",
-          fontWeight: 600,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
-          color: "var(--rp-c-brand)",
-          background: "color-mix(in srgb, var(--rp-c-brand) 10%, transparent)",
-          border:
-            "1px solid color-mix(in srgb, var(--rp-c-brand) 25%, transparent)",
-          marginBottom: "1.5rem",
-        }}
-      >
-        Currently in Beta
-      </span>
       <h1
         style={{
           fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
@@ -80,6 +75,47 @@ export function HomeHero() {
       >
         From zero to production in an hour, not months.
       </p>
+      <p
+        style={{
+          fontSize: "clamp(0.95rem, 1.8vw, 1.15rem)",
+          fontWeight: 500,
+          color: "var(--rp-c-text-2)",
+          margin: "0 0 1.5rem",
+          lineHeight: 1.55,
+          maxWidth: "640px",
+        }}
+      >
+        tsdevstack is an open-source framework you install. It generates production code and infrastructure you own.
+      </p>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: "0.4rem 0.5rem",
+          marginBottom: "1.75rem",
+          maxWidth: "720px",
+        }}
+      >
+        {CAPABILITIES.map((label) => (
+          <span
+            key={label}
+            style={{
+              display: "inline-block",
+              padding: "0.3rem 0.7rem",
+              borderRadius: "999px",
+              fontSize: "0.78rem",
+              fontWeight: 500,
+              color: "var(--rp-c-text-2)",
+              background: "var(--rp-c-bg-soft)",
+              border: "1px solid var(--rp-c-divider)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
       <div
         style={{
           display: "inline-flex",

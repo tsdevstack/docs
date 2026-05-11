@@ -5,6 +5,7 @@ export function SocialLinks() {
     { label: 'Discord', href: 'https://discord.gg/2EMFkqc8QR' },
     { label: 'X', href: 'https://x.com/tsdevstack' },
     { label: 'Medium', href: 'https://medium.com/@kram.gyorgy' },
+    { label: 'dev.to', href: 'https://dev.to/gyorgy' },
   ];
 
   return (

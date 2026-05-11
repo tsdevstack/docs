@@ -171,7 +171,7 @@ const features: Feature[] = [
   {
     icon: <MCPIcon />,
     title: 'Built for AI agents',
-    details: 'MCP server with 54 tools. Your AI agent understands the framework — deploy, query, configure infrastructure without hallucinating CLI commands.',
+    details: 'MCP server with 54 tools. Your AI agent understands the framework, deploys services, configures infrastructure, and manages secrets without hallucinating CLI commands.',
   },
   {
     icon: <CloudProviderLogos />,
@@ -185,18 +185,8 @@ const features: Feature[] = [
   },
   {
     icon: <ComplianceLogos />,
-    title: 'Audit-ready infrastructure',
-    details: 'SOC 2, ISO 27001, GDPR technical controls built in. Encryption, network isolation, zero-credential runtimes, environment separation.',
-  },
-  {
-    icon: <AuthIcon />,
-    title: 'OWASP-aligned authentication',
-    details: 'JWT token management, protected routes, session handling — following OWASP security guidelines. Or bring your own OIDC.',
-  },
-  {
-    icon: <ObservabilityLogos />,
-    title: 'Observability from day one',
-    details: 'Prometheus metrics, Grafana dashboards, distributed tracing with Jaeger.',
+    title: 'Production-grade by default',
+    details: 'OWASP-aligned authentication, observability (Prometheus, Grafana, Jaeger), and compliance controls (SOC 2, ISO 27001, GDPR) wired in. No extra setup.',
   },
 ];
 
@@ -204,10 +194,10 @@ export function FeatureGrid() {
   return (
     <div className="feature-grid" style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)',
+      gridTemplateColumns: 'repeat(2, 1fr)',
       gap: '1.25rem',
       padding: '2rem 1.5rem 3rem',
-      maxWidth: '1024px',
+      maxWidth: '900px',
       margin: '0 auto',
     }}>
       {features.map((feature) => (
@@ -243,14 +233,9 @@ export function FeatureGrid() {
         </div>
       ))}
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: 640px) {
           .feature-grid {
             grid-template-columns: 1fr !important;
-          }
-        }
-        @media (min-width: 769px) and (max-width: 1024px) {
-          .feature-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
           }
         }
       `}</style>
