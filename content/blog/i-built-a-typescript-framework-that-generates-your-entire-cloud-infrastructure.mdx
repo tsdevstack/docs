@@ -1,0 +1,242 @@
+---
+title: "I built a TypeScript framework that generates your entire cloud infrastructure"
+description: "tsdevstack generates Terraform, Docker, Kong routes, CI/CD, secrets, and observability across GCP, AWS, and Azure from one TypeScript config."
+date: "2026-04-08"
+sidebar: false
+outline: false
+head:
+  - - link
+    - rel: canonical
+      href: "https://tsdevstack.dev/blog/i-built-a-typescript-framework-that-generates-your-entire-cloud-infrastructure"
+  - - meta
+    - property: "og:title"
+      content: "I built a TypeScript framework that generates your entire cloud infrastructure"
+  - - meta
+    - property: "og:description"
+      content: "tsdevstack generates Terraform, Docker, Kong routes, CI/CD, secrets, and observability across GCP, AWS, and Azure from one TypeScript config."
+  - - meta
+    - property: "og:image"
+      content: "https://tsdevstack.dev/blog/i-built-tsdevstack.webp"
+  - - meta
+    - property: "og:type"
+      content: "article"
+  - - meta
+    - property: "article:published_time"
+      content: "2026-04-08"
+  - - meta
+    - name: "twitter:card"
+      content: "summary_large_image"
+  - - meta
+    - name: "twitter:image"
+      content: "https://tsdevstack.dev/blog/i-built-tsdevstack.webp"
+  - - script
+    - type: "application/ld+json"
+    - '{"@context":"https://schema.org","@type":"Article","headline":"I built a TypeScript framework that generates your entire cloud infrastructure","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-04-08","dateModified":"2026-04-08","image":"https://tsdevstack.dev/blog/i-built-tsdevstack.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/i-built-a-typescript-framework-that-generates-your-entire-cloud-infrastructure"}'
+---
+
+![I built a TypeScript framework that generates your entire cloud infrastructure](/blog/i-built-tsdevstack.webp)
+
+# I built a TypeScript framework that generates your entire cloud infrastructure
+
+_Published April 8, 2026 by gyorgy_
+
+**TL;DR:** tsdevstack is an open-source TypeScript microservices framework. You write a config file and application code. It generates Terraform, Docker, Kong gateway routes, CI/CD pipelines, secrets, and observability — across GCP, AWS, and Azure. One command deploys the whole stack.
+
+<div
+  style={{
+    position: "relative",
+    paddingBottom: "56.25%",
+    height: 0,
+    overflow: "hidden",
+    maxWidth: "100%",
+  }}
+>
+  <iframe
+    src="https://www.youtube.com/embed/6MJ4PPPjxH8"
+    title="tsdevstack demo"
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      border: 0,
+    }}
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+  ></iframe>
+</div>
+
+---
+
+## The problem
+
+Every TypeScript project I shipped to production followed the same pattern. Write the application code in a week. Spend the next month wiring up infrastructure.
+
+Terraform for the cloud resources. Docker for local dev. Kong or some other gateway for routing. JWT auth boilerplate. Secrets management across environments. CI/CD pipelines. Observability. WAF rules. SSL certificates. Health checks. Database migrations. And then the same dance for staging and production.
+
+The application code was the easy part. Everything around it took 10x longer.
+
+I tried the existing options:
+
+- **Heroku-style platforms** hide too much. The moment you need a WAF, a custom gateway, or VPC isolation, you're stuck.
+- **Pulumi/CDK/Terraform modules** are flexible but you still write and maintain all of it. And you write it differently for each cloud provider.
+- **Templates and starters** get you a working hello-world but rot the moment you customise them.
+
+I wanted something in between. A framework that owned the infrastructure layer entirely — generated, managed, deployed — but stayed out of the way of the application code.
+
+## What I built
+
+**Infrastructure as Framework.** You write TypeScript application code and one config file. The framework generates everything else.
+
+```bash
+npx @tsdevstack/cli init
+```
+
+This scaffolds a monorepo with NestJS backends, Next.js frontends, a Kong API gateway, Postgres, Redis, and observability. Everything wired together, ready to run.
+
+```bash
+npm run dev
+```
+
+Local development matches production. Same gateway, same database engine, same auth flow, same observability stack. No "works on my machine" gap.
+
+```bash
+npx tsdevstack cloud:init --gcp
+npx tsdevstack infra:init --env dev
+npx tsdevstack infra:deploy --env dev
+```
+
+This provisions the full production stack: VPC, managed Postgres, Redis, container registry, Cloud Run services, API gateway, load balancer, WAF, SSL certificates, observability. From a single config file.
+
+The same flow works on AWS (ECS Fargate) and Azure (Container Apps). Same framework, same patterns, same commands. No rewriting infrastructure when you switch providers.
+
+## What's in the box
+
+**Application layer** — NestJS backends, Next.js frontends, Rsbuild SPAs. Auto-generated TypeScript API clients with DTOs as separated imports — both frontend and backend apps consume the same type-safe library.
+
+**API gateway** — Kong routes auto-generated from your OpenAPI specs. JWT validation, rate limiting, CORS, bot detection. Fully customisable when you need it.
+
+**Background processing** — BullMQ job queues with detached workers running in separate containers. Scale independently from API services.
+
+**Object storage** — Add buckets with `add-bucket-storage`. MinIO locally, S3/GCS/Azure Blob in production. Unified `StorageModule` with pre-signed URLs and per-provider adapters.
+
+**Async messaging** — Inter-service pub/sub via Redis Streams. Consumer groups, dead letter queues, retry logic. No new infrastructure — runs on the same Redis instance as caching.
+
+**Authentication** — JWT token management, protected routes, session handling, email confirmation. Bring your own OIDC or use the built-in auth service.
+
+**Secrets** — Local secrets generated automatically for development. Cloud secrets managed separately and pushed to the cloud provider's Secret Manager. Environment isolation, scoped per service. Works with Secret Manager on all three providers.
+
+**Observability** — Prometheus metrics, Grafana dashboards, distributed tracing with Jaeger, structured logging. Configured from day one.
+
+**Infrastructure** — Generated Terraform for GCP, AWS, and Azure. VPC/VNet, managed databases, Redis, container orchestration, load balancers, WAF, SSL, CDN.
+
+**CI/CD** — Generated GitHub Actions workflows. OIDC authentication, per-service deploys, environment selection. No secrets in your repo.
+
+**Compliance** — SOC 2, ISO 27001, GDPR technical controls built in. Encryption at rest and in transit, network isolation, zero-credential runtimes.
+
+## How it actually works
+
+The framework manages a `config.json` for your project structure — you don't edit it by hand, you modify it through commands like `add-service`, `add-bucket-storage`, `add-messaging-topic`.
+
+Your `config.json` ends up looking like this:
+
+```json
+{
+  "projectName": "my-saas",
+  "cloud": "gcp",
+  "services": [
+    {
+      "name": "auth-service",
+      "type": "nestjs",
+      "hasDatabase": true
+    },
+    {
+      "name": "frontend",
+      "type": "nextjs"
+    }
+  ],
+  "storage": {
+    "buckets": ["uploads"]
+  }
+}
+```
+
+When you run `npx tsdevstack sync`, the framework reads the config and generates:
+
+- `docker-compose.yml` with all the services, dependencies, and health checks
+- Kong gateway config from OpenAPI specs
+- Local secrets in `.env` files per service
+- Database initialization scripts
+- Service stubs if you added new ones
+
+You write the `infrastructure.json` directly for cloud-specific settings (domains, scaling, environments).
+
+```json
+{
+  "environments": {
+    "dev": {
+      "services": {
+        "auth-service": {
+          "minInstances": 0,
+          "maxInstances": 3,
+          "cpu": 1,
+          "memory": "512Mi"
+        },
+        "frontend": {
+          "minInstances": 1,
+          "maxInstances": 5,
+          "cpu": 1,
+          "memory": "1Gi",
+          "domain": "dev.example.com"
+        }
+      }
+    }
+  }
+}
+```
+
+When you run `npx tsdevstack infra:deploy`, it generates Terraform for your chosen provider and applies it. The framework owns the Terraform, you don't write it, you don't maintain it.
+
+The escape hatch is intentional. Custom Kong config? Drop in your own. Need a Terraform resource the framework doesn't generate? Add it as a side file. Need a cloud-native service the framework doesn't wrap? Use the SDK directly. The framework isn't a cage — it's a starting point that handles 95% of cases and gets out of your way for the other 5%.
+
+## Why three clouds?
+
+Vendor lock-in is real but slow-moving. You don't switch clouds because you want to — you switch because acquisition, pricing change, region requirements, or a customer with an immovable preference forces you to. When that happens, rewriting infrastructure is brutal.
+
+tsdevstack generates the equivalent infrastructure on GCP (Cloud Run + Cloud SQL + Memorystore), AWS (ECS Fargate + RDS + ElastiCache), and Azure (Container Apps + Azure Database for PostgreSQL + Azure Cache for Redis). Same application code, same config file, different generated Terraform. Switching providers is a config change and a redeploy.
+
+No abstraction layer trying to hide the differences between clouds. Each provider gets a native, idiomatic implementation. The framework handles the translation.
+
+## What about AI agents?
+
+There's a built-in MCP (Model Context Protocol) server with 54 tools for deploying, querying, and debugging your stack. Claude Code, Cursor, and VS Code Copilot can manage the infrastructure directly — and because the framework has strong conventions, the AI agent actually understands what it's doing instead of hallucinating CLI commands.
+
+Three permission tiers: SAFE_READ, CLOUD_MUTATE, CLOUD_DESTRUCTIVE. The agent always asks for permission before mutating anything. The MCP server is built into the CLI — no separate package, no extra setup.
+
+## Where it stands
+
+**Open source.** MIT license. Four packages on npm:
+
+- `@tsdevstack/cli` — the CLI, infrastructure generation, deployment
+- `@tsdevstack/nest-common` — shared NestJS modules
+- `@tsdevstack/cli-mcp` — MCP server for AI agents
+- `@tsdevstack/react-bot-detection` — React bot detection
+
+**v0.2.0 just shipped** with object storage, async messaging, AWS App Runner → ECS Fargate migration (App Runner stops accepting new customers April 30), and a batch of WAF and observability improvements across all three providers.
+
+This is solo work. I'm a developer building this on the side. It started as the framework I wanted for my own projects and grew into something I think other people will find useful. The first users are showing up now.
+
+```bash
+npx @tsdevstack/cli init
+```
+
+Docs and guides: [tsdevstack.dev](https://tsdevstack.dev)
+GitHub: [github.com/tsdevstack](https://github.com/tsdevstack)
+Discord: [discord.gg/tsdevstack](https://discord.gg/2EMFkqc8QR)
+
+Feedback wanted. Bug reports wanted. Issues, ideas, complaints — all welcome.
+
+---
+
+_Tags: typescript, nestjs, devops, opensource_

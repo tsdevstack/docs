@@ -7,7 +7,7 @@ export function Prerequisites() {
         <li>Docker Desktop</li>
         <li>Terraform (for cloud deployment)</li>
       </ul>
-      <p>See <a href="/getting-started/prerequisites" style={{ color: 'var(--rp-c-brand)', textDecoration: 'underline' }}>Prerequisites</a> for detailed setup.</p>
+      <p>See <a href="/docs/getting-started/prerequisites" style={{ color: 'var(--rp-c-brand)', textDecoration: 'underline' }}>Prerequisites</a> for detailed setup.</p>
     </div>
   );
 }

@@ -26,6 +26,10 @@ export default defineConfig({
     ],
   ],
   themeConfig: {
+    nav: [
+      { text: "Docs", link: "/docs/introduction/what-is-tsdevstack" },
+      { text: "Blog", link: "/blog/" },
+    ],
     socialLinks: [
       {
         icon: "github",
@@ -66,31 +70,31 @@ export default defineConfig({
       message: "© 2026 tsdevstack. Built with Rspress.",
     },
     sidebar: {
-      "/": [
+      "/docs/": [
         {
           text: "Introduction",
           items: [
             {
               text: "What is tsdevstack?",
-              link: "/introduction/what-is-tsdevstack",
+              link: "/docs/introduction/what-is-tsdevstack",
             },
-            { text: "Supported Apps", link: "/introduction/supported-apps" },
+            { text: "Supported Apps", link: "/docs/introduction/supported-apps" },
             {
               text: "Architecture Overview",
-              link: "/introduction/architecture-overview",
+              link: "/docs/introduction/architecture-overview",
             },
           ],
         },
         {
           text: "Getting Started",
           items: [
-            { text: "Quick Start", link: "/getting-started/quick-start" },
-            { text: "Prerequisites", link: "/getting-started/prerequisites" },
-            { text: "Installation", link: "/getting-started/installation" },
-            { text: "Your First App", link: "/getting-started/your-first-app" },
+            { text: "Quick Start", link: "/docs/getting-started/quick-start" },
+            { text: "Prerequisites", link: "/docs/getting-started/prerequisites" },
+            { text: "Installation", link: "/docs/getting-started/installation" },
+            { text: "Your First App", link: "/docs/getting-started/your-first-app" },
             {
               text: "Project Structure",
-              link: "/getting-started/project-structure",
+              link: "/docs/getting-started/project-structure",
             },
           ],
         },
@@ -99,11 +103,11 @@ export default defineConfig({
           items: [
             {
               text: "Running Locally",
-              link: "/local-development/running-locally",
+              link: "/docs/local-development/running-locally",
             },
-            { text: "Adding Apps", link: "/local-development/adding-apps" },
-            { text: "Tech Stack", link: "/local-development/tech-stack" },
-            { text: "Debugging", link: "/local-development/debugging" },
+            { text: "Adding Apps", link: "/docs/local-development/adding-apps" },
+            { text: "Tech Stack", link: "/docs/local-development/tech-stack" },
+            { text: "Debugging", link: "/docs/local-development/debugging" },
           ],
         },
         {
@@ -111,67 +115,67 @@ export default defineConfig({
           items: [
             {
               text: "OpenAPI Decorators",
-              link: "/building-apis/openapi-decorators",
+              link: "/docs/building-apis/openapi-decorators",
             },
-            { text: "Gateway Routing", link: "/building-apis/gateway-routing" },
-            { text: "DTO Generation", link: "/building-apis/dto-generation" },
-            { text: "Swagger Docs", link: "/building-apis/swagger-docs" },
+            { text: "Gateway Routing", link: "/docs/building-apis/gateway-routing" },
+            { text: "DTO Generation", link: "/docs/building-apis/dto-generation" },
+            { text: "Swagger Docs", link: "/docs/building-apis/swagger-docs" },
           ],
         },
         {
           text: "Features",
           items: [
-            { text: "Observability", link: "/features/observability" },
-            { text: "Object Storage", link: "/features/object-storage" },
-            { text: "Async Messaging", link: "/features/async-messaging" },
-            { text: "Scheduled Jobs", link: "/features/scheduled-jobs" },
-            { text: "MCP Server", link: "/features/mcp-server" },
+            { text: "Observability", link: "/docs/features/observability" },
+            { text: "Object Storage", link: "/docs/features/object-storage" },
+            { text: "Async Messaging", link: "/docs/features/async-messaging" },
+            { text: "Scheduled Jobs", link: "/docs/features/scheduled-jobs" },
+            { text: "MCP Server", link: "/docs/features/mcp-server" },
           ],
         },
         {
           text: "Authentication",
           items: [
-            { text: "Overview", link: "/authentication/overview" },
-            { text: "JWT Tokens", link: "/authentication/jwt-tokens" },
+            { text: "Overview", link: "/docs/authentication/overview" },
+            { text: "JWT Tokens", link: "/docs/authentication/jwt-tokens" },
             {
               text: "Protected Routes",
-              link: "/authentication/protected-routes",
+              link: "/docs/authentication/protected-routes",
             },
             {
               text: "Session Management",
-              link: "/authentication/session-management",
+              link: "/docs/authentication/session-management",
             },
           ],
         },
         {
           text: "Secrets",
           items: [
-            { text: "How Secrets Work", link: "/secrets/how-secrets-work" },
-            { text: "Local Secrets", link: "/secrets/local-secrets" },
-            { text: "Cloud Secrets", link: "/secrets/cloud-secrets" },
-            { text: "User vs Framework", link: "/secrets/user-vs-framework" },
+            { text: "How Secrets Work", link: "/docs/secrets/how-secrets-work" },
+            { text: "Local Secrets", link: "/docs/secrets/local-secrets" },
+            { text: "Cloud Secrets", link: "/docs/secrets/cloud-secrets" },
+            { text: "User vs Framework", link: "/docs/secrets/user-vs-framework" },
           ],
         },
         {
           text: "Customization",
           items: [
-            { text: "Framework Files", link: "/customization/framework-files" },
-            { text: "Escape Hatches", link: "/customization/escape-hatches" },
+            { text: "Framework Files", link: "/docs/customization/framework-files" },
+            { text: "Escape Hatches", link: "/docs/customization/escape-hatches" },
             {
               text: "Docker Overrides",
-              link: "/customization/docker-overrides",
+              link: "/docs/customization/docker-overrides",
             },
             {
               text: "Kong Customization",
-              link: "/customization/kong-customization",
+              link: "/docs/customization/kong-customization",
             },
             {
               text: "WAF Customization",
-              link: "/customization/waf-customization",
+              link: "/docs/customization/waf-customization",
             },
             {
               text: "Custom Email Provider",
-              link: "/customization/email-provider",
+              link: "/docs/customization/email-provider",
             },
           ],
         },
@@ -180,7 +184,7 @@ export default defineConfig({
           items: [
             {
               text: "Compliance Readiness",
-              link: "/security/compliance-readiness",
+              link: "/docs/security/compliance-readiness",
             },
           ],
         },
@@ -189,88 +193,88 @@ export default defineConfig({
           items: [
             {
               text: "Resend (Email)",
-              link: "/integrations/resend",
+              link: "/docs/integrations/resend",
             },
           ],
         },
         {
           text: "Infrastructure",
           items: [
-            { text: "Architecture", link: "/infrastructure/architecture" },
-            { text: "Environments", link: "/infrastructure/environments" },
+            { text: "Architecture", link: "/docs/infrastructure/architecture" },
+            { text: "Environments", link: "/docs/infrastructure/environments" },
             {
               text: "Service Configuration",
-              link: "/infrastructure/service-configuration",
+              link: "/docs/infrastructure/service-configuration",
             },
-            { text: "CI/CD Setup", link: "/infrastructure/cicd-setup" },
-            { text: "Domain Setup", link: "/infrastructure/domain-setup" },
+            { text: "CI/CD Setup", link: "/docs/infrastructure/cicd-setup" },
+            { text: "Domain Setup", link: "/docs/infrastructure/domain-setup" },
             {
               text: "GCP",
               items: [
-                { text: "Overview", link: "/infrastructure/providers/gcp/" },
+                { text: "Overview", link: "/docs/infrastructure/providers/gcp/" },
                 {
                   text: "Account Setup",
-                  link: "/infrastructure/providers/gcp/account-setup",
+                  link: "/docs/infrastructure/providers/gcp/account-setup",
                 },
                 {
                   text: "Architecture",
-                  link: "/infrastructure/providers/gcp/architecture",
+                  link: "/docs/infrastructure/providers/gcp/architecture",
                 },
                 {
                   text: "Cost Estimation",
-                  link: "/infrastructure/providers/gcp/cost-estimation",
+                  link: "/docs/infrastructure/providers/gcp/cost-estimation",
                 },
                 {
                   text: "DNS & Domains",
-                  link: "/infrastructure/providers/gcp/dns-and-domains",
+                  link: "/docs/infrastructure/providers/gcp/dns-and-domains",
                 },
-                { text: "CI/CD", link: "/infrastructure/providers/gcp/cicd" },
+                { text: "CI/CD", link: "/docs/infrastructure/providers/gcp/cicd" },
               ],
             },
             {
               text: "AWS",
               items: [
-                { text: "Overview", link: "/infrastructure/providers/aws/" },
+                { text: "Overview", link: "/docs/infrastructure/providers/aws/" },
                 {
                   text: "Account Setup",
-                  link: "/infrastructure/providers/aws/account-setup",
+                  link: "/docs/infrastructure/providers/aws/account-setup",
                 },
                 {
                   text: "Architecture",
-                  link: "/infrastructure/providers/aws/architecture",
+                  link: "/docs/infrastructure/providers/aws/architecture",
                 },
                 {
                   text: "Cost Estimation",
-                  link: "/infrastructure/providers/aws/cost-estimation",
+                  link: "/docs/infrastructure/providers/aws/cost-estimation",
                 },
                 {
                   text: "DNS & Domains",
-                  link: "/infrastructure/providers/aws/dns-and-domains",
+                  link: "/docs/infrastructure/providers/aws/dns-and-domains",
                 },
-                { text: "CI/CD", link: "/infrastructure/providers/aws/cicd" },
+                { text: "CI/CD", link: "/docs/infrastructure/providers/aws/cicd" },
               ],
             },
             {
               text: "Azure",
               items: [
-                { text: "Overview", link: "/infrastructure/providers/azure/" },
+                { text: "Overview", link: "/docs/infrastructure/providers/azure/" },
                 {
                   text: "Account Setup",
-                  link: "/infrastructure/providers/azure/account-setup",
+                  link: "/docs/infrastructure/providers/azure/account-setup",
                 },
                 {
                   text: "Architecture",
-                  link: "/infrastructure/providers/azure/architecture",
+                  link: "/docs/infrastructure/providers/azure/architecture",
                 },
                 {
                   text: "Cost Estimation",
-                  link: "/infrastructure/providers/azure/cost-estimation",
+                  link: "/docs/infrastructure/providers/azure/cost-estimation",
                 },
                 {
                   text: "DNS & Domains",
-                  link: "/infrastructure/providers/azure/dns-and-domains",
+                  link: "/docs/infrastructure/providers/azure/dns-and-domains",
                 },
-                { text: "CI/CD", link: "/infrastructure/providers/azure/cicd" },
+                { text: "CI/CD", link: "/docs/infrastructure/providers/azure/cicd" },
               ],
             },
           ],
@@ -278,43 +282,43 @@ export default defineConfig({
         {
           text: "Packages",
           items: [
-            { text: "tsdevstack (CLI)", link: "/packages/tsdevstack" },
-            { text: "nest-common", link: "/packages/nest-common" },
-            { text: "cli-mcp", link: "/packages/cli-mcp" },
+            { text: "tsdevstack (CLI)", link: "/docs/packages/tsdevstack" },
+            { text: "nest-common", link: "/docs/packages/nest-common" },
+            { text: "cli-mcp", link: "/docs/packages/cli-mcp" },
             {
               text: "react-bot-detection",
-              link: "/packages/react-bot-detection",
+              link: "/docs/packages/react-bot-detection",
             },
           ],
         },
         {
           text: "Reference",
           items: [
-            { text: "CLI Commands", link: "/reference/cli-commands" },
-            { text: "Glossary", link: "/reference/glossary" },
+            { text: "CLI Commands", link: "/docs/reference/cli-commands" },
+            { text: "Glossary", link: "/docs/reference/glossary" },
           ],
         },
         {
           text: "Releases",
           items: [
-            { text: "v0.3.0", link: "/releases/v0.3.0" },
-            { text: "v0.2.8", link: "/releases/v0.2.8" },
-            { text: "v0.2.7", link: "/releases/v0.2.7" },
-            { text: "v0.2.6", link: "/releases/v0.2.6" },
-            { text: "v0.2.5", link: "/releases/v0.2.5" },
-            { text: "v0.2.4", link: "/releases/v0.2.4" },
-            { text: "v0.2.3", link: "/releases/v0.2.3" },
-            { text: "v0.2.2", link: "/releases/v0.2.2" },
-            { text: "v0.2.1", link: "/releases/v0.2.1" },
-            { text: "v0.2.0", link: "/releases/v0.2.0" },
-            { text: "v0.1.29 – v0.1.30", link: "/releases/v0.1.29-0.1.30" },
-            { text: "v0.1.28", link: "/releases/v0.1.28" },
-            { text: "v0.1.24 – v0.1.27", link: "/releases/v0.1.24-0.1.27" },
-            { text: "v0.1.19 – v0.1.23", link: "/releases/v0.1.19-0.1.23" },
-            { text: "v0.1.17 – v0.1.18", link: "/releases/v0.1.17-0.1.18" },
-            { text: "v0.1.6 – v0.1.16", link: "/releases/v0.1.6-0.1.16" },
-            { text: "v0.1.5", link: "/releases/v0.1.5" },
-            { text: "v0.1.1 – v0.1.4", link: "/releases/v0.1.1-0.1.4" },
+            { text: "v0.3.0", link: "/docs/releases/v0.3.0" },
+            { text: "v0.2.8", link: "/docs/releases/v0.2.8" },
+            { text: "v0.2.7", link: "/docs/releases/v0.2.7" },
+            { text: "v0.2.6", link: "/docs/releases/v0.2.6" },
+            { text: "v0.2.5", link: "/docs/releases/v0.2.5" },
+            { text: "v0.2.4", link: "/docs/releases/v0.2.4" },
+            { text: "v0.2.3", link: "/docs/releases/v0.2.3" },
+            { text: "v0.2.2", link: "/docs/releases/v0.2.2" },
+            { text: "v0.2.1", link: "/docs/releases/v0.2.1" },
+            { text: "v0.2.0", link: "/docs/releases/v0.2.0" },
+            { text: "v0.1.29 – v0.1.30", link: "/docs/releases/v0.1.29-0.1.30" },
+            { text: "v0.1.28", link: "/docs/releases/v0.1.28" },
+            { text: "v0.1.24 – v0.1.27", link: "/docs/releases/v0.1.24-0.1.27" },
+            { text: "v0.1.19 – v0.1.23", link: "/docs/releases/v0.1.19-0.1.23" },
+            { text: "v0.1.17 – v0.1.18", link: "/docs/releases/v0.1.17-0.1.18" },
+            { text: "v0.1.6 – v0.1.16", link: "/docs/releases/v0.1.6-0.1.16" },
+            { text: "v0.1.5", link: "/docs/releases/v0.1.5" },
+            { text: "v0.1.1 – v0.1.4", link: "/docs/releases/v0.1.1-0.1.4" },
           ],
         },
       ],

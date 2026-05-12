@@ -58,17 +58,6 @@ export function HomeHero() {
           fontSize: "clamp(1rem, 2vw, 1.35rem)",
           fontWeight: 500,
           color: "var(--rp-c-text-2)",
-          margin: "0 0 0.5rem",
-          lineHeight: 1.5,
-        }}
-      >
-        Full-stack, cloud-native, AI-native TypeScript microservices.
-      </p>
-      <p
-        style={{
-          fontSize: "clamp(1rem, 2vw, 1.35rem)",
-          fontWeight: 500,
-          color: "var(--rp-c-text-2)",
           margin: "0 0 0.75rem",
           lineHeight: 1.5,
         }}
@@ -85,7 +74,8 @@ export function HomeHero() {
           maxWidth: "640px",
         }}
       >
-        tsdevstack is an open-source framework you install. It generates production code and infrastructure you own.
+        tsdevstack is an open-source full-stack framework you install. It
+        generates production code and infrastructure you own.
       </p>
       <div
         style={{
@@ -145,7 +135,7 @@ export function HomeHero() {
         }}
       >
         <a
-          href="/getting-started/quick-start"
+          href="/docs/getting-started/quick-start"
           style={{
             display: "inline-block",
             padding: "0.75rem 2rem",
@@ -161,7 +151,7 @@ export function HomeHero() {
           Get Started
         </a>
         <a
-          href="/introduction/what-is-tsdevstack"
+          href="/docs/introduction/what-is-tsdevstack"
           style={{
             display: "inline-block",
             padding: "0.75rem 2rem",
