@@ -6,6 +6,9 @@ const OG_IMAGE = `${SITE_URL}/favicon-180.png`;
 
 export default defineConfig({
   root: "content",
+  route: {
+    cleanUrls: true,
+  },
   globalStyles: path.join(__dirname, "global-styles.css"),
   title: "tsdevstack",
   description:

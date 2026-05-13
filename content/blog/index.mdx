@@ -5,20 +5,46 @@ sidebar: false
 outline: false
 ---
 
+import { BlogPostList } from '../../components/BlogPostList';
+
 # Blog
 
-### [Cloud Run private networking without a VPC Connector](/blog/cloud-run-private-networking-without-a-vpc-connector)
-
-_May 7, 2026_ — Direct VPC Egress + Cloud DNS + Private Google Access gets you internal service-to-service calls on Cloud Run for ~$0.20/month instead of $14-30.
-
-### [MCP annotations are a UX layer, not a security layer](/blog/mcp-annotations-are-a-ux-layer-not-a-security-layer)
-
-_May 5, 2026_ — Tool annotations like `readOnlyHint` are server-declared hints, not enforcement. Treating them as permissions is a category error the spec warns against.
-
-### [Migrating off AWS App Runner before the April 30 deadline](/blog/migrating-off-aws-app-runner-before-the-april-30-deadline)
-
-_April 14, 2026_ — AWS is closing App Runner to new customers on April 30, 2026. Notes from a production Next.js migration to ECS Express Mode.
-
-### [I built a TypeScript framework that generates your entire cloud infrastructure](/blog/i-built-a-typescript-framework-that-generates-your-entire-cloud-infrastructure)
-
-_April 8, 2026_ — tsdevstack generates Terraform, Docker, Kong routes, CI/CD, secrets, and observability across GCP, AWS, and Azure from one TypeScript config.
+<BlogPostList
+  posts={[
+    {
+      slug: 'cloud-run-private-networking-without-a-vpc-connector',
+      title: 'Cloud Run private networking without a VPC Connector',
+      date: 'May 7, 2026',
+      description: 'Direct VPC Egress + Cloud DNS + Private Google Access gets you internal service-to-service calls on Cloud Run for ~$0.20/month instead of $14-30.',
+      cover: '/blog/cloudrun-private-networking.webp',
+    },
+    {
+      slug: 'mcp-annotations-are-a-ux-layer-not-a-security-layer',
+      title: 'MCP annotations are a UX layer, not a security layer',
+      date: 'May 5, 2026',
+      description: 'Tool annotations like readOnlyHint are server-declared hints, not enforcement. Treating them as permissions is a category error the spec warns against.',
+      cover: '/blog/mcp-annotations.webp',
+    },
+    {
+      slug: 'migrating-off-aws-app-runner-before-the-april-30-deadline',
+      title: 'Migrating off AWS App Runner before the April 30 deadline',
+      date: 'April 14, 2026',
+      description: 'AWS is closing App Runner to new customers on April 30, 2026. Notes from a production Next.js migration to ECS Express Mode.',
+      cover: '/blog/migration-aws-app-runner.webp',
+    },
+    {
+      slug: 'i-built-a-typescript-framework-that-generates-your-entire-cloud-infrastructure',
+      title: 'I built a TypeScript framework that generates your entire cloud infrastructure',
+      date: 'April 8, 2026',
+      description: 'tsdevstack generates Terraform, Docker, Kong routes, CI/CD, secrets, and observability across GCP, AWS, and Azure from one TypeScript config.',
+      cover: '/blog/i-built-tsdevstack.webp',
+    },
+    {
+      slug: 'infrastructure-as-framework-a-new-abstraction-for-cloud-deployment',
+      title: 'Infrastructure as Framework: A New Abstraction for Cloud Deployment',
+      date: 'March 4, 2026',
+      description: 'A new abstraction between Infrastructure as Code and PaaS. One TypeScript config that deploys to GCP, AWS, or Azure without rewriting.',
+      cover: '/blog/storm.webp',
+    },
+  ]}
+/>
