@@ -38,7 +38,7 @@ head:
 
 # Cloud Run private networking without a VPC Connector
 
-_Published May 7, 2026 by gyorgy_
+_Published May 7, 2026 by [gyorgy](https://github.com/gyrgy)_
 
 If you Google how to call one Cloud Run service from another over private networking, every result tells you to provision a Serverless VPC Access Connector. It works. It also runs a managed pool of e2-micro instances you pay for whether you use them or not, costs $14 to $30 per month, and is no longer the recommended pattern.
 

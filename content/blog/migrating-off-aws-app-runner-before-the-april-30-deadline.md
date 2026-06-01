@@ -38,7 +38,7 @@ head:
 
 # Migrating off AWS App Runner before the April 30 deadline
 
-_Published April 14, 2026 by gyorgy_
+_Published April 14, 2026 by [gyorgy](https://github.com/gyrgy)_
 
 AWS is shutting the door on App Runner for new customers effective April 30, 2026. If you're running production workloads on it, existing apps keep working for now, but there are no new features coming, and "maintenance mode" at AWS historically means "start planning your migration."
 

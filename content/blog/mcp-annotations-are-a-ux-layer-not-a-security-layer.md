@@ -38,7 +38,7 @@ head:
 
 # MCP annotations are a UX layer, not a security layer
 
-_Published May 5, 2026 by gyorgy_
+_Published May 5, 2026 by [gyorgy](https://github.com/gyrgy)_
 
 When the Model Context Protocol added tool annotations like `readOnlyHint`, `destructiveHint`, and `idempotentHint`, a lot of MCP server authors and host implementers read them as a permission system. The mental model goes something like: a tool declares itself destructive, the host sees that, and the host either prompts the user or refuses outright. Annotations as enforcement, the way file permissions work in a Unix filesystem.
 
