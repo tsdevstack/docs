@@ -304,6 +304,8 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            { text: "v0.3.2", link: "/docs/releases/v0.3.2" },
+            { text: "v0.3.1", link: "/docs/releases/v0.3.1" },
             { text: "v0.3.0", link: "/docs/releases/v0.3.0" },
             { text: "v0.2.8", link: "/docs/releases/v0.2.8" },
             { text: "v0.2.7", link: "/docs/releases/v0.2.7" },
