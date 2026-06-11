@@ -124,7 +124,7 @@ Examples:
 - **shared** - Available to all services (most secrets)
 - **{service-name}** - Service-specific secrets (primarily DATABASE_URL)
 
-When a service requests a secret, tsdevstack checks the service scope first, then falls back to shared.
+When a service requests a secret, tsdevstack checks the shared scope first, then falls back to the service scope. Nearly every runtime secret lives in shared, so this resolves in a single lookup. If the same key exists in both scopes, the shared value wins.
 
 ### Azure Key Vault Naming
 

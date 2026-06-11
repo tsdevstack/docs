@@ -304,6 +304,10 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            {
+              text: "nest-common 0.3.0",
+              link: "/docs/releases/nest-common-0.3.0",
+            },
             { text: "v0.3.2", link: "/docs/releases/v0.3.2" },
             { text: "v0.3.1", link: "/docs/releases/v0.3.1" },
             { text: "v0.3.0", link: "/docs/releases/v0.3.0" },
