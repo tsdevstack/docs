@@ -17,9 +17,6 @@ export default defineConfig({
   head: [
     ["meta", { property: "og:site_name", content: "tsdevstack" }],
     ["meta", { property: "og:image", content: OG_IMAGE }],
-    ["meta", { property: "og:image:width", content: "180" }],
-    ["meta", { property: "og:image:height", content: "180" }],
-    ["meta", { property: "og:image:alt", content: "tsdevstack logo" }],
     ["meta", { name: "twitter:card", content: "summary" }],
     ["meta", { name: "twitter:image", content: OG_IMAGE }],
     ["meta", { name: "twitter:site", content: "@tsdevstack" }],
