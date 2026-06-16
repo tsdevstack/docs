@@ -14,6 +14,8 @@ export default defineConfig({
   description:
     "Full-stack, cloud-native TypeScript framework for production microservices",
   icon: "/favicon.svg",
+  // Emit llms.txt, llms-full.txt, and per-page .md so AI agents can consume the docs.
+  llms: true,
   head: [
     ["meta", { property: "og:site_name", content: "tsdevstack" }],
     ["meta", { property: "og:image", content: OG_IMAGE }],
