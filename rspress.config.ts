@@ -303,6 +303,7 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            { text: "v0.5.0", link: "/docs/releases/v0.5.0" },
             {
               text: "nest-common 0.3.0",
               link: "/docs/releases/nest-common-0.3.0",
