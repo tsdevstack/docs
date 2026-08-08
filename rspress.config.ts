@@ -108,6 +108,10 @@ export default defineConfig({
               link: "/docs/local-development/running-locally",
             },
             { text: "Adding Apps", link: "/docs/local-development/adding-apps" },
+            {
+              text: "Database Migrations",
+              link: "/docs/local-development/database-migrations",
+            },
             { text: "Tech Stack", link: "/docs/local-development/tech-stack" },
             { text: "Debugging", link: "/docs/local-development/debugging" },
           ],

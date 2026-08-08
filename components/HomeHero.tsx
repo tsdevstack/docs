@@ -244,7 +244,9 @@ export function HomeHero() {
 }
 \`\`\`
 
-Then tell me to restart my AI client so it picks up the new MCP server.`}
+7. Install the tsdevstack agent skills for yourself, so framework-specific guidance triggers automatically as you work: from the project root run \`npx --yes skills add tsdevstack/skills -a <AGENT_ID> -y\`, replacing <AGENT_ID> with your agent id (\`claude-code\` for Claude Code, \`cursor\` for Cursor, \`codex\` for Codex).
+
+Then tell me to restart my AI client so it picks up the new MCP server and skills.`}
         />
       </div>
     </div>
