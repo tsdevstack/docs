@@ -51,6 +51,7 @@ This command:
 
 - Generates and pushes framework secrets automatically (JWT keys, API keys, token TTLs, email provider)
 - Prompts you for **3 values**: `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM`. [Resend](https://resend.com) is an email delivery service used for transactional emails (account confirmation, password reset)
+- Auth template projects: asks for `ADMIN_EMAILS` (the first admins, optional) when it has a value in your local `.secrets.user.json`, and pushes it to the auth-service scope. Otherwise it prints the `cloud-secrets:set ADMIN_EMAILS --service auth-service --env <env>` command to run later. See [Managing Users](/docs/authentication/managing-users#the-first-admin)
 - **Includes your custom secrets** from `.secrets.user.json` — prompts you for each one interactively (you can skip any by leaving the value empty)
 - Auto-derives the rest from your domain: `API_URL`, `APP_URL`, `KONG_CORS_ORIGINS`
 - Skips infrastructure secrets (`DATABASE_URL`, `REDIS_*`) — these are synced from Terraform outputs during deployment

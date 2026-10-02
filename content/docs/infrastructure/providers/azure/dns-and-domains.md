@@ -26,6 +26,14 @@ If you need to find the nameservers later:
 4. The **Overview** page shows the **Name server** records (4 values)
 5. Copy all 4 nameservers (e.g., `ns1-03.azure-dns.com`, `ns2-03.azure-dns.net`, etc.)
 
+## Before You Switch: Existing Records
+
+Skip this if your domain has no DNS records yet.
+
+If it already has records at your current DNS provider (for example email sending or verification records), copy them into the Azure DNS zone before you change the nameservers (Portal > **DNS zones** > your domain > **+ Record set**). After the switch, only records in Azure DNS resolve. Terraform leaves records you add by hand alone.
+
+If the domain already pointed somewhere (an earlier deployment, a parking page), delete those old address records at the previous DNS provider after the switch. Some DNS resolvers keep asking the previous provider for a while, and while it still answers with the old addresses, they send part of your traffic there, including server-side calls from your own services.
+
 ## Step 3: Update Domain Registrar
 
 Go to your domain registrar (Namecheap, Cloudflare, GoDaddy, etc.):

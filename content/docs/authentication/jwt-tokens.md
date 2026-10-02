@@ -17,7 +17,8 @@ Short-lived tokens used for API authentication:
 {
   sub: 'user-123',           // User ID
   email: 'user@example.com',
-  role: 'USER',              // User role
+  systemRole: 'USER',        // System role: USER or ADMIN
+  roles: [],                 // Custom roles (see Roles)
   confirmed: true,           // Email confirmation status
   status: 'ACTIVE',          // Account status
   iss: 'auth-service',       // Issuer
@@ -36,13 +37,14 @@ Longer-lived tokens used to obtain new access tokens:
 - **Storage**: SHA-256 hashed before storing in database
 - **Usage**: Exchanged for new access tokens via refresh endpoint
 - **Rotation**: Each refresh issues a new token and invalidates the old one
+- **Fresh claims**: A refresh reads the user from the database again, so changes to roles or confirmation status reach the access token at the next refresh ([Roles](/docs/authentication/roles#when-role-changes-take-effect))
 
 ## Token validation flow
 
 1. Client sends request with `Authorization: Bearer <token>`
 2. Kong validates JWT signature against JWKS endpoint
 3. Kong extracts claims and passes user info to backend
-4. Backend AuthGuard makes user info available via `req.user`
+4. Backend AuthGuard verifies the Kong trust token, then makes user info available via `req.user`
 
 **Note:** JWT validation only happens for routes with `@ApiBearerAuth()`. See [Two-layer authentication](/docs/authentication/protected-routes#two-layer-authentication) for how Kong and AuthGuard work together.
 

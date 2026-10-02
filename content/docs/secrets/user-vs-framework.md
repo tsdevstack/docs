@@ -244,5 +244,8 @@ Even for testing, use the secrets system:
 | Service URLs | Framework | Auto-synced during deploy | `AUTH_SERVICE_URL` |
 | Domain | You | `cloud-secrets:push` prompt | `DOMAIN` |
 | Email config | You | `cloud-secrets:push` prompt | `RESEND_API_KEY`, `EMAIL_FROM` |
+| First admins (auth template) | You | `.secrets.user.json` locally; auth-service scope in the cloud | `ADMIN_EMAILS` |
 | Third-party APIs | You | `.secrets.user.json` | `STRIPE_API_KEY` |
 | External OIDC | You | `.secrets.user.json` | `OIDC_DISCOVERY_URL` |
+
+Partner API keys are not secrets of your project: they are created at runtime through the auth-service admin API and stored hashed in Postgres and Redis, never in secrets files or the cloud secret manager. See [API Keys](/docs/authentication/api-keys).

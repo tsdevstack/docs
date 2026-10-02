@@ -1,14 +1,14 @@
 # Gateway Routing
 
-[Kong Gateway](https://konghq.com/) routes requests to your backend services based on [OpenAPI](https://swagger.io/specification/) specs. Routes are generated from your code, so you rarely need to configure routing manually.
+[Kong Gateway](https://konghq.com/) routes requests to your backend services based on [OpenAPI](https://swagger.io/specification/) specs. Routes are generated from your code, so you rarely need to configure routing manually. The OpenAPI document is the single source of truth: an operation that is not in it is not reachable through the gateway.
 
 ## How routing works
 
 When you run `npx tsdevstack sync`, the framework:
 
 1. Reads OpenAPI specs from each service (`apps/{service}/docs/openapi.json`)
-2. Groups routes by security type (public, JWT, partner) based on decorators
-3. Generates `kong.tsdevstack.yml` with framework routes
+2. Groups operations by security type (public, JWT, partner) based on decorators
+3. Generates `kong.tsdevstack.yml` with one exact route per path (see [Exact routes](#exact-routes))
 4. Merges with `kong.user.yml` (your customizations)
 5. Writes the final `kong.yml` with resolved secrets
 
@@ -42,7 +42,7 @@ Authentication happens at two independent layers:
 | Layer | Decorator | Effect |
 |-------|-----------|--------|
 | **Kong (gateway)** | `@ApiBearerAuth()` | If present, JWT is required at gateway |
-| **AuthGuard (backend)** | `@Public()` | If present, AuthGuard skips validation |
+| **AuthGuard (backend)** | `@Public()` | If present, anonymous callers are allowed |
 
 **Important:** Kong routing is determined by `@ApiBearerAuth()` and `@PartnerApi()`. The `@Public()` decorator only affects the backend AuthGuard, not Kong routing. For fully public endpoints, you need both: omit `@ApiBearerAuth()` (for Kong) AND add `@Public()` (for AuthGuard).
 
@@ -107,38 +107,20 @@ export class OffersController {
 }
 ```
 
-Partner routes are exposed at `/api/{service}/...` prefix:
+Each `@PartnerApi()` path is exposed with an `/api` prefix in front of its OpenAPI path:
 
 ```bash
 curl http://localhost:8000/api/offers/v1/plans \
-  -H "x-api-key: <partner-api-key>"
+  -H "x-api-key: <api-key>"
 ```
 
-### Alternative: NestJS-level API key validation
+Only the paths and methods marked `@PartnerApi()` get a partner route. An endpoint without it is not reachable with an API key at all: `/api/...` for it returns 404 from Kong. Kong removes the `/api` prefix before forwarding (framework plugin `tsdevstack-api-prefix`), so the service receives `/offers/v1/plans`, the path it serves.
 
-The `@PartnerApi()` approach uses Kong for key validation — keys are static, defined in `kong.user.yml`. If you need dynamic key management (database-backed keys, self-service provisioning, per-key permissions), you can handle API key validation at the NestJS level instead:
+If a service's OpenAPI paths do not start with its route prefix, `generate-kong` prints a warning; the partner URL is still `/api` plus the OpenAPI path.
 
-1. Use `@Public()` so Kong passes the request through without auth
-2. Create a custom NestJS guard that reads the `x-api-key` header
-3. Validate against your database (e.g., an `api_keys` table)
+### Where the keys come from
 
-```typescript
-@Get('plans')
-@Public()                    // Kong passes through, no key-auth plugin
-@UseGuards(ApiKeyGuard)      // NestJS validates the key
-@Version('1')
-async getPlans() {}
-```
-
-**Trade-offs:**
-
-| | Kong (`@PartnerApi()`) | NestJS (custom guard) |
-|---|---|---|
-| Key management | Static in `kong.user.yml` | Dynamic via database |
-| Invalid key cost | Rejected at gateway | Hits backend first |
-| Rate limiting | Built-in per consumer | Implement yourself |
-| Key rotation | Edit config, rebuild Kong | Database update, instant |
-| Best for | Small, fixed partner set | Self-service API portals |
+Partner keys are runtime data, not config: admins create, limit, rotate and revoke them through the auth-service admin API, and the gateway checks each key against Redis on every request. Changes apply on the next request, without regenerating or redeploying the gateway. Requests with a missing, unknown, revoked or expired key get 401 from Kong, over-limit requests 429, and none of them reach your service. See [API Keys](/docs/authentication/api-keys).
 
 ### Dual-access routes
 
@@ -155,6 +137,33 @@ async getData() {}
 Creates two Kong routes:
 - `/service/v1/data` (JWT via Authorization header)
 - `/api/service/v1/data` (API key via x-api-key header)
+
+## Exact routes
+
+Every generated route (public, JWT and partner) matches exactly what your OpenAPI document declares, and nothing else:
+
+- **Path:** an anchored regex. `/offers/v1/plans` matches only `/offers/v1/plans`, not `/offers/v1/plans/anything/extra`.
+- **Path parameters:** `{id}` in the OpenAPI path matches exactly one non-empty segment.
+- **Literal beats parameter:** when `/plans/featured` and `/plans/{id}` both exist, a request to `/plans/featured` goes to the literal route. Routes with more literal segments win.
+- **Methods:** only the methods the OpenAPI document lists for that path, plus `OPTIONS` so the gateway's CORS plugin can answer browser preflights. `HEAD` is not added to `GET` routes.
+- **One route per path:** all methods of a path share one route, named `{service}-{public|jwt|partner}-{path}` (for example `offers-service-jwt-offers-v1-user-assign-plan`).
+
+Anything else gets **404 from Kong** (`no Route matched with those values`) before it reaches your service:
+
+| Request | Result |
+|---------|--------|
+| A path that is not in the OpenAPI document | 404 |
+| Extra segments (`/offers/v1/plans/1/extra`) | 404 |
+| A trailing slash (`/offers/v1/plans/`) | 404 |
+| A method the path does not declare (`DELETE /offers/v1/plans`) | 404 |
+| An endpoint hidden from OpenAPI (`@ApiExcludeEndpoint()`, `@ApiExcludeController()`) | 404 |
+| Raw Express routes and static files served by a service | 404 |
+
+Hiding endpoints from OpenAPI is fine for things that must not be public anyway (scheduled job endpoints, health checks, metrics). Anything that should be callable through the gateway must be in the OpenAPI document.
+
+:::warning Wildcard and optional routes
+NestJS wildcard routes (`@Get('files/*splat')`) and optional segments (`@Get('items{/:id}')`) appear in the OpenAPI document as a single-segment parameter or as one of the variants. Kong then routes only that: one segment for the wildcard, one variant for the optional route. Declare the variants you need as separate routes.
+:::
 
 ## Versioned routes
 
@@ -201,11 +210,12 @@ services:
 
 ### Route returns 404
 
-If Kong returns 404 for a route that should exist:
+If Kong returns 404 (`no Route matched with those values`) for a route that should exist:
 
-1. Run `npx tsdevstack sync` to regenerate configs and restart containers
-2. Check the route is in `kong.yml`
-3. Check the OpenAPI spec was generated: `apps/{service}/docs/openapi.json`
+1. Check the request against the [exact route rules](#exact-routes): no trailing slash, no extra segments, and a method the endpoint declares
+2. Check the operation is in the OpenAPI spec: `apps/{service}/docs/openapi.json` (not hidden with `@ApiExcludeEndpoint()`)
+3. For partner requests (`/api/...`), check the handler has `@PartnerApi()`
+4. Run `npx tsdevstack sync` to regenerate configs and restart containers, then check the route is in `kong.yml`
 
 ### Route returns 502
 
@@ -218,7 +228,7 @@ Kong can reach the route but the service isn't responding:
 
 If authenticated routes return 401 even with a valid token:
 
-1. Check the JWKS endpoint is accessible: `curl http://localhost:8000/auth/v1/auth/.well-known/jwks.json`
+1. Check the JWKS endpoint is accessible: `curl http://localhost:8000/auth/.well-known/jwks.json`
 2. Verify the token hasn't expired
 
 ### Routes not updating

@@ -1,6 +1,6 @@
 ---
 title: 'Migrating off AWS App Runner before the April 30 deadline'
-description: 'AWS is closing App Runner to new customers on April 30, 2026. Notes from a production Next.js migration to ECS Express Mode.'
+description: 'AWS is closing App Runner to new customers on April 30, 2026. Notes from a production Next.js migration to standard ECS Fargate, and why I skipped Express Mode.'
 date: '2026-04-14'
 sidebar: false
 outline: false
@@ -13,7 +13,7 @@ head:
       content: 'Migrating off AWS App Runner before the April 30 deadline'
   - - meta
     - property: 'og:description'
-      content: 'AWS is closing App Runner to new customers on April 30, 2026. Notes from a production Next.js migration to ECS Express Mode.'
+      content: 'AWS is closing App Runner to new customers on April 30, 2026. Notes from a production Next.js migration to standard ECS Fargate, and why I skipped Express Mode.'
   - - meta
     - property: 'og:image'
       content: 'https://tsdevstack.dev/blog/migration-aws-app-runner.webp'
@@ -126,6 +126,8 @@ If I were starting fresh with a brand new single service and no existing infrast
 I build a multi-cloud TypeScript framework called [tsdevstack](https://tsdevstack.dev) that generates production infrastructure from a config file. The App Runner to ECS Fargate migration above is what shipped in v0.2.0. Framework users who were deploying Next.js frontends via App Runner can now re-run `infra:deploy` and the framework handles the migration automatically.
 
 One thing worth mentioning given the scale-to-zero discussion above: tsdevstack implements scale-to-zero on AWS for services that set `minInstances: 0` in config. Since ECS Fargate doesn't have native scale-to-zero, the framework generates a three-layer mechanism: a CloudWatch alarm scales the service to zero when idle (CPU below 5% for 15 minutes), and a wake-up Lambda spins it back up when the first request hits the ALB and returns 502. Kong catches the 502, fires the wake-up call, and returns a 503 with `Retry-After: 30` so the client retries automatically. Cold start is around 30-60 seconds, which is significant compared to Cloud Run or Container Apps, but it's real scale-to-zero on AWS and it works. Kong itself stays at `minInstances >= 1` so there's always something to trigger the wake-up.
+
+> **Update (v0.8.0):** I retired scale-to-zero on AWS to keep the setup simple. Waking a sleeping service on ECS took extra moving parts and was not reliable enough. Every ECS service now keeps at least one task running, and `minInstances: 0` is rejected on AWS, so development environments there cost more. Scale-to-zero stays available on GCP and Azure, where the platform does it natively. The rest of this post stands as written.
 
 If you're tired of writing Terraform by hand for every AWS migration AWS forces on you, take a look. [Docs here](https://tsdevstack.dev), repo at [github.com/tsdevstack](https://github.com/tsdevstack).
 

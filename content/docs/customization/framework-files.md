@@ -110,7 +110,7 @@ Framework files (`*.tsdevstack.*`) regenerate in these situations:
 | Trigger | What regenerates |
 |---------|------------------|
 | `npx tsdevstack generate-secrets` | `.secrets.tsdevstack.json` (critical values preserved) |
-| `npx tsdevstack generate-kong` | `kong.tsdevstack.yml` |
+| `npx tsdevstack generate-kong` | `kong.tsdevstack.yml`, and the gateway image files in `infrastructure/kong/` (`Dockerfile`, `.dockerignore`, `kong-plugins/`, `declarative/`) |
 | `npx tsdevstack sync` | All framework files |
 | Adding a new service | Affected framework files |
 | Changing API decorators | `kong.tsdevstack.yml` |
@@ -133,9 +133,12 @@ kong.user.yml
 
 ```bash
 # Wrong: these will be overwritten
-kong.tsdevstack.yml       # Lost on next generate
-.secrets.tsdevstack.json  # Lost on next generate
+kong.tsdevstack.yml             # Lost on next generate
+.secrets.tsdevstack.json        # Lost on next generate
+infrastructure/kong/Dockerfile  # Lost on next generate-kong
 ```
+
+The gateway image is generated too. Custom Kong plugins go in `kong-plugins/` at the project root, which is yours and never touched by the framework. See [Kong Plugins](/docs/customization/kong-plugins).
 
 ### Do not: Edit merged output
 
@@ -152,10 +155,12 @@ kong.yml             # Lost on next generate
 - `kong.user.yml` - your Kong customizations (no secrets)
 - `kong.tsdevstack.yml` - framework Kong routes (no secrets)
 - `docker-compose.user.yml` - your Docker additions
+- `kong-plugins/` - your custom Kong plugins (CI builds the cloud gateway image from it)
 
 **Files you should NOT commit:**
 
 - `kong.yml` - merged output with resolved placeholder values
+- `infrastructure/kong/kong-plugins/` and `infrastructure/kong/declarative/` - generated build context (gitignored in new projects)
 - `.secrets.*.json` - all secret files (contains credentials)
 - `.env` - generated environment variables
 

@@ -2,7 +2,7 @@
 
 tsdevstack on AWS uses [ECS Fargate](https://aws.amazon.com/fargate/) for all containerized services (backends, Next.js frontends, workers), [RDS](https://aws.amazon.com/rds/) PostgreSQL for databases, and [ElastiCache](https://aws.amazon.com/elasticache/) for Redis. [CloudFront](https://aws.amazon.com/cloudfront/) provides CDN and edge caching, with [AWS WAF](https://aws.amazon.com/waf/) for security.
 
-The AWS architecture is more complex than GCP due to the scale-to-zero mechanism — Kong uses upstream failover to a Lambda function that wakes ECS services when they've scaled to zero. The architecture uses ~45 Terraform resources.
+Backend services run in private subnets and are reachable only inside the VPC: Kong calls them directly through Cloud Map service discovery, the same private model as on GCP and Azure. Fargate has no scale-to-zero, so every service keeps at least one task running. The architecture uses ~45 Terraform resources.
 
 :::info Cost
 tsdevstack is free and open source — there are no license fees. You only pay Amazon directly for the cloud resources. See [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation) for a full breakdown by scenario.
@@ -13,8 +13,8 @@ tsdevstack is free and open source — there are no license fees. You only pay A
 - **Compute:** ECS Fargate for all services (backends, Next.js, Kong, workers)
 - **Data:** RDS PostgreSQL + ElastiCache Redis
 - **Edge:** CloudFront + ALB + AWS WAF
-- **Scale-to-zero:** Kong upstream failover + Lambda wake-up (more complex than GCP)
-- **Networking:** VPC with public/private subnets, NAT Gateway, Cloud Map for service discovery
+- **Scaling:** CPU-based auto-scaling between `minInstances` (at least 1) and `maxInstances`; no scale-to-zero
+- **Networking:** VPC with public/private subnets, NAT Gateway, Cloud Map for service discovery (Kong to services, and service to service)
 - **Secrets:** Secrets Manager with ECS container injection
 
 ## Getting Started

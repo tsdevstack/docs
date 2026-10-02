@@ -19,7 +19,7 @@ Azure subscriptions do not have all resource providers enabled by default. You m
 ### How to Register
 
 1. Go to the [Azure Portal](https://portal.azure.com)
-2. Search for **"Subscriptions"** and click on your subscription
+2. Search for **"Subscriptions"** and click on your subscription. If you have more than one, check the Subscription ID: it must be the one in your credentials file, otherwise the providers get registered in the wrong place
 3. In the left sidebar under **Settings**, click **Resource providers**
 4. For each provider listed below:
    - Type the provider name in the **search box**
@@ -78,6 +78,24 @@ The default SKU is `B1`. If you override it to an S-series SKU in `infrastructur
 5. Submit and wait for approval (usually 1-4 hours, often minutes)
 
 If the self-service option is not available, create a support request: **Help + support** > **+ Create a support request** > Issue type: "Service and subscription limits (quotas)" > Quota type: "App Service"
+
+## Azure Managed Redis Access
+
+The framework runs Redis on Azure Managed Redis (default size `Balanced_B0`, set with `redis.tier` in `infrastructure.json`). Azure doesn't let every subscription create it. New pay-as-you-go subscriptions in particular can be blocked in a region until you ask, whatever size you pick. The deploy then fails with:
+
+```
+Creation of Azure Managed Redis with the SKU Balanced_B0 is not supported for your subscription in East US 2.
+Please choose a different SKU or region. If you need access to this SKU, please contact support.
+```
+
+There is no API to check this ahead of time, so on a new subscription request access before your first deploy:
+
+1. **Help + support** > **+ Create a support request**
+2. Issue type: "Service and subscription limits (quotas)"
+3. Pick the Redis quota type the form offers (Azure Managed Redis or Azure Cache for Redis)
+4. Ask for Azure Managed Redis with the size you'll use (`Balanced_B0` by default) in your deployment region. If a deploy already failed, add the CorrelationID from the error.
+
+Everything else in a deploy is created before it stops at Redis, so once access is granted, run `infra:deploy` again and it continues where it left off.
 
 ## Step 1: Create App Registration
 
@@ -225,3 +243,12 @@ Run `npx tsdevstack cloud:init --azure` to create it.
 ### "Credentials file not found"
 
 Ensure the file exists at `.tsdevstack/.credentials.azure.json`.
+
+### "ServerNameAlreadyExists" on the PostgreSQL server
+
+PostgreSQL Flexible Server names are global DNS names, and the default `{project}-{env}-postgres` is already taken somewhere in Azure (another project with the same name, or a server left in a subscription you deleted). Set a different name for that environment with `database.serverName` in `.tsdevstack/infrastructure.json`, then deploy again. See [Custom server name (Azure)](/docs/infrastructure/service-configuration#custom-server-name-azure).
+
+### "Creation of Azure Managed Redis with the SKU ... is not supported for your subscription"
+
+Your subscription isn't allowed to create Azure Managed Redis in that region yet. Request access through a support request, see [Azure Managed Redis Access](#azure-managed-redis-access). Choosing a bigger size doesn't help: the block usually applies to the product, not to one size.
+

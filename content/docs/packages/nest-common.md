@@ -94,17 +94,12 @@ Features:
 
 ## Authentication
 
-`AuthModule` provides gateway-integrated authentication. Kong validates tokens at the gateway level, and `AuthGuard` extracts user identity from Kong headers.
+`AuthModule` provides gateway-integrated authentication. Kong validates tokens at the gateway level, and `AuthGuard` (registered globally with `APP_GUARD` in every generated service) verifies that the request came through Kong, then reads the identity Kong set.
 
 ```typescript
-import { Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import {
-  AuthGuard,
-  Public,
-  PartnerApi,
-  Partner,
-} from '@tsdevstack/nest-common';
+import { Public, PartnerApi, Partner, Roles } from '@tsdevstack/nest-common';
 import type { AuthenticatedRequest } from '@tsdevstack/nest-common';
 
 @Controller('offers')
@@ -112,10 +107,15 @@ export class OffersController {
   // JWT-protected endpoint
   @Get('mine')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard)
   async getMyOffers(@Req() req: AuthenticatedRequest) {
     const userId = req.user.id; // from JWT sub claim
   }
+
+  // Admins only (system or custom roles)
+  @Get('all')
+  @ApiBearerAuth()
+  @Roles('ADMIN')
+  async getAllOffers() {}
 
   // Dual access: JWT for users, API key for partners
   @Get('export')
@@ -126,7 +126,7 @@ export class OffersController {
     @Partner() partner?: string,
   ) {
     if (partner) {
-      // API key call — partner is the consumer username
+      // API key call: partner is the key's consumer name
     } else {
       // JWT call — use req.user
     }
@@ -143,27 +143,51 @@ export class OffersController {
 
 | Decorator | Effect |
 |-----------|--------|
-| `@Public()` | Skip authentication for this endpoint |
-| `@PartnerApi()` | Enable API key access under `/api/` prefix. Can combine with `@ApiBearerAuth()` for dual access |
-| `@Partner()` | Parameter decorator — extracts partner name from API key auth |
+| `@Public()` | Allow anonymous callers on this endpoint |
+| `@PartnerApi()` | Enable API key access under `/api/` prefix. Can combine with `@ApiBearerAuth()` for dual access. Partner keys get 403 on handlers without it |
+| `@Partner()` | Parameter decorator: the consumer name of the partner API key (`req.apiKey.consumer`) |
+| `@ApiKey()` | Parameter decorator: the partner API key that authenticated the request (`{ id, consumer }` from the gateway's `X-Api-Key-Id` and `X-Api-Key-Consumer` headers, never the raw key) |
+| `@Roles(...roles)` | Require at least one of the given system or custom roles (403 otherwise). Applies `RolesGuard`. See [Roles](/docs/authentication/roles) |
+
+`RolesGuard` and `ROLES_KEY` (the metadata key `@Roles()` sets) are exported for custom decorators.
+
+Requests are classified trust first: identity headers only count when the Kong trust token (`X-Kong-Trust`) is valid. Without it, the caller is an internal service with the service `API_KEY`, an anonymous caller on a `@Public()` handler, or rejected with 401. Details in [Protected Routes](/docs/authentication/protected-routes#trust-first).
 
 ### Types
 
 ```typescript
-import type { KongUser, AuthenticatedRequest } from '@tsdevstack/nest-common';
+import type {
+  KongUser,
+  AuthenticatedRequest,
+  AuthenticatedApiKey,
+  AuthType,
+} from '@tsdevstack/nest-common';
 
-// KongUser — user identity from JWT
+// KongUser: user identity from the JWT (X-Userinfo)
 interface KongUser {
-  id: string;
+  id: string;   // sub claim; systemRole, roles, email, ... as further keys
   [key: string]: string | string[] | number | boolean | undefined;
+}
+
+type AuthType = 'user' | 'apiKey' | 'service';
+
+// AuthenticatedApiKey: the partner key that authenticated the request
+interface AuthenticatedApiKey {
+  id: string;
+  consumer: string;
 }
 
 // AuthenticatedRequest — Express request with auth data
 interface AuthenticatedRequest extends Request {
-  user?: KongUser;    // JWT authentication
-  service?: string;   // API key authentication
+  authType?: AuthType;           // undefined for anonymous public calls
+  user?: KongUser;               // authType 'user'
+  apiKey?: AuthenticatedApiKey;  // authType 'apiKey'
+  service?: string;              // calling service, or 'partner' for API keys
+  viaGateway?: boolean;          // true when the Kong trust token was valid
 }
 ```
+
+`KongHeaders` lists the header names `AuthGuard` reads. The `X-JWT-Claim-*` headers are no longer read, and `KongHeaders.JWT_CLAIM_PREFIX` was removed; read claims from `req.user` instead.
 
 For deeper coverage, see [Authentication Overview](/docs/authentication/overview).
 
@@ -242,6 +266,10 @@ export class CacheService {
 | `incr(key)` | `Promise<number \| null>` | Increment counter |
 | `expire(key, seconds)` | `Promise<boolean>` | Set key expiration |
 | `getClient()` | `Redis` | Get underlying [ioredis](https://github.com/redis/ioredis) client |
+| `isReady()` | `boolean` | Whether the connection can run commands right now |
+| `onReady(listener)` | `() => void` | Call `listener` every time the connection becomes ready (after startup and after each reconnect); returns an unsubscribe function |
+
+`onReady` is useful for rebuilding data that a Redis restart wiped. A listener added after the first connect is not called for it, so check `isReady()` when you subscribe if the current state matters.
 
 ### Configuration
 
@@ -254,7 +282,34 @@ Reads from secrets automatically:
 | `REDIS_PASSWORD` | — | Redis password |
 | `REDIS_TLS` | — | Enable TLS (for AWS ElastiCache) |
 
-Connection: 3 retries with exponential backoff, 10s connect timeout, 30s keep-alive.
+Connection: 10s connect timeout, 30s keep-alive. After a lost connection the client reconnects forever, with exponential backoff capped at 5 seconds, so a Redis restart or failover of any length is survived without restarting the service. While disconnected, commands fail immediately instead of queueing; `get` returns `null` and the rate limit guards fail open.
+
+## API key index
+
+The gateway checks partner API keys against records in Redis. The auth-service template writes them; projects that manage keys with their own tooling can use the same contract from code instead of re-implementing it:
+
+```typescript
+import {
+  hashApiKey,
+  buildApiKeyRecordKey,
+  encodeApiKeyRecord,
+  getApiKeyRecordExpireAt,
+  API_KEY_INDEX_MARKER_KEY,
+} from '@tsdevstack/nest-common';
+import type { ApiKeyRecord } from '@tsdevstack/nest-common';
+```
+
+| Export | Purpose |
+|--------|---------|
+| `hashApiKey(rawKey)` | SHA-256 hex of the key, as the gateway computes it |
+| `buildApiKeyRecordKey(hash)`, `buildApiKeyCounterKey(hash, window, now)`, `buildApiKeyLastUsedKey(hash)` | Redis key names (`apikey:{<hash>}:...`) |
+| `encodeApiKeyRecord(record)`, `decodeApiKeyRecord(json)`, `validateApiKeyRecord(value)` | Serialize, parse and check a record against the contract |
+| `getApiKeyRecordExpireAt(record, now)` | The Redis expiry of a record (epoch seconds, or `null` for none) |
+| `getApiKeyWindowStart`, `getApiKeyWindowEnd`, `getApiKeyWindowId`, `getApiKeyCounterExpireAt` | UTC limit windows (minute, hour, day, ISO week, month) |
+| `ApiKeyRecord`, `ApiKeyRecordLimits`, `ApiKeyRecordStatus`, `ApiKeyRecordValidation`, `ApiKeyWindow` | Types |
+| `API_KEY_*` constants | Redis prefix, marker and lock names, record versions, windows, statuses, TTLs, identifier pattern, limit maximum |
+
+The record format, key names and TTL rules are a public, versioned contract, documented in [API Keys](/docs/authentication/api-keys#managing-keys-without-the-auth-service).
 
 ## Background jobs
 
@@ -381,10 +436,16 @@ export class ApiController {
 |--------|------|---------|-------------|
 | `windowMs` | `number` | `900000` (15 min) | Window size in milliseconds |
 | `maxRequests` | `number` | `100` | Max requests per window |
-| `keyGenerator` | `'ip' \| 'apiKey' \| 'userId' \| 'custom'` | `'ip'` | How to identify clients |
+| `keyGenerator` | `'ip' \| 'apiKey' \| 'userId' \| 'custom'` | `'ip'` | How to identify clients (see below) |
 | `customKeyGenerator` | `(context) => string` | — | Custom key function |
 | `skipIf` | `(context) => boolean` | — | Skip rate limiting conditionally |
 | `message` | `string` | — | Custom error message |
+
+Key generators:
+
+- `ip`: the client IP. That is `X-Real-IP` (set by Kong) only for requests that passed the Kong trust check; for anything else, such as direct calls to the service, the socket address. `X-Forwarded-For` is never read, because clients control its first entry.
+- `userId`: the logged-in user's id. Partner API key requests on dual-access endpoints are limited per key id instead. Anything else gets 401.
+- `apiKey`: partner key requests per key id, internal service calls per (hashed) service key, everyone else per IP.
 
 Fail-open: if Redis is unavailable, requests are allowed through.
 
@@ -724,13 +785,13 @@ The health system is included in `ObservabilityModule`. It exposes two endpoints
 }
 ```
 
-Status values: `ok`, `degraded`, `down`.
+Status values: `ok`, `degraded`, `down`. When Redis is disconnected, the Redis check reports `down` and the overall status is `degraded`; the endpoint still answers HTTP 200, so the service is not restarted over a Redis outage, but monitoring that reads the body will see it.
 
 ### Health indicators
 
 | Indicator | What it checks |
 |-----------|---------------|
-| Redis | Can the service reach Redis? |
+| Redis | Is the connection ready and does Redis answer `PING` within 2 seconds? |
 | Memory | Is heap usage below the threshold? (default: 90%) |
 
 Health and metrics endpoints are `@Public()` and excluded from API docs. They bypass Kong's trust header so load balancers and monitoring systems can access them directly.

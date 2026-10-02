@@ -12,7 +12,7 @@ The `.tsdevstack/infrastructure.json` file lets you override default settings pe
   "version": "1.0.0",
   "dev": {
     "auth-service": {
-      "minInstances": 0,
+      "minInstances": 1,
       "maxInstances": 5
     }
   },
@@ -66,10 +66,10 @@ If autocomplete isn't working, ensure the `infrastructure.schema.json` file exis
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `minInstances` | `0` | Minimum running instances (0 = scale to zero) |
-| `maxInstances` | `10` | Maximum instances for auto-scaling |
-| `cpu` | `"1"` | CPU allocation (valid values vary by provider — see below) |
-| `memory` | `"512Mi"` | Memory allocation (valid values vary by provider — see below) |
+| `minInstances` | `1` (GCP, AWS), `0` (Azure) | Minimum running instances (`0` = scale to zero, GCP and Azure only) |
+| `maxInstances` | `10` (GCP, AWS), `5` (Azure) | Maximum instances for auto-scaling |
+| `cpu` | `"1"` (GCP), `"0.5"` (AWS, Azure) | CPU allocation (valid values vary by provider, see below) |
+| `memory` | `"512Mi"` (GCP), `"1Gi"` (AWS, Azure) | Memory allocation (valid values vary by provider, see below) |
 | `timeout` | `"300s"` | Request timeout (30s-3600s) |
 | `concurrency` | `80` | Max concurrent requests per instance |
 
@@ -83,21 +83,24 @@ Controls the minimum number of instances always running.
 
 | Value | Behavior | Cost | Startup |
 |-------|----------|------|---------|
-| `0` | Scale to zero when idle | Pay only when used | Cold start (see below) |
+| `0` | Scale to zero when idle (GCP and Azure only) | Pay only when used | Cold start (see below) |
 | `1+` | Always-on instances | Continuous cost | No cold start |
 
-Cold start times vary by provider:
+Scale-to-zero is a platform feature of Cloud Run and Container Apps, and cold start times vary:
 
 | Provider | Typical Cold Start |
 |----------|--------------------|
 | GCP (Cloud Run) | ~2-5s |
-| AWS (ECS Fargate) | ~10-30s |
 | Azure (Container Apps) | ~5-15s |
 
+:::warning AWS has no scale-to-zero
+On AWS every ECS service (NestJS services, Next.js frontends, workers and Kong) runs at least one task. `minInstances: 0` fails validation in `infra:generate`, `infra:plan`, `infra:deploy` and `infra:status`, with a hint to set 1 or more. Backend services on AWS are reachable only inside the VPC, so there is no public entry point that could wake a stopped service. See [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation) for what always-on costs.
+:::
+
 **Recommendations:**
-- **Dev**: `0` - Save costs, cold starts are acceptable
+- **Dev on GCP or Azure**: `0` - Save costs, cold starts are acceptable
 - **Prod critical paths**: `1+` - Avoid cold starts for user-facing APIs
-- **Detached workers**: `1+` - Workers must always be running to poll Redis queues. The framework enforces a minimum of 1 instance for workers regardless of what you set
+- **Detached workers**: `1+` - Workers must always be running to poll Redis queues. On GCP and Azure the framework raises `0` to 1 for workers; on AWS it fails validation like any other service
 
 ### maxInstances
 
@@ -105,7 +108,7 @@ Limits how many instances can run during high traffic.
 
 - Higher values handle more concurrent users
 - Each instance costs money while running
-- The container runtime auto-scales based on CPU utilization and request queue
+- The container runtime auto-scales based on CPU utilization and request queue. On AWS, NestJS services, Next.js frontends, workers and Kong scale on CPU (target tracking at 70%) between `minInstances` and `maxInstances`
 
 **Example:** If each instance handles 80 concurrent requests and you expect 800 peak concurrent users, set `maxInstances: 10` minimum.
 
@@ -116,8 +119,8 @@ Limits how many instances can run during high traffic.
 | Value | GCP | AWS | Azure |
 |-------|-----|-----|-------|
 | `"0.25"` | Yes | Yes | Yes |
-| `"0.5"` | Yes | Yes | Yes |
-| `"1"` | Yes (default) | Yes (default) | Yes (default) |
+| `"0.5"` | Yes | Yes (default) | Yes (default) |
+| `"1"` | Yes (default) | Yes | Yes |
 | `"2"` | Yes | Yes | Yes |
 | `"4"` | Yes | Yes | Yes |
 | `"8"` | Yes | — | — |
@@ -127,9 +130,9 @@ Limits how many instances can run during high traffic.
 | Value | GCP | AWS | Azure |
 |-------|-----|-----|-------|
 | `"256Mi"` | Yes | — | — |
-| `"512Mi"` | Yes (default) | Yes (default) | — |
-| `"0.5Gi"` | Yes | — | Yes (default) |
-| `"1Gi"` | Yes | Yes | Yes |
+| `"512Mi"` | Yes (default) | Yes | — |
+| `"0.5Gi"` | Yes | — | Yes |
+| `"1Gi"` | Yes | Yes (default) | Yes (default) |
 | `"2Gi"` | Yes | Yes | Yes |
 | `"4Gi"` | Yes | Yes | Yes |
 | `"8Gi"` | Yes | Yes | — |
@@ -156,12 +159,15 @@ Configure the API gateway separately:
 ```
 
 Kong defaults:
-- `minInstances`: `0`
-- `maxInstances`: `10`
-- `cpu`: `"1"`
-- `memory`: `"1Gi"`
 
-For production, consider `minInstances: 1` to avoid cold starts on the API gateway.
+| Option | GCP | AWS | Azure |
+|--------|-----|-----|-------|
+| `minInstances` | `1` | `1` | `1` |
+| `maxInstances` | `10` | `10` | `5` |
+| `cpu` | `"1"` | `"1"` | `"0.5"` |
+| `memory` | `"1Gi"` | `"2Gi"` | `"1Gi"` |
+
+Keep Kong at `minInstances: 1` or more: every API request goes through it. On AWS, `0` fails validation.
 
 ## Detached Workers
 
@@ -189,9 +195,9 @@ Configure BullMQ worker scaling and resources:
 }
 ```
 
-Workers support the same options as services (`minInstances`, `maxInstances`, `cpu`, `memory`). The framework enforces `minInstances >= 1` because workers must always be running to poll Redis queues — setting `0` will be overridden to `1`.
+Workers support the same options as services (`minInstances`, `maxInstances`, `cpu`, `memory`). The framework enforces `minInstances >= 1` because workers must always be running to poll Redis queues: on GCP and Azure `0` is overridden to `1`, on AWS it fails validation.
 
-On AWS, workers get auto-scaling resources (CPU-based target tracking at 70%). On GCP and Azure, the container runtime handles scaling natively.
+On AWS, workers get auto-scaling resources (CPU-based target tracking at 70%), like services and Kong. On GCP and Azure, the container runtime handles scaling natively.
 
 :::note
 Changing a worker's `maxInstances` affects the database connection pool calculation. After changing scaling config, redeploy all services and workers to rebalance pool sizes.
@@ -221,6 +227,7 @@ Configure managed PostgreSQL:
 | `diskSize` | `10` | Storage in GB (10-1000) |
 | `ha` | `false` | High availability (regional failover) |
 | `backup` | `true` | Automated backups |
+| `serverName` | `{project}-{env}-postgres` | Azure only. PostgreSQL server name, see [Custom server name (Azure)](#custom-server-name-azure) |
 
 **Database tiers by provider:**
 
@@ -242,6 +249,31 @@ Configure managed PostgreSQL:
 - `B_Standard_B2s` - Small production (burstable)
 - `GP_Standard_D2s_v3` - Standard production (general purpose)
 - `GP_Standard_D4s_v3` - High-traffic production (general purpose)
+
+### Custom server name (Azure)
+
+On Azure the PostgreSQL Flexible Server name is a global DNS name (`<name>.postgres.database.azure.com`), so it has to be unique across all of Azure, not only in your subscription. tsdevstack names it `{project}-{env}-postgres`. If someone else already holds that name, the deploy fails with `ServerNameAlreadyExists`. Typical causes: another project uses the same project name, or a server with that name still exists in a subscription you deleted.
+
+Pick a different name for that environment with `serverName`:
+
+```json
+{
+  "version": "1.0.0",
+  "dev": {
+    "database": {
+      "serverName": "myapp-dev-postgres-2"
+    }
+  }
+}
+```
+
+Rules: 3 to 63 characters, lowercase letters, digits and hyphens, no hyphen at the start or the end. Set it per environment; environments without it keep the default name. Your services' connection strings follow on their own, since the deploy builds them from the server address Terraform reports.
+
+The field is Azure only. On GCP and AWS the schema flags it in your editor and `infra:status` reports it as an error.
+
+:::warning
+Set `serverName` before the first deploy of an environment. Changing it on an environment that is already running makes Terraform replace the server: the old server and every database on it are destroyed and a new, empty one is created. If you really need to rename a live server, back up first (`pg_dump`) and check `npx tsdevstack infra:plan` before you deploy.
+:::
 
 ## Redis
 
@@ -328,14 +360,13 @@ When you own multiple domains (e.g., `.com`, `.io`, `.app`), add alternates to `
 
 ## Access Control
 
-Password-protect non-production environments:
+Keep non-production environments out of search engines:
 
 ```json
 {
   "version": "1.0.0",
   "dev": {
     "accessControl": {
-      "protected": true,
       "noIndex": true
     }
   }
@@ -344,24 +375,17 @@ Password-protect non-production environments:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `protected` | - | Must be `true` to enable protection |
-| `cookieTtlHours` | `24` | How long the auth cookie is valid (1-168 hours) |
 | `noIndex` | `false` | Add `X-Robots-Tag: noindex, nofollow` header |
 
-When enabled, users must enter a password (set via `ENV_ACCESS_PASSWORD` secret) before accessing any page. This prevents accidental exposure of dev/staging environments.
-
-:::info
-The `infra:deploy-env-auth` and `infra:remove-env-auth` commands are planned. Access control configuration is currently applied through `infra:deploy`.
+:::warning
+Environment password protection was removed. The `accessControl.protected` and `accessControl.cookieTtlHours` fields are no longer accepted, and a config that still sets them fails validation. Remove them from `infrastructure.json`.
 :::
-
-```bash
-npx tsdevstack infra:deploy-env-auth --env dev
-npx tsdevstack infra:remove-env-auth --env dev
-```
 
 ## Scheduled Jobs
 
 Configure cron-based scheduled jobs in the `scheduledJobs` array. See the [Scheduled Jobs](/docs/features/scheduled-jobs) guide for full configuration, service-side implementation, authentication, and provider architecture.
+
+With the auth template, every environment needs the `sync-api-key-usage` job; `infra:generate` warns and prints the entry when it is missing. See [API Keys](/docs/authentication/api-keys#the-usage-job).
 
 ## WAF Rules
 

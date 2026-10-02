@@ -45,9 +45,9 @@ Authentication works at two independent layers, controlled by different decorato
 | Layer | Decorator | Effect |
 |-------|-----------|--------|
 | **Kong (gateway)** | `@ApiBearerAuth()` | If present, JWT is required at gateway |
-| **AuthGuard (backend)** | `@Public()` | If present, AuthGuard skips validation |
+| **AuthGuard (backend)** | `@Public()` | If present, anonymous callers are allowed |
 
-**Important:** Without `@ApiBearerAuth()`, Kong treats the route as public (no JWT required). But AuthGuard still runs unless you also add `@Public()`.
+**Important:** Without `@ApiBearerAuth()`, Kong treats the route as public (no JWT required). But AuthGuard still rejects anonymous callers unless you also add `@Public()`.
 
 For fully public endpoints (login, signup): use `@Public()` and omit `@ApiBearerAuth()`.
 
@@ -78,6 +78,14 @@ export class UsersController {
 ```
 
 See [Protected Routes](/docs/authentication/protected-routes) for more patterns.
+
+### Roles
+
+Every user has a system role (`USER` or `ADMIN`) and optional custom roles, carried in the token. Restrict endpoints with `@Roles()`; see [Roles](/docs/authentication/roles). How to create the first admin and manage users locally and in the cloud: [Managing Users](/docs/authentication/managing-users).
+
+### API keys
+
+For machine access without a user login, mark endpoints `@PartnerApi()` and issue API keys to named consumers through the auth-service admin API. The gateway checks keys, expiry and per-key limits on every request. See [API Keys](/docs/authentication/api-keys).
 
 ## Security standards
 

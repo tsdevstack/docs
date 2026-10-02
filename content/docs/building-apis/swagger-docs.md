@@ -90,30 +90,26 @@ npm run docs:generate && npm run client:generate
 
 ## Testing Authenticated Endpoints
 
-Protected endpoints display a lock icon in Swagger UI. To test them:
+Swagger UI is served by the service itself, so "Try it out" sends requests straight to the service port, not through Kong. That works for `@Public()` endpoints such as login. Protected endpoints answer **401** there, even with a valid token: services only accept identity that Kong vouched for (see [Protected Routes](/docs/authentication/protected-routes#trust-first)).
 
-### Step 1: Get a Token
+To call protected endpoints, go through the gateway:
 
-Use the login endpoint to authenticate:
+```bash
+# Get a token (through Kong, or with "Try it out" on the login endpoint)
+curl -X POST http://localhost:8000/auth/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "you@example.com", "password": "..." }'
 
-1. Find the `POST /auth/login` endpoint
-2. Click "Try it out"
-3. Enter valid credentials
-4. Click "Execute"
-5. Copy the `access_token` from the response
+# Call a protected endpoint with the accessToken from the response
+curl http://localhost:8000/auth/v1/user/account \
+  -H "Authorization: Bearer <accessToken>"
+```
 
-### Step 2: Authorize
+Protected endpoints still show a lock icon in Swagger UI, which is useful for reading which endpoints need a token.
 
-1. Click the "Authorize" button at the top right of Swagger UI
-2. Paste your token in the "bearer" field
-3. Click "Authorize"
-4. Click "Close"
+## Routing Depends on the OpenAPI Document
 
-### Step 3: Make Requests
-
-All subsequent requests automatically include your JWT token. Protected endpoints will now work correctly.
-
-The authorization persists until you refresh the page or click "Logout" in the authorize dialog.
+The generated `docs/openapi.json` is also what the gateway routes are built from. Every path and method in it gets an exact Kong route; anything missing from it is not reachable through the gateway (404). After adding or changing endpoints, regenerate the document and the gateway config with `npx tsdevstack sync`. See [Gateway Routing](/docs/building-apis/gateway-routing#exact-routes).
 
 ## How Endpoints Are Documented
 

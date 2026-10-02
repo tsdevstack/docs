@@ -90,7 +90,7 @@ WAF rules can be customized via `infrastructure.json` — including custom match
 
 **PostgreSQL Flexible Server:**
 - VNet-integrated (postgres subnet, no public access)
-- Databases created directly by Terraform (no Lambda job like AWS)
+- Databases created directly by Terraform (no separate init task, unlike AWS)
 - Default: `B_Standard_B1ms` (~$14/month, burstable)
 - Migrations run via Container Apps Jobs (in VNet, can reach PostgreSQL)
 

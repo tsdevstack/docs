@@ -23,51 +23,47 @@ A typical tsdevstack project (3 NestJS backends + 1 Next.js frontend) creates th
 | Resource | AWS Service | Default Configuration |
 |----------|------------|----------------------|
 | Kong gateway | ECS Fargate | 1 vCPU, 2 GiB memory, **min 1 instance** (always on) |
-| Backend services (x3) | ECS Fargate | 0.5 vCPU, 1 GiB memory, configurable min instances |
-| Frontend | ECS Fargate | 0.5 vCPU, 1 GiB memory, configurable min instances |
+| Backend services (x3) | ECS Fargate | 0.5 vCPU, 1 GiB memory, **min 1 instance** each (always on) |
+| Frontend | ECS Fargate | 0.5 vCPU, 1 GiB memory, **min 1 instance** (always on) |
 | SPA (react-app) | S3 + CloudFront | Static bucket, no compute |
 | Database | RDS PostgreSQL 16 | `db.t3.micro`, 20 GB disk |
 | Cache | ElastiCache Redis 7 | `cache.t3.micro` |
-| Load Balancer | Application Load Balancer | 4 listeners, target groups |
+| Load Balancer | Application Load Balancer | 2 listeners (HTTP redirect, HTTPS), target groups for Kong and Next.js |
 | CDN | CloudFront | Separate distributions for API, frontend, SPAs |
 | WAF | AWS WAF | Managed + custom rules |
 | Networking | NAT Gateway | 2 NAT Gateways (one per AZ) |
 | Secrets | Secrets Manager | ~10-20 secrets |
 | DNS | Route 53 | 1 hosted zone |
 | Container images | ECR | ~5 repositories |
-| Wake-up | Lambda | Scale-to-zero wake-up function |
+
+AWS has no scale-to-zero: every ECS service runs at least one task, and `minInstances: 0` fails validation. Backend services are reachable only inside the VPC (Kong calls them over Cloud Map), so there is no public entry point that could wake a stopped service.
 
 You can override CPU, memory, instance counts, database tier, Redis tier, and disk size per service in `infrastructure.json`. See [Service Configuration](/docs/infrastructure/service-configuration) for all available options.
 
 ---
 
-## Scenario 1 — Development (Scale-to-Zero)
+## Scenario 1: Development (Always-On, Low Traffic)
 
-Backend services set to `minInstances: 0`. Kong stays on (`minInstances: 1`). **Assumed traffic: ~1,000 requests/day** (testing only).
+All services at the default `minInstances: 1`, the minimum on AWS. **Assumed traffic: ~1,000 requests/day** (testing only).
 
 | Resource | Configuration | How it's calculated | Est. monthly |
 |----------|--------------|---------------------|-------------|
 | Kong (ECS Fargate) | 1 vCPU, 2 GiB, min=1 | 1 task × 730 hrs × ($0.04048/vCPU-hr + $0.004445/GiB-hr × 2) | ~$36 |
-| Backend services ×3 | 0.5 vCPU, 1 GiB, min=0 | Stopped tasks don't incur Fargate charges | ~$0-2 |
+| Backend services ×3 | 0.5 vCPU, 1 GiB, min=1 each | 3 tasks × 730 hrs × ($0.02024 + $0.004445) | ~$54 |
 | Frontend (ECS Fargate) | 0.5 vCPU, 1 GiB, min=1 | 1 task × 730 hrs × $0.024685 | ~$18 |
 | SPA bucket | S3 + CloudFront | Storage + minimal egress | ~$1 |
 | RDS PostgreSQL | db.t3.micro, 20 GB | Instance + storage | ~$22 |
 | ElastiCache Redis | cache.t3.micro | Single node, no replication | ~$12 |
-| ALB | 4 listeners, low traffic | $0.0225/hr base + LCU charges | ~$20 |
+| ALB | 2 listeners, low traffic | $0.0225/hr base + LCU charges (assumed minimal) | ~$20 |
 | CloudFront | 3 distributions, low traffic | Base + transfer + requests | ~$5-10 |
 | NAT Gateway | 2 gateways (one per AZ) | 2 × $0.045/hr × 730 hrs + data processing | ~$66 |
 | WAF | Managed + custom rules | Web ACL + rules + requests | ~$10 |
 | Secrets Manager | ~10 secrets | $0.40/secret/month | ~$4 |
-| Lambda (wake-up) | Minimal invocations | Near-zero at dev scale | ~$0 |
 | DNS, ECR | Minimal | Zone + image storage | ~$1-2 |
-| **Total** | | | **~$195-205** |
+| **Total** | | | **~$250-255** |
 
-:::danger Scale-to-zero on AWS fails requests, it does not delay them
-This is not a slow first request. Kong hits an empty target group, returns **HTTP 503 with a `Retry-After` header to the caller**, and fires a wake-up Lambda that scales all ECS services to `desiredCount=1` and returns immediately without waiting. Every request during the **30-60 second** ECS provisioning window fails with 503. The client is responsible for retrying.
-
-Because the Lambda wakes all services at once but they do not become healthy simultaneously, service-to-service calls can fail while one service is up and another is still starting, leaving multi-service operations partially applied.
-
-This is unlike GCP and Azure, where the platform holds the request during a cold start and the caller sees latency rather than an error. **Do not use `minInstances: 0` on AWS in production.**
+:::info Why development costs this much on AWS
+Earlier versions let backend services scale to zero on AWS, which took the backend line close to $0. That relied on sending Kong's traffic to backends through the public load balancer so that a stopped service could be woken up, and the mechanism failed requests with 503 for 30 to 60 seconds while tasks started. Backends are now private and always on, like on GCP and Azure. It is the honest trade: about $54 more per month for three small backends, in exchange for private networking and no failed requests. For cheap throwaway environments, GCP and Azure scale to zero natively; on AWS, keep development environments small (see below) and tear down ones you don't use with `infra:destroy`.
 :::
 
 :::warning
@@ -78,7 +74,7 @@ The NAT Gateway is the dominant cost on AWS (~$66/month fixed). This is required
 
 ## Scenario 2 — Production (Always-On, Single Instance)
 
-All services set to `minInstances: 1`. **Assumed traffic: ~100,000 requests/day** (3M/month).
+All services at `minInstances: 1`, the same footprint as Scenario 1 with more traffic. **Assumed traffic: ~100,000 requests/day** (3M/month).
 
 | Resource | Configuration | How it's calculated | Est. monthly |
 |----------|--------------|---------------------|-------------|
@@ -88,7 +84,7 @@ All services set to `minInstances: 1`. **Assumed traffic: ~100,000 requests/day*
 | SPA bucket | S3 + CloudFront | Storage + egress | ~$1 |
 | RDS PostgreSQL | db.t3.micro, 20 GB | Instance + storage | ~$22 |
 | ElastiCache Redis | cache.t3.micro | Single node | ~$12 |
-| ALB | 4 listeners, moderate traffic | Base + LCU charges | ~$22-28 |
+| ALB | 2 listeners, moderate traffic | Base + LCU charges | ~$22-28 |
 | CloudFront | 3 distributions, moderate traffic | Transfer + requests | ~$10-15 |
 | NAT Gateway | 2 gateways + data processing | Fixed + traffic-based | ~$68-72 |
 | WAF | Managed + custom rules | $5 + $10 + 3M × $0.60/M | ~$17 |
@@ -112,7 +108,7 @@ Services auto-scale to 3 tasks average. **Assumed traffic: ~10M requests/day** (
 | SPA bucket | S3 + CloudFront | Storage + egress at volume | ~$5-15 |
 | RDS PostgreSQL | db.t3.small or db.t3.medium | Upgraded tier for load | ~$30-60 |
 | ElastiCache Redis | cache.t3.small | Upgraded for load | ~$25 |
-| ALB | 4 listeners, high traffic | Base + higher LCU charges | ~$30-60 |
+| ALB | 2 listeners, high traffic | Base + higher LCU charges | ~$30-60 |
 | NAT Gateway | 2 gateways + high data processing | Fixed + $0.045/GB processed | ~$75-100 |
 | Secrets Manager | — | — | ~$4 |
 | DNS, ECR | — | — | ~$2 |
@@ -139,7 +135,9 @@ Unlike Cloud Run, Fargate bills for allocated task time regardless of how busy t
 
 ## How to Reduce Costs
 
-- **`minInstances: 0` is a development-only trade-off, not a production cost lever.** It saves the backend Fargate lines, but every request during the 30-60s wake-up returns 503 and cross-service calls can fail mid-operation. Only use it in dev, and only if your workflow tolerates failed calls and partially applied multi-service operations. Never in production.
+- **Scale-to-zero is not available on AWS.** Every service keeps at least one task, so the number of services is a direct cost lever: each 0.5 vCPU / 1 GiB service is ~$18/month running 24/7.
+- **Smaller dev tasks**: 0.25 vCPU with 512 MiB (`"cpu": "0.25"`, `"memory": "512Mi"`) is the smallest Fargate size, about half the cost of the default per service
+- **Tear down idle environments**: `npx tsdevstack infra:destroy --env <env>` removes an environment you don't need right now
 - **Use `db.t3.micro`** for development databases — upgrade only when needed
 - **Right-size CPU/memory** — monitor actual usage and lower from defaults
 - **Savings Plans** — 1-year or 3-year Fargate Compute Savings Plans save up to 52%
@@ -153,7 +151,7 @@ Override any default in `.tsdevstack/infrastructure.json`:
     "auth-service": {
       "cpu": "0.5",
       "memory": "1Gi",
-      "minInstances": 0,
+      "minInstances": 1,
       "maxInstances": 3
     }
   },

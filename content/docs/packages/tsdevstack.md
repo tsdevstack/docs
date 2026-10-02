@@ -37,7 +37,7 @@ For the full command reference with syntax, options, and examples, see [CLI Comm
 | `sync` | Regenerate all config (Kong, docker-compose, secrets) |
 | `add-service` | Add a NestJS, Next.js, or SPA service |
 | `remove-service` | Remove a service from the project |
-| `generate-kong` | Regenerate Kong gateway config from OpenAPI specs |
+| `generate-kong` | Regenerate Kong gateway config from OpenAPI specs, and the gateway image files |
 | `generate-secrets` | Regenerate local secrets |
 | `generate-docker-compose` | Regenerate docker-compose.yml |
 | `generate-client` | Generate TypeScript API client from OpenAPI spec |

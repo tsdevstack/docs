@@ -2,7 +2,7 @@
 
 tsdevstack on GCP uses [Cloud Run](https://cloud.google.com/run) for all compute (backends, Kong gateway, Next.js frontends, and workers), with [Cloud SQL](https://cloud.google.com/sql) for PostgreSQL, [Memorystore](https://cloud.google.com/memorystore) for Redis, and a Global HTTPS Load Balancer with [Cloud Armor](https://cloud.google.com/security/products/armor) WAF at the edge.
 
-GCP has the simplest scale-to-zero story — Cloud Run handles it natively with 2-8 second cold starts. No wake-up mechanisms are needed. The architecture uses ~35 Terraform resources.
+Cloud Run scales to zero natively, with 2-8 second cold starts, so `minInstances: 0` is a real option for development environments. (Azure supports it too; AWS does not.) The architecture uses ~35 Terraform resources.
 
 :::info Cost
 tsdevstack is free and open source — there are no license fees. You only pay Google directly for the cloud resources. See [GCP Cost Estimation](/docs/infrastructure/providers/gcp/cost-estimation) for a full breakdown by scenario.
@@ -13,7 +13,7 @@ tsdevstack is free and open source — there are no license fees. You only pay G
 - **Compute:** Cloud Run for all services (serverless containers)
 - **Data:** Cloud SQL PostgreSQL + Memorystore Redis
 - **Edge:** Global HTTPS Load Balancer + Cloud Armor WAF
-- **Scale-to-zero:** Native Cloud Run (simplest of all 3 providers)
+- **Scale-to-zero:** Native Cloud Run (`minInstances: 0`)
 - **Networking:** VPC with Private Google Access + Direct VPC Egress
 - **Secrets:** Secret Manager with native environment variable mount
 

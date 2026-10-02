@@ -196,6 +196,8 @@ You write the `infrastructure.json` directly for cloud-specific settings (domain
 }
 ```
 
+> **Update (v0.8.0):** `minInstances: 0` (scale-to-zero) now works on GCP and Azure only. AWS dropped it: backends there are private and reached over Cloud Map, and every ECS service keeps at least one task, so the example above needs `minInstances: 1` on AWS.
+
 When you run `npx tsdevstack infra:deploy`, it generates Terraform for your chosen provider and applies it. The framework owns the Terraform, you don't write it, you don't maintain it.
 
 The escape hatch is intentional. Custom Kong config? Drop in your own. Need a Terraform resource the framework doesn't generate? Add it as a side file. Need a cloud-native service the framework doesn't wrap? Use the SDK directly. The framework isn't a cage — it's a starting point that handles 95% of cases and gets out of your way for the other 5%.

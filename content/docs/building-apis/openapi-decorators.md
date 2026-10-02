@@ -10,19 +10,21 @@ When you add decorators to your controllers:
 2. **Kong routes** - Gateway configuration generated automatically
 3. **Client generation** - TypeScript clients can be generated from specs
 
+The gateway routes exactly what the OpenAPI document declares: each path with its methods. An endpoint missing from the document (for example hidden with `@ApiExcludeEndpoint()`) gets 404 at the gateway. See [Gateway Routing](/docs/building-apis/gateway-routing#exact-routes).
+
 ## Two-layer authentication
 
 Authentication is enforced at two independent layers. They look related but serve different purposes and are controlled by different decorators:
 
 - **Kong (gateway layer)** — decides whether a valid JWT must be present *before the request reaches your service*. Controlled by `@ApiBearerAuth()`. This is about network-level access.
-- **AuthGuard (backend layer)** — runs inside NestJS on every request and extracts the authenticated user. Controlled by `@Public()` (which opts out). This is about application-level identity.
+- **AuthGuard (backend layer)**: runs inside NestJS on every request, checks that it came through Kong and identifies the caller. Controlled by `@Public()` (which allows anonymous callers). This is about application-level identity.
 
 These two layers exist because Kong handles routing for all services, while AuthGuard runs per-service. They must be configured independently:
 
 | Layer | Decorator | Default behavior | Decorator changes it to |
 |-------|-----------|-----------------|------------------------|
 | **Kong** | `@ApiBearerAuth()` | Route is public (no JWT required) | JWT required at gateway |
-| **AuthGuard** | `@Public()` | Validates JWT and extracts user | Skips validation entirely |
+| **AuthGuard** | `@Public()` | Requires an identified caller (user or internal service) | Anonymous callers allowed |
 
 ### Endpoint type reference
 
@@ -171,7 +173,7 @@ export class AuthController {
 
 ### @PartnerApi
 
-Marks endpoints for Partner API access. These routes are exposed under `/api/` prefix and require an API key instead of JWT.
+Marks endpoints for Partner API access. These routes are exposed under `/api/` prefix and require an API key instead of JWT. Only endpoints with `@PartnerApi()` get a partner route, and a partner key is rejected (403) by any handler without it. Keys are created and managed through the auth-service admin API; see [API Keys](/docs/authentication/api-keys).
 
 ```typescript
 import { PartnerApi } from '@tsdevstack/nest-common';
@@ -196,6 +198,21 @@ async getData() {
   // - /api/service/data with API key (for partners)
 }
 ```
+
+### @Roles
+
+Restricts an endpoint to users holding one of the listed system or custom roles (403 otherwise). It is not an OpenAPI decorator and does not change routing; combine it with `@ApiBearerAuth()`.
+
+```typescript
+import { Roles } from '@tsdevstack/nest-common';
+
+@Get('reports')
+@ApiBearerAuth()
+@Roles('ADMIN')
+async reports() {}
+```
+
+See [Roles](/docs/authentication/roles).
 
 ## Example: Auth controller (public endpoints)
 

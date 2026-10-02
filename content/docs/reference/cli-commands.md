@@ -77,7 +77,9 @@ Generate Kong gateway configuration from OpenAPI specs.
 npx tsdevstack generate-kong
 ```
 
-Generates `kong.tsdevstack.yml` with routes derived from your service OpenAPI specifications.
+Generates `kong.tsdevstack.yml` with exact routes derived from your service OpenAPI specifications, merges it with `kong.user.yml` into `kong.yml`, and writes the gateway image build context in `infrastructure/kong/` (generated `Dockerfile`, `.dockerignore`, and a staged copy of the framework plugins and your `kong-plugins/`). Rebuild the gateway afterwards with `docker compose up -d --build gateway`, or use `sync`, which does both. See [Kong Plugins](/docs/customization/kong-plugins).
+
+Partner services get the API key check and the per-IP ceiling (`framework.apiKeys.ipLimitPerMinute` in `.tsdevstack/config.json`); the default key limits are copied from the global `rate-limiting` in `kong.user.yml`. It warns about `consumers` with `keyauth_credentials` in `kong.user.yml`, which no longer work. See [API Keys](/docs/authentication/api-keys).
 
 ### `generate-secrets`
 
@@ -339,6 +341,8 @@ Generate Terraform files.
 npx tsdevstack infra:generate --env <environment>
 ```
 
+With the auth template, it warns when the environment's `scheduledJobs` lack the `sync-api-key-usage` job and prints the entry to add. See [API Keys](/docs/authentication/api-keys#the-usage-job).
+
 ### `infra:plan`
 
 Show planned infrastructure changes.
@@ -401,22 +405,6 @@ Deploy External HTTP(S) Load Balancer for Kong Gateway.
 
 ```bash
 npx tsdevstack infra:deploy-lb --env <environment>
-```
-
-### `infra:deploy-env-auth`
-
-Deploy environment access control (password protection for non-production environments).
-
-```bash
-npx tsdevstack infra:deploy-env-auth --env <environment>
-```
-
-### `infra:remove-env-auth`
-
-Remove environment access control.
-
-```bash
-npx tsdevstack infra:remove-env-auth --env <environment>
 ```
 
 ### `infra:init-ci`
@@ -577,7 +565,7 @@ npx tsdevstack infra:push-docker [service-name] --env <environment>
 
 ### `infra:generate-kong`
 
-Generate Kong configuration for cloud deployment.
+Generate Kong configuration for cloud deployment (`infrastructure/kong/{env}/kong.yml`, with secret placeholders; commit it).
 
 ```bash
 npx tsdevstack infra:generate-kong --env <environment>
@@ -585,7 +573,7 @@ npx tsdevstack infra:generate-kong --env <environment>
 
 ### `infra:build-kong`
 
-Build Kong Docker image.
+Build and push the Kong Docker image for an environment: the same image definition as locally, with the framework plugins, your `kong-plugins/` and the resolved config baked in. Deploy it with `infra:deploy-kong`.
 
 ```bash
 npx tsdevstack infra:build-kong --env <environment>

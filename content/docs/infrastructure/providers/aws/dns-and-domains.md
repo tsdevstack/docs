@@ -29,6 +29,14 @@ ns-789.awsdns-01.org
 
 Copy all 4 nameservers.
 
+## Before You Switch: Existing Records
+
+Skip this if your domain has no DNS records yet.
+
+If it already has records at your current DNS provider (for example email sending or verification records), copy them into the Route 53 zone before you change the nameservers (Route 53 > your hosted zone > **Create record**). After the switch, only records in Route 53 resolve. Terraform leaves records you add by hand alone.
+
+If the domain already pointed somewhere (an earlier deployment, a parking page), delete those old address records at the previous DNS provider after the switch. Some DNS resolvers keep asking the previous provider for a while, and while it still answers with the old addresses, they send part of your traffic there, including server-side calls from your own services.
+
 ## Step 3: Update Domain Registrar
 
 Go to your domain registrar (Namecheap, GoDaddy, Cloudflare, etc.):

@@ -151,12 +151,12 @@ plans: PlanDto[];
 
 ```typescript
 @ApiProperty({
-  description: 'User role',
+  description: 'System role of the user',
   enum: ['USER', 'ADMIN'],
   example: 'USER',
   type: String,
 })
-role: 'USER' | 'ADMIN';
+systemRole: 'USER' | 'ADMIN';
 
 @ApiProperty({
   description: 'Optional notes',

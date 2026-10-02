@@ -140,7 +140,7 @@ At this scale, consider [Azure Reservations](https://azure.microsoft.com/en-us/p
 - **Azure Reservations** — 1-year commitment saves up to 40% on App Service and PostgreSQL
 
 :::warning Azure defaults to scale-to-zero in every environment
-Unlike GCP and AWS, which default to `minInstances: 1`, Azure's service default is `minInstances: 0`. That applies to production too, so unless you set it explicitly your production backend services will scale to zero and every cold request pays the 2-5s startup penalty, plus database connection pool warmup on top.
+Unlike GCP, which defaults to `minInstances: 1`, and AWS, which has no scale-to-zero at all, Azure's service default is `minInstances: 0`. That applies to production too, so unless you set it explicitly your production backend services will scale to zero and every cold request pays the 2-5s startup penalty, plus database connection pool warmup on top.
 
 Set it per environment in `.tsdevstack/infrastructure.json`:
 

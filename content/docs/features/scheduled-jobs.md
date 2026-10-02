@@ -55,6 +55,22 @@ Add jobs to `.tsdevstack/infrastructure.json` under the target environment:
 | `httpTimeout` | No | `300` | Timeout in seconds |
 | `timezone` | No | `UTC` | IANA timezone |
 
+### Auth template: the API key usage job
+
+Projects on the auth template need one job in every cloud environment: `sync-api-key-usage`. It saves API key usage totals to Postgres and rebuilds the key index when Redis lost it.
+
+```json
+{
+  "name": "sync-api-key-usage",
+  "schedule": "*/5 * * * *",
+  "targetService": "auth-service",
+  "endpoint": "/auth/jobs/sync-api-key-usage",
+  "method": "POST"
+}
+```
+
+It is not added for you. `infra:generate` warns for each environment that lacks it and prints the entry to add, with your auth-service prefix. See [API Keys](/docs/authentication/api-keys#the-usage-job) for what it does.
+
 ## Service-side implementation
 
 Job endpoints use `SchedulerGuard` from `@tsdevstack/nest-common` and are excluded from the OpenAPI spec so Kong doesn't expose them publicly:
@@ -100,6 +116,7 @@ Scheduled jobs don't run on a schedule locally. Trigger them manually:
 
 ```bash
 curl -X POST http://localhost:3001/auth/jobs/cleanup-tokens
+curl -X POST http://localhost:3001/auth/jobs/sync-api-key-usage
 ```
 
 The `SchedulerGuard` skips validation in local mode, so no authentication headers are needed.
@@ -130,7 +147,7 @@ Cloud Scheduler makes HTTP requests directly to the Cloud Run service URL with a
 
 ### AWS — EventBridge + Lambda
 
-EventBridge Schedule triggers a Job Invoker Lambda. The Lambda retrieves the job secret from Secrets Manager, wakes the ECS service if needed (scale from zero), then calls the service endpoint via CloudMap DNS.
+EventBridge Schedule triggers a Job Invoker Lambda. The Lambda retrieves the job secret from Secrets Manager, then calls the service endpoint via Cloud Map DNS inside the VPC. Services on AWS always run at least one task, so there is nothing to wake first.
 
 ### Azure — Container App Jobs
 

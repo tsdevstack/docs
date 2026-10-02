@@ -151,6 +151,12 @@ export default defineConfig({
               text: "Session Management",
               link: "/docs/authentication/session-management",
             },
+            { text: "Roles", link: "/docs/authentication/roles" },
+            { text: "API Keys", link: "/docs/authentication/api-keys" },
+            {
+              text: "Managing Users",
+              link: "/docs/authentication/managing-users",
+            },
           ],
         },
         {
@@ -175,6 +181,7 @@ export default defineConfig({
               text: "Kong Customization",
               link: "/docs/customization/kong-customization",
             },
+            { text: "Kong Plugins", link: "/docs/customization/kong-plugins" },
             {
               text: "WAF Customization",
               link: "/docs/customization/waf-customization",
@@ -307,6 +314,7 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            { text: "v0.8.0", link: "/docs/releases/v0.8.0" },
             { text: "v0.7.0", link: "/docs/releases/v0.7.0" },
             { text: "v0.6.1", link: "/docs/releases/v0.6.1" },
             { text: "v0.6.0", link: "/docs/releases/v0.6.0" },

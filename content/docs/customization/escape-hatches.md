@@ -13,7 +13,7 @@ Consider an escape hatch when:
 
 Do not use escape hatches for:
 
-- **Simple additions** - Adding a rate limiter, extra consumer, or new secret works fine with user files
+- **Simple additions** - Adding a rate limiter, another plugin, or a new secret works fine with user files
 - **One-off overrides** - Changing a single default value belongs in your user file
 - **Temporary experiments** - Test changes in user files first; promote to escape hatch only if needed
 
@@ -50,10 +50,13 @@ services:
           claims_to_verify: [exp]
 
 plugins:
+  - name: tsdevstack-strip-identity
   - name: cors
     config:
       origins: ${KONG_CORS_ORIGINS}
 ```
+
+Keep the global `tsdevstack-strip-identity` plugin and the trust header `request-transformer` in a custom config: they are what stops clients from forging identity headers. See [Kong Customization](/docs/customization/kong-customization#escape-hatch-with-kongcustomyml) for the full list.
 
 **Return to framework mode:**
 
@@ -61,6 +64,10 @@ plugins:
 mv kong.custom.yml kong.custom.yml.backup
 npx tsdevstack generate-kong
 ```
+
+### Kong image: kong-plugins/
+
+The gateway's Dockerfile (`infrastructure/kong/Dockerfile`) and its `.dockerignore` are generated and overwritten by `generate-kong`, so they are not an escape hatch. To put your own Lua plugins in the gateway image, add them to the `kong-plugins/` folder at the project root; they are built into the image locally and in the cloud. See [Kong Plugins](/docs/customization/kong-plugins).
 
 ### Docker: docker-compose.user.yml
 
@@ -103,7 +110,7 @@ Bypass the framework's auth service entirely by using an external identity provi
 - No JWT keys are generated
 - Kong validates tokens against your provider's JWKS
 - Your provider handles all authentication flows
-- `kong.user.yml` is generated with commented-out JWT claim headers — uncomment the claims your provider uses (see [Kong Customization](/docs/customization/kong-customization#template-aware-defaults))
+- Kong's OIDC plugin forwards your provider's token claims to services in `X-Userinfo`; client-sent copies of that header are removed at the gateway by `tsdevstack-strip-identity`, so there is nothing to configure for header spoofing
 
 ### Email: Custom provider
 

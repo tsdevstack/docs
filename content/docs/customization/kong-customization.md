@@ -8,28 +8,24 @@ Kong configuration uses a layered file system:
 
 | File | Purpose | Editable |
 |------|---------|----------|
-| `kong.tsdevstack.yml` | Framework-generated routes, consumers, and service-level auth plugins | No (regenerated) |
-| `kong.user.yml` | Your customizations (global plugins, custom services, consumers) | Yes |
+| `kong.tsdevstack.yml` | Framework-generated routes, service-level plugins (OIDC, API key check, per-IP ceiling) and framework global plugins | No (regenerated) |
+| `kong.user.yml` | Your customizations (global plugins, custom services) | Yes |
 | `kong.custom.yml` | Complete override (optional) | Yes |
 | `kong.yml` | Final merged config | No (generated) |
 
 The framework merges `kong.tsdevstack.yml` and `kong.user.yml` to create the final `kong.yml`. The merge is structured per key:
 
 - **Services** — combined from both files (framework routes first, then your custom services)
-- **Consumers** — combined from both files (framework-generated partner consumers first, then yours)
-- **Plugins** — come only from `kong.user.yml` (the framework doesn't generate root-level plugins; auth plugins like oidc and key-auth are attached inside individual service definitions)
+- **Consumers**: taken from `kong.user.yml` as written. The framework generates none, and no generated route authenticates with them (see [Partner API keys](#partner-api-keys))
+- **Plugins**: framework global plugins first (today one: `tsdevstack-strip-identity`), then yours from `kong.user.yml`. Service-level plugins (oidc on JWT routes; the API key check, the per-IP ceiling and `tsdevstack-api-prefix` on partner routes) are attached inside the individual service definitions. Kong allows one global instance per plugin name, so a `kong.user.yml` that declares a framework global plugin fails generation with a hint
 
 ## Customizing with kong.user.yml
 
-Edit `kong.user.yml` to add global plugins, consumers, or custom services. This file is created once and preserved across regenerations.
+Edit `kong.user.yml` to add global plugins or custom services. This file is created once and preserved across regenerations.
 
-### Template-aware defaults
+### The trust header (request-transformer)
 
-The generated `kong.user.yml` differs based on your framework template:
-
-**Auth templates** (`fullstack-auth` or `auth`): The request-transformer plugin includes JWT claim headers (`X-JWT-Claim-Sub`, `X-JWT-Claim-Email`, etc.) in the remove list to prevent header spoofing.
-
-**No auth template** (`template: null` — external OIDC): JWT claim headers are omitted from the remove list but included as commented-out examples:
+The generated `kong.user.yml` starts with a `request-transformer` that proves to your backends that a request came through Kong:
 
 ```yaml
 plugins:
@@ -37,18 +33,20 @@ plugins:
     config:
       remove:
         headers:
-          - X-Consumer-Id
-          - X-Consumer-Username
-          # Add your OIDC provider's JWT claims to prevent header spoofing:
-          # - X-JWT-Claim-Sub
-          # - X-JWT-Claim-Email
-          # - X-JWT-Claim-Role
-          # - X-JWT-Claim-Confirmed
           - X-Kong-Request-Id
           - X-Kong-Trust
+      add:
+        headers:
+          - X-Kong-Trust:${KONG_TRUST_TOKEN}
 ```
 
-Uncomment the claims your OIDC provider uses or add your own. This prevents external clients from spoofing user identity via headers that [Kong](https://konghq.com/) would normally set from the JWT.
+It removes any client-sent `X-Kong-Trust` and adds the real token. Keep it: backends reject identity headers on requests without a valid trust token (see [Protected Routes](/docs/authentication/protected-routes#trust-first)).
+
+Only `X-Kong-Request-Id` and `X-Kong-Trust` belong in its remove list. Client-sent identity headers (`X-Userinfo`, `X-Consumer-*`, `X-Credential-Identifier` and so on) are removed by the framework plugin `tsdevstack-strip-identity`, which runs before authentication. The `request-transformer` runs after authentication, so removing identity headers there deletes the values Kong itself just set; for example removing `X-Api-Key-Consumer` leaves `@Partner()` without a consumer name.
+
+:::warning Upgrading an older kong.user.yml
+Files created by earlier versions list `X-Consumer-Id`, `X-Consumer-Username` and sometimes `X-JWT-Claim-*` headers in that remove list. Delete those entries and keep only `X-Kong-Request-Id` and `X-Kong-Trust`. `generate-kong` and `infra:generate-kong` print a warning while identity headers are still listed.
+:::
 
 ### Global plugins
 
@@ -76,45 +74,15 @@ plugins:
       echo_downstream: true
 ```
 
-### Partner API consumers
+### The global rate limiter and API keys
 
-Add API key authentication for external partners:
+The global `rate-limiting` plugin limits every caller per IP. On partner routes (`/api/...`) it works differently: its `minute`, `hour`, `day` and `month` values become the default limits of every API key, counted per key, and a key's own limits replace them. On those routes a per-IP ceiling (`framework.apiKeys.ipLimitPerMinute` in `.tsdevstack/config.json`, 600 by default) takes its place. Details in [API Keys](/docs/authentication/api-keys#limits).
 
-```yaml
-consumers:
-  - username: acme-corp
-    keyauth_credentials:
-      - key: ${ACME_API_KEY}
-    plugins:
-      - name: rate-limiting
-        config:
-          minute: 500
-          hour: 10000
-```
+### Partner API keys
 
-The `${ACME_API_KEY}` placeholder references a secret. Add the actual key to `.secrets.user.json`:
+Partner keys are not configured here. Admins create, limit, rotate and revoke them at runtime through the auth-service admin API, and the gateway checks them against Redis. See [API Keys](/docs/authentication/api-keys).
 
-```json
-{
-  "secrets": {
-    "ACME_API_KEY": "sk_live_acme_key_here"
-  }
-}
-```
-
-### Key rotation
-
-Support multiple keys during rotation by adding multiple credentials:
-
-```yaml
-consumers:
-  - username: acme-corp
-    keyauth_credentials:
-      - key: ${ACME_API_KEY_NEW}
-      - key: ${ACME_API_KEY_OLD}
-```
-
-Both keys work during the transition period. Remove the old key after the partner migrates.
+Earlier versions defined partners as `consumers` with `keyauth_credentials` in this file. Those keys no longer work on partner routes; `generate-kong` and `infra:generate-kong` warn while such consumers are still listed. Move the partners to API keys ([Migrating from static partner keys](/docs/authentication/api-keys#migrating-from-static-partner-keys)), then delete the consumers and their key secrets.
 
 ### Custom services
 
@@ -161,16 +129,30 @@ services:
         paths: [/api]
 
 plugins:
+  - name: tsdevstack-strip-identity
   - name: cors
     config:
       origins: ${KONG_CORS_ORIGINS}
 ```
+
+In custom mode you own everything the framework would otherwise generate, including the security pieces:
+
+- **`tsdevstack-strip-identity` as a global plugin.** Without it, clients can send forged identity headers (`X-Userinfo`, `X-Consumer-*`) to your backends. `generate-kong` warns when it is missing.
+- **The trust header `request-transformer`** from [above](#the-trust-header-request-transformer), or backends reject identity headers.
+- **`tsdevstack-api-prefix` on partner services** (`config.prefix: /api`) if you publish partner routes at `/api/...` and your services serve the path without `/api`.
+- **`tsdevstack-api-key` on partner services**, with the Redis connection and `default_limits`, plus a service-scoped `rate-limiting` counted per IP as the ceiling. Without the key plugin, partner routes check no key at all. Copy both from a generated `kong.tsdevstack.yml`.
+
+The same `request-transformer` check applies: identity headers in its remove list produce a warning. See [Kong Plugins](/docs/customization/kong-plugins#framework-plugins) for what the framework plugins do.
 
 To return to automatic generation, rename or delete the file:
 
 ```bash
 mv kong.custom.yml kong.custom.yml.backup
 ```
+
+## Custom Lua plugins
+
+Your own Lua plugins go in the `kong-plugins/` folder at the project root and are baked into the gateway image, locally and in the cloud. See [Kong Plugins](/docs/customization/kong-plugins).
 
 ## Applying changes
 
@@ -198,17 +180,7 @@ plugins:
 
 ### Increase rate limits for a partner
 
-```yaml
-consumers:
-  - username: premium-partner
-    keyauth_credentials:
-      - key: ${PREMIUM_API_KEY}
-    plugins:
-      - name: rate-limiting
-        config:
-          minute: 1000
-          hour: 50000
-```
+Raise the limits of the partner's API key through the admin API (`PATCH /auth/v1/admin/api-keys/:id`). It applies on the next request, with no gateway redeploy. See [API Keys](/docs/authentication/api-keys#update-limits-and-expiry).
 
 ### Configure upload size limits
 
@@ -257,10 +229,9 @@ plugins:
 **Changes not taking effect**
 - Run `npx tsdevstack sync` to regenerate and restart
 
-**Consumer not working**
-- Verify the consumer exists in `kong.user.yml`
-- Check that the API key secret exists in `.secrets.user.json`
-- Confirm the final `kong.yml` contains the resolved key
+**API key rejected**
+- Check the `error` code in the response body against the table in [API Keys](/docs/authentication/api-keys#gateway-responses)
+- Keys from `consumers` in `kong.user.yml` no longer work; create the key through the admin API
 
 **Customizations lost after sync**
 - Edit `kong.user.yml`, not `kong.tsdevstack.yml`

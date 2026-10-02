@@ -48,12 +48,12 @@ What gets deployed when you run `infra:deploy` on AWS and how traffic flows thro
 
 All containerized services run on ECS Fargate in private VPC subnets:
 
-- **Backend services (NestJS):** Routed via Kong on the internal ALB listener (port 8443)
-- **Next.js frontends:** Routed via host-based rules on the external ALB listener (port 443)
+- **Backend services (NestJS):** Not behind the load balancer. Kong calls them over Cloud Map inside the VPC
+- **Next.js frontends:** Routed via host-based rules on the ALB listener (port 443)
 - **Kong Gateway:** Catch-all on port 443 for API traffic
 - **Workers:** Background job processors, no load balancer
 - Service discovery via Cloud Map (`{service}.{project}.local`)
-- Auto-scaling based on CPU utilization
+- Auto-scaling based on CPU utilization (target 70%) between `minInstances` and `maxInstances`. Every service, Kong included, runs at least one task: AWS has no scale-to-zero, and `minInstances: 0` fails validation
 
 Next.js services must expose a `/health` route (included in the framework template by default).
 
@@ -102,11 +102,10 @@ For setup and usage, see [Object Storage](/docs/features/object-storage).
 - Sends `X-Origin-Verify` header to prevent origin bypass
 
 **ALB (Application Load Balancer):**
-- 4 listeners:
+- 2 listeners:
   - HTTP:80 > Redirect to HTTPS
   - HTTPS:443 > External traffic (host-based routing: Next.js domains > ECS, catch-all > Kong, validates `X-Origin-Verify`)
-  - HTTPS:8443 > Internal (Kong upstream routing via Host headers)
-  - HTTP:8080 > Internal (Kong OIDC discovery, path-based routing)
+- Target groups for Kong and each Next.js frontend only. Backend services have no target group and no listener: nothing on the internet can reach them without going through Kong
 
 **AWS WAF:**
 - AWS Managed Rules: Common Rule Set, SQLi Rule Set, Known Bad Inputs, IP Reputation List, Anonymous IP List, Linux Rule Set
@@ -140,8 +139,8 @@ VPC: 10.0.0.0/16
 
 | Security Group | Inbound | Outbound | Purpose |
 |---------------|---------|----------|---------|
-| `alb-sg` | 443 from 0.0.0.0/0 | ECS tasks | Load balancer |
-| `ecs-sg` | ALB health checks | All outbound | Service containers |
+| `alb-sg` | 443 and 80 from 0.0.0.0/0 | ECS tasks | Load balancer |
+| `ecs-sg` | 8080 from the ALB and from other ECS tasks | All outbound | Service containers (Kong reaches services here) |
 | `rds-sg` | 5432 from ECS | None | Database access |
 | `redis-sg` | 6379 from ECS | None | Cache access |
 
@@ -151,30 +150,16 @@ AWS uses a dual approach:
 
 | Source > Target | Method | Why |
 |-----------------|--------|-----|
-| Kong > Services | ALB with Host headers (port 8443) | Wake-up mechanism via upstream failover |
+| Kong > Services | Cloud Map DNS (`http://{service}.{project}.local:8080`) | Direct calls inside the VPC; backends stay private |
 | Service > Service | Cloud Map DNS (`{service}.{project}.local`) | Direct calls, no ALB overhead |
 
-## Scale-to-Zero
+`infra:deploy` writes each service's Cloud Map URL to Secrets Manager (`{SERVICE}_URL`), and `infra:build-kong` resolves the Kong config's service URLs from those secrets. Kong also fetches the auth-service's OIDC discovery document and signing keys over Cloud Map.
 
-AWS scale-to-zero is more complex than GCP. Kong uses upstream failover to detect when services are at zero tasks and triggers a wake-up Lambda.
+## No Scale-to-Zero
 
-**How it works:**
-1. Request arrives at Kong
-2. Kong routes to the service via ALB (port 8443)
-3. If the service is at zero tasks, ALB returns 502
-4. Kong's post-function plugin intercepts the 502
-5. Fire-and-forget call to wake-up Lambda
-6. Lambda wakes **ALL** ECS services (not just the requested one)
-7. Kong returns 503 with `Retry-After: 45` to the client
-8. Client retries after 30-60 seconds — services now running
+Fargate cannot hold a request while a stopped task starts, and backends are not reachable from outside the VPC, so there is nothing that could wake a service on demand. Every ECS service runs at least one task; `minInstances: 0` fails validation with a hint. Services scale up and down on CPU between `minInstances` and `maxInstances`.
 
-**Why wake all services?** Services depend on each other. If only one wakes up, its calls to other services would fail.
-
-**Kong must always run** (`minInstances: 1`) — it's the orchestrator that detects unhealthy upstreams and triggers wake-up. Cost: ~$9-15/month.
-
-:::tip
-For production environments with regular traffic, `minInstances: 1` is the safe choice — it avoids the 30-60 second cold start on the first request after scale-down. Scale-to-zero works well for development and staging where occasional cold starts are acceptable.
-:::
+This keeps AWS on the same model as GCP and Azure: private backends, Kong as the only way in. It does cost more in development than scale-to-zero would; see [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation). If you need scale-to-zero for development environments, GCP and Azure support it natively.
 
 ## SPA Deployment
 
@@ -196,7 +181,7 @@ secrets/
 
 ## Cost Estimation
 
-See [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation) for a detailed breakdown across development (scale-to-zero), production (always-on), and scaled scenarios, with links to official AWS pricing pages.
+See [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation) for a detailed breakdown across development, production, and scaled scenarios, with links to official AWS pricing pages.
 
 ## Async Messaging
 
@@ -204,4 +189,4 @@ Async messaging uses Redis Streams on the same ElastiCache instance used for cac
 
 ## Terraform Resources
 
-AWS deployments create approximately 45 Terraform resources including VPC, subnets, NAT gateways, security groups, ALB with target groups, ECS cluster and services, RDS instance, ElastiCache cluster, CloudFront distributions, WAF rules, Lambda functions, CloudWatch alarms, Route 53 records, and IAM roles.
+AWS deployments create approximately 45 Terraform resources including VPC, subnets, NAT gateways, security groups, ALB with target groups, ECS cluster and services, auto-scaling policies, RDS instance, ElastiCache cluster, CloudFront distributions, WAF rules, Route 53 records, and IAM roles. Scheduled jobs add EventBridge schedules and a job invoker Lambda.
