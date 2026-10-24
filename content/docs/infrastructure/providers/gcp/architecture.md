@@ -5,57 +5,72 @@ What gets deployed when you run `infra:deploy` on GCP and how traffic flows thro
 ## High-Level Architecture
 
 ```
-                    Internet
-                        |
-                        v
-          +-----------------------------+
-          | Google Cloud Load Balancer  |
-          | (TLS termination, WAF)      |
-          +----+-------------------+----+
-               |                   |
-               v                   v
-  +-----------------------+  +--------------------+
-  |    Kong Gateway       |  | Next.js Frontend   |
-  | (Cloud Run - External)|  | (Cloud Run)        |
-  | - JWT validation      |  +--------------------+
-  | - Rate limiting       |
-  | - CORS management     |
-  +-----------+-----------+
-              |
-              | VPC Network (internal only)
-              v
-  +-------------------------------------------+
-  |             Private Network                |
-  |                                           |
-  |  +-------------+ +-------------+ +------+ |
-  |  |Auth Service | |Offers Svc  | |BFF   | |
-  |  |(Cloud Run)  | |(Cloud Run) | |(CR)  | |
-  |  +------+------+ +------+-----+ +--+---+ |
-  |         |               |           |     |
-  |  +------+---------------+-----------+---+ |
-  |  |        Cloud SQL (PostgreSQL)        | |
-  |  +--------------------------------------+ |
-  |  |        Memorystore (Redis)           | |
-  |  +--------------------------------------+ |
-  |  |        Secret Manager                | |
-  |  +--------------------------------------+ |
-  +-------------------------------------------+
+                        Internet (IPv4 and IPv6)
+                            │
+                            ▼
+              ┌──────────────────────────────────┐
+              │   Google Cloud Load Balancer     │
+              │   (TLS, Cloud Armor WAF,         │
+              │    IPv4 + IPv6 addresses)        │
+              │   Sets X-Tsdevstack-Edge-IP      │
+              │   = client address               │
+              └──────┬────────────────────┬──────┘
+                     │                    │
+                     ▼                    ▼
+  ┌──────────────────────────┐  ┌──────────────────────────┐
+  │      Kong Gateway        │  │    Next.js Frontend      │
+  │ (Cloud Run, ingress:     │  │ (Cloud Run, ingress:     │
+  │  internal + LB)          │◀─┤  internal + LB)          │
+  │ • JWT validation (JWKS)  │  │ • SSR, route handlers    │
+  │ • Rate limiting (Redis)  │  │ • Server-side calls to   │
+  │ • Client address from    │  │   Kong's run.app URL     │
+  │   X-Tsdevstack-Edge-IP   │  │   over the VPC, with the │
+  │ • CORS                   │  │   visitor's address      │
+  └────────────┬─────────────┘  └──────────────────────────┘
+               │ VPC Network
+               │ (Internal only)
+               ▼
+    ┌───────────────────────────────────────────────────┐
+    │                 Private Network                    │
+    │                                                   │
+    │  ┌─────────────┐  ┌─────────────┐  ┌──────────┐ │
+    │  │Auth Service │  │Offers Svc   │  │BFF Svc   │ │
+    │  │(Cloud Run)  │  │(Cloud Run)  │  │(Cloud Run)│ │
+    │  └──────┬──────┘  └──────┬──────┘  └────┬─────┘ │
+    │         │                │               │       │
+    │         ▼                ▼               ▼       │
+    │  ┌─────────────────────────────────────────────┐ │
+    │  │            Cloud SQL (PostgreSQL)           │ │
+    │  │  • one database per service that needs one  │ │
+    │  └─────────────────────────────────────────────┘ │
+    │                                                   │
+    │  ┌─────────────────────────────────────────────┐ │
+    │  │          Memorystore (Redis)                │ │
+    │  │  • Rate limiting  • API keys  • Queues      │ │
+    │  └─────────────────────────────────────────────┘ │
+    │                                                   │
+    │  ┌─────────────────────────────────────────────┐ │
+    │  │          Secret Manager                     │ │
+    │  │  • JWT keys  • DB credentials  • API keys   │ │
+    │  └─────────────────────────────────────────────┘ │
+    │                                                   │
+    └───────────────────────────────────────────────────┘
 ```
 
-The Load Balancer uses host-based routing to direct `api.example.com` to Kong and `app.example.com` to Next.js. Both are behind Cloud Armor WAF.
+The Load Balancer routes by host: `api.example.com` to Kong, `app.example.com` to Next.js. Both are behind Cloud Armor WAF. It answers on IPv4 and IPv6, and sets `X-Tsdevstack-Edge-IP` to the client's address on every request. The Next.js servers call Kong over the VPC at its `run.app` URL (`KONG_INTERNAL_URL`), not through the Load Balancer.
 
 ## Compute: Cloud Run
 
-All services run on Cloud Run — Kong, backends, workers, and frontends.
+All services run on Cloud Run: Kong, backends, workers, and frontends.
 
-| Service | Ingress | Network Access |
+| Service | Ingress | Reachable from |
 |---------|---------|----------------|
-| Kong Gateway | `internal-load-balancer` | Load Balancer only |
-| Backend services | `internal` | VPC only (unreachable from internet) |
-| Frontend (Next.js) | `internal-load-balancer` | Load Balancer only |
-| Workers | `internal` | VPC only |
+| Kong Gateway | `internal-load-balancer` | The load balancer, the project's VPC networks and Google services of the project (the Next.js servers call it over the VPC) |
+| Backend services | `internal` | The project's VPC networks and Google services of the project (Cloud Scheduler, Pub/Sub); not the internet |
+| Frontend (Next.js) | `internal-load-balancer` | The load balancer, the project's VPC networks and Google services of the project |
+| Workers | `internal` | Same as backend services |
 
-Kong and Next.js use `internal-load-balancer` ingress — their Cloud Run URLs are not publicly accessible. All traffic must flow through the Load Balancer and Cloud Armor WAF. Backend services with `ingress: internal` are only reachable within the VPC.
+Kong and Next.js use `internal-load-balancer` ingress. Their Cloud Run URLs do not answer from the internet; public traffic comes through the Load Balancer and Cloud Armor WAF. Internal ingress also admits the project's VPC networks and Google services of the project. This is how the Next.js servers reach Kong over the VPC, and how Cloud Scheduler reaches backends with `ingress: internal`.
 
 ## Data: Cloud SQL + Memorystore
 
@@ -81,7 +96,7 @@ When storage buckets are configured in `config.json`, Terraform creates GCS buck
 
 **IAM:**
 - `roles/storage.objectUser` per bucket × Cloud Run service account (read/write access)
-- `roles/iam.serviceAccountTokenCreator` per service account (required for presigned URL signing)
+- `roles/iam.serviceAccountTokenCreator` on each service's own account, so it can sign presigned URLs as itself and as no other account
 
 No storage access keys in containers — Cloud Run uses its service account identity automatically.
 
@@ -92,7 +107,8 @@ For setup and usage, see [Object Storage](/docs/features/object-storage).
 **Global HTTPS Load Balancer:**
 - TLS termination at the edge
 - Routes traffic to Kong and frontend services
-- Static IP address for DNS A records
+- Static IPv4 and IPv6 addresses for DNS A and AAAA records
+- Sets `X-Tsdevstack-Edge-IP` to the client's address on every request to Kong and the Next.js apps, overwriting a client-sent value; Kong counts clients by it, and the Next.js apps forward it for their visitors ([Client addresses](/docs/customization/kong-customization#client-addresses))
 
 **Cloud Armor WAF:**
 - OWASP Core Rule Set (SQLi, XSS, LFI, RFI, RCE, protocol attacks, session fixation, scanner detection, Node.js attacks)
@@ -141,7 +157,7 @@ Cloud Run handles scale-to-zero natively. Services with `minInstances: 0` scale 
 
 ## Security
 
-- Backend services use `ingress: internal` — physically unreachable from the internet
+- Backend services use `ingress: internal`: unreachable from the internet (only the project's VPC networks and Google services of the project reach them)
 - Kong validates JWT tokens and adds trusted headers (`X-Userinfo`)
 - Services verify the `X-Kong-Trust` header to ensure requests came through Kong
 - Cloud Armor provides WAF protection at the edge

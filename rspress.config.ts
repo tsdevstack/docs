@@ -1,5 +1,6 @@
 import path from "node:path";
 import { defineConfig } from "@rspress/core";
+import { pluginSitemap } from "@rspress/plugin-sitemap";
 
 const SITE_URL = "https://tsdevstack.dev";
 const OG_IMAGE = `${SITE_URL}/favicon-180.png`;
@@ -16,6 +17,8 @@ export default defineConfig({
   icon: "/favicon.svg",
   // Emit llms.txt, llms-full.txt, and per-page .md so AI agents can consume the docs.
   llms: true,
+  // Emit sitemap.xml; robots.txt (content/public) points crawlers to it.
+  plugins: [pluginSitemap({ siteUrl: SITE_URL })],
   head: [
     ["meta", { property: "og:site_name", content: "tsdevstack" }],
     ["meta", { property: "og:image", content: OG_IMAGE }],
@@ -314,6 +317,7 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            { text: "v0.9.0", link: "/docs/releases/v0.9.0" },
             { text: "v0.8.0", link: "/docs/releases/v0.8.0" },
             { text: "v0.7.0", link: "/docs/releases/v0.7.0" },
             { text: "v0.6.1", link: "/docs/releases/v0.6.1" },

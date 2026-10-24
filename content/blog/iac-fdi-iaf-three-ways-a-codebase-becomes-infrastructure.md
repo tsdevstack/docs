@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/iac-fdi-iaf-cover.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"IaC, FdI, IaF: three ways a codebase becomes infrastructure","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-17","dateModified":"2026-06-17","image":"https://tsdevstack.dev/blog/iac-fdi-iaf-cover.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/iac-fdi-iaf-three-ways-a-codebase-becomes-infrastructure"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"IaC, FdI, IaF: three ways a codebase becomes infrastructure","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-17","dateModified":"2026-06-17","image":"https://tsdevstack.dev/blog/iac-fdi-iaf-cover.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/iac-fdi-iaf-three-ways-a-codebase-becomes-infrastructure"}'
 ---
 
 ![IaC, FdI, IaF: three ways a codebase becomes infrastructure](/blog/iac-fdi-iaf-cover.webp)

@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/mcp-annotations.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"MCP annotations are a UX layer, not a security layer","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-05-05","dateModified":"2026-05-05","image":"https://tsdevstack.dev/blog/mcp-annotations.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/mcp-annotations-are-a-ux-layer-not-a-security-layer"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"MCP annotations are a UX layer, not a security layer","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-05-05","dateModified":"2026-05-05","image":"https://tsdevstack.dev/blog/mcp-annotations.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/mcp-annotations-are-a-ux-layer-not-a-security-layer"}'
 ---
 
 ![MCP annotations are a UX layer, not a security layer](/blog/mcp-annotations.webp)

@@ -35,7 +35,7 @@ For service-to-service authentication:
 - `OFFERS_SERVICE_API_KEY`
 - (One per backend service)
 
-Each service also receives an `API_KEY` alias pointing to its own key.
+Each service also receives an `API_KEY` alias pointing to its own key: `secrets.get('API_KEY')` in auth-service reads `AUTH_SERVICE_API_KEY`, locally and on every cloud provider.
 
 These are preserved across regenerations to maintain service-to-service authentication.
 
@@ -53,6 +53,7 @@ In production, these are automatically updated to actual cloud URLs after deploy
 
 - `REDIS_PASSWORD` - Redis authentication (hardcoded as `redis_pass` for local development)
 - `KONG_TRUST_TOKEN` - API gateway trust token (preserved across regenerations)
+- `KONG_FRONTEND_TOKEN` - Proves to the gateway that a visitor address comes from your Next.js frontend. Given to the gateway and every Next.js app; preserved across regenerations. See [Client addresses](/docs/customization/kong-customization#client-addresses)
 - `REFRESH_TOKEN_SECRET` - Token encryption key (preserved across regenerations)
 
 ## User-Supplied Secrets

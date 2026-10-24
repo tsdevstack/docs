@@ -1,6 +1,6 @@
 # Object Storage
 
-tsdevstack provides unified object storage across all cloud providers. Add a bucket, import `StorageModule`, and your code works identically on local [MinIO](https://min.io/), AWS S3, GCP Cloud Storage, and Azure Blob Storage.
+tsdevstack provides unified object storage across all cloud providers. Add a bucket, import `StorageModule`, and your code works identically on local [RustFS](https://rustfs.com/), AWS S3, GCP Cloud Storage, and Azure Blob Storage.
 
 ## Quick start
 
@@ -10,7 +10,7 @@ Add a storage bucket to your project:
 npx tsdevstack add-bucket-storage --name uploads
 ```
 
-This updates `config.json`. Then sync to regenerate docker-compose, secrets, and start MinIO:
+This updates `config.json`. Then sync to regenerate docker-compose, secrets, and start RustFS:
 
 ```bash
 npx tsdevstack sync
@@ -59,33 +59,33 @@ The `StorageProvider` interface is the same across all environments. The adapter
 
 | `SECRETS_PROVIDER` | Storage Adapter | Used When |
 |-------------------|-----------------|-----------|
-| `local` | S3 (MinIO) | Local development |
+| `local` | S3 (RustFS) | Local development |
 | `aws` | S3 (AWS) | AWS cloud |
 | `gcp` | GCS | Google Cloud |
 | `azure` | Azure Blob | Azure cloud |
 
 No code changes are needed between environments. The same `StorageProvider` calls work everywhere.
 
-## Local development (MinIO)
+## Local development (RustFS)
 
-When storage buckets are configured, `docker-compose.yml` includes [MinIO](https://min.io/) — an S3-compatible object storage server.
+When storage buckets are configured, `docker-compose.yml` includes [RustFS](https://rustfs.com/), an S3-compatible object storage server (Apache-2.0).
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| MinIO API | http://localhost:9000 | S3-compatible API endpoint |
-| MinIO Console | http://localhost:9001 | Web-based storage browser |
+| RustFS API | http://localhost:9000 | S3-compatible API endpoint |
+| RustFS console | http://localhost:9001 | Web-based storage browser |
 
-Default credentials: `minioadmin` / `minioadmin`
+Default credentials: `rustfsadmin` / `rustfsadmin`
 
 ### What happens on `docker compose up`
 
-1. MinIO container starts on ports 9000 + 9001
-2. `minio-init` job runs automatically — creates all configured buckets using the `mc` CLI
+1. RustFS container starts on ports 9000 + 9001
+2. `rustfs-init` runs once and creates the configured buckets with `s5cmd`
 3. Bucket names follow the cloud naming pattern: `{project}-{name}-dev`
 
 ### Data persistence
 
-MinIO data is stored in `./data/minio/` (bind mount), the same pattern used by PostgreSQL (`./data/{name}/`) and Redis (`./data/redis/`). Data persists across container restarts.
+RustFS data is stored in `./data/rustfs/` (bind mount), the same pattern used by PostgreSQL (`./data/{name}/`) and Redis (`./data/redis/`). Data persists across container restarts.
 
 ## StorageModule setup
 
@@ -256,7 +256,7 @@ interface StorageMetadata {
 | Cloud name (GCP/Azure) | `{project}-{name}-{env}` (max 63 characters) |
 | Cloud name (AWS) | `{project}-{name}-{env}-{accountId}` (max 63 characters) |
 | Azure storage account | `{project}{env}storage` (alphanumeric only, max 24 characters) |
-| Reserved names | `minio`, `storage`, `gateway`, `kong`, `redis`, `postgres`, etc. |
+| Reserved names | `rustfs`, `minio`, `storage`, `gateway`, `kong`, `redis`, `postgres`, etc. |
 
 Cloud bucket names are derived automatically. You only specify the logical name.
 
@@ -268,9 +268,9 @@ Storage secrets are **framework-managed** and **shared-scope** — they are auto
 
 | Secret | Value | Purpose |
 |--------|-------|---------|
-| `STORAGE_ENDPOINT` | `http://minio:9000` | MinIO API endpoint (internal Docker network) |
-| `STORAGE_ACCESS_KEY` | `minioadmin` | MinIO root user |
-| `STORAGE_SECRET_KEY` | `minioadmin` | MinIO root password |
+| `STORAGE_ENDPOINT` | `http://localhost:9000` | RustFS API endpoint |
+| `STORAGE_ACCESS_KEY` | `rustfsadmin` | RustFS root access key |
+| `STORAGE_SECRET_KEY` | `rustfsadmin` | RustFS root secret key |
 | `STORAGE_BUCKET_{NAME}` | `{project}-{name}-dev` | Bucket name per configured bucket |
 
 ### Cloud secrets
@@ -301,7 +301,7 @@ Running `infra:deploy` handles everything:
 | **Resource** | S3 bucket | GCS bucket | Blob container in shared storage account |
 | **Access** | Block all public access | Uniform bucket-level access | Private container |
 | **Encryption** | AES-256 server-side | Google-managed | Microsoft-managed |
-| **IAM** | `s3:GetObject/PutObject/DeleteObject/ListBucket` on ECS task roles | `roles/storage.objectUser` + `roles/iam.serviceAccountTokenCreator` per service account | `Storage Blob Data Contributor` on managed identity |
+| **IAM** | `s3:GetObject/PutObject/DeleteObject/ListBucket` on service task roles | `roles/storage.objectUser` + `roles/iam.serviceAccountTokenCreator` on each service's own account | `Storage Blob Data Contributor` on managed identity |
 | **CORS** | `*` | `*` | `*` |
 
 CORS is set to `*` on all providers. Buckets are private — presigned URLs are the security boundary, not CORS. Browser access requires a presigned URL obtained via your API (which is protected by Kong's CORS).
@@ -316,9 +316,9 @@ npx tsdevstack remove-bucket-storage --name uploads
 
 **What it does locally:**
 - Removes bucket from `config.json`
-- Regenerates `docker-compose.yml` (removes MinIO entirely if this was the last bucket)
+- Regenerates `docker-compose.yml` (removes RustFS entirely if this was the last bucket)
 - Regenerates secrets (removes `STORAGE_*` secrets if this was the last bucket)
-- Does **NOT** delete local MinIO data — it remains in `./data/minio/`
+- Does **NOT** delete local RustFS data — it remains in `./data/rustfs/`
 
 **What it does NOT do:**
 - Does not remove cloud resources (S3 buckets, GCS buckets, Azure Blob containers)

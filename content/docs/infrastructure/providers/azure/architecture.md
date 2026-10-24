@@ -78,8 +78,10 @@ WAF rules can be customized via `infrastructure.json` — including custom match
 - Kong and Next.js run on App Service (not Container Apps) for:
   - Front Door Access Restrictions with FDID header validation
   - Always-available gateway (`always_on: true`)
-- Default SKU: B1 (~$13/month per plan). S1 (~$69/month) for auto-scaling
+- Default SKU: B1 (~$13/month per instance), a fixed instance count (`minInstances`, at least 1)
+- Standard (S1, ~$69/month per instance) and Premium plans autoscale on CPU between `minInstances` and `maxInstances`, with App Service health checks when more than one instance runs. See [Azure App Service plans](/docs/infrastructure/service-configuration#azure-app-service-plans)
 - VNet integrated for outbound traffic to Container Apps
+- With Next.js apps, Kong also has a private endpoint. The Next.js servers call Kong at its default host name (`KONG_INTERNAL_URL`), which resolves to that endpoint inside the VNet. Front Door still reaches Kong through its public access, restricted as above
 
 **Container Apps (NestJS backends):**
 - Consumption plan with ILB (Internal Load Balancer) — no public IP
@@ -162,9 +164,11 @@ VNet: 10.0.0.0/16
 |
 +-- Subnet: postgres (10.0.2.0/28)
 |   +-- PostgreSQL Flexible Server
+|   +-- Service endpoint: Microsoft.Storage (WAL uploads)
 |
 +-- Subnet: private-endpoints (10.0.3.0/28)
 |   +-- Azure Managed Redis Private Endpoint
+|   +-- Kong Private Endpoint (with Next.js apps; their servers' calls to Kong)
 |
 +-- Subnet: app-service-integration (10.0.4.0/25)
 |   +-- App Service VNet integration (Kong + Next.js outbound)
@@ -172,6 +176,7 @@ VNet: 10.0.0.0/16
 +-- Private DNS Zones
     +-- private.postgres.database.azure.com
     +-- privatelink.redis.azure.net
+    +-- privatelink.azurewebsites.net (Kong's private endpoint; other names fall back to public DNS)
     +-- {cae-default-domain} (Container Apps wildcard A record)
 ```
 
@@ -201,6 +206,7 @@ Kong runs on App Service with `always_on: true` — always available with no col
 
 - **Standard:** Front Door validates requests via Access Restrictions with FDID header matching
 - **Premium:** Front Door connects via Private Link (zero public surface on App Service origins)
+- Kong reads each client's address from `X-Azure-SocketIP`, set by Front Door. The Next.js frontend forwards its visitors' addresses the same way ([Client addresses](/docs/customization/kong-customization#client-addresses))
 - Backend services are in ILB Container Apps Environment (no public IP)
 - NSG rules: Allow LoadBalancer + VNet traffic, deny all others
 - Managed Identity for zero-credential runtime (no secrets in containers)

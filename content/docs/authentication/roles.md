@@ -88,7 +88,7 @@ The auth-service exposes three admin endpoints. Through the gateway they live un
 
 All three need a JWT (`Authorization: Bearer <token>`) from a user who is an admin. They return the user object (`id`, `email`, `firstName`, `lastName`, `confirmed`, `status`, `createdAt`, `systemRole`, `roles`), never the password hash.
 
-**Finding a user.** `GET /auth/v1/admin/users?email=` matches the email case-insensitively. If no user matches you get 404. If several accounts have the same address in different letter case (signup does not lowercase emails), you get **409**: the lookup refuses to pick one for you.
+**Finding a user.** `GET /auth/v1/admin/users?email=` matches the email case-insensitively. If no user matches you get 404. If several accounts have the same address in different letter case, you get **409**: the lookup refuses to pick one for you.
 
 **Changing the system role.** `systemRole` must be `USER` or `ADMIN`, otherwise 400. Admins can promote and demote any user, including other admins and themselves. There is no "last admin" protection; `ADMIN_EMAILS` is the recovery path.
 

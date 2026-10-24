@@ -117,12 +117,13 @@ A fresh clone needs `npx tsdevstack sync` (or `generate-kong`) before the first 
 
 ## Framework plugins
 
-Three plugins ship with the CLI and are always in the image. You don't enable or configure them; `generate-kong` does.
+Four plugins ship with the CLI and are always in the image. You don't enable or configure them; `generate-kong` does.
 
 | Plugin | Where | What it does |
 |---|---|---|
 | `tsdevstack-strip-identity` | Global, in `kong.tsdevstack.yml` | Removes identity headers sent by clients (`X-Userinfo`, `X-Consumer-*`, `X-Credential-Identifier`, `X-Kong-Trust` and similar) before any authentication plugin runs, so backends only ever see identity that Kong set |
+| `tsdevstack-client-ip` | Global, in `kong.tsdevstack.yml` | Lets the Next.js frontend name the visitor it calls the gateway for, checked with the secret `KONG_FRONTEND_TOKEN`, so rate limits apply per visitor. Passes the client address to services in `X-Tsdevstack-Real-IP`. See [Client addresses](/docs/customization/kong-customization#client-addresses) |
 | `tsdevstack-api-key` | On each partner service | Checks the `x-api-key` against the key records in Redis and enforces the key's limits; see [API Keys](/docs/authentication/api-keys) |
 | `tsdevstack-api-prefix` | On each partner service | Partner routes match `/api/...`; this plugin removes `/api` before the request reaches your service, which serves the path without it |
 
-Don't declare any of them in `kong.user.yml`. A global `tsdevstack-strip-identity` there fails generation (Kong allows one global instance per plugin name), and a `kong-plugins/` folder with one of these names is a collision. The only place you add them yourself is a full [`kong.custom.yml`](/docs/customization/kong-customization#escape-hatch-with-kongcustomyml) override.
+Don't declare them in `kong.user.yml`: Kong allows one global instance per plugin name, so generation fails. Don't reuse their names in `kong-plugins/` either. The only place to add them yourself is a full [`kong.custom.yml`](/docs/customization/kong-customization#escape-hatch-with-kongcustomyml) override.

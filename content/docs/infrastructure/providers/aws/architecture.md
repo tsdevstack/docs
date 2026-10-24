@@ -44,6 +44,8 @@ What gets deployed when you run `infra:deploy` on AWS and how traffic flows thro
 | `app.example.com` | Next.js distribution | ALB > ECS (host-based) | WAF + Origin header |
 | `spa.example.com` | SPA distribution | S3 bucket | WAF + OAC |
 
+Every distribution serves IPv4 and IPv6; Route 53 gets an A and an AAAA alias record per domain. A CloudFront function on the API and Next.js distributions sets `X-Tsdevstack-Edge-IP` to the viewer's address. The gateway and the frontend identify visitors by it (see [Client addresses](/docs/customization/kong-customization#client-addresses)).
+
 ## Compute: ECS Fargate
 
 All containerized services run on ECS Fargate in private VPC subnets:
@@ -152,6 +154,7 @@ AWS uses a dual approach:
 |-----------------|--------|-----|
 | Kong > Services | Cloud Map DNS (`http://{service}.{project}.local:8080`) | Direct calls inside the VPC; backends stay private |
 | Service > Service | Cloud Map DNS (`{service}.{project}.local`) | Direct calls, no ALB overhead |
+| Next.js server > Kong | Cloud Map DNS (`http://kong.{project}.local:8080`, `KONG_INTERNAL_URL`) | Stays inside the VPC, off CloudFront and the WAF's per-IP rule |
 
 `infra:deploy` writes each service's Cloud Map URL to Secrets Manager (`{SERVICE}_URL`), and `infra:build-kong` resolves the Kong config's service URLs from those secrets. Kong also fetches the auth-service's OIDC discovery document and signing keys over Cloud Map.
 

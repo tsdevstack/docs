@@ -75,6 +75,15 @@ If autocomplete isn't working, ensure the `infrastructure.schema.json` file exis
 
 The JSON schema is provider-aware — IDE autocomplete will only show values valid for your cloud provider.
 
+On Azure, Next.js apps run on App Service, not Container Apps: `cpu` and `memory` don't apply to them, and their instance counts follow the plan's SKU. See [Azure App Service plans](#azure-app-service-plans).
+
+:::info Cloud Run limits (GCP)
+Cloud Run rejects some combinations, so `infra:generate`, `infra:plan`, the deploy commands and `infra:status` check them first:
+
+- `cpu` below 1 needs `"concurrency": 1` (each instance then serves one request at a time). Workers and Kong need `cpu` 1 or more.
+- Memory per CPU: up to `512Mi` below 0.5 vCPU, `1Gi` below 1, `4Gi` at 1, `8Gi` at 2. 4 vCPU needs at least `2Gi`, 8 vCPU at least `4Gi`.
+:::
+
 ## Scaling Configuration
 
 ### minInstances
@@ -93,6 +102,8 @@ Scale-to-zero is a platform feature of Cloud Run and Container Apps, and cold st
 | GCP (Cloud Run) | ~2-5s |
 | Azure (Container Apps) | ~5-15s |
 
+On Azure, scale-to-zero covers the services on Container Apps. Kong and Next.js apps run on App Service, which cannot scale to zero: `minInstances: 0` runs one instance there.
+
 :::warning AWS has no scale-to-zero
 On AWS every ECS service (NestJS services, Next.js frontends, workers and Kong) runs at least one task. `minInstances: 0` fails validation in `infra:generate`, `infra:plan`, `infra:deploy` and `infra:status`, with a hint to set 1 or more. Backend services on AWS are reachable only inside the VPC, so there is no public entry point that could wake a stopped service. See [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation) for what always-on costs.
 :::
@@ -109,6 +120,7 @@ Limits how many instances can run during high traffic.
 - Higher values handle more concurrent users
 - Each instance costs money while running
 - The container runtime auto-scales based on CPU utilization and request queue. On AWS, NestJS services, Next.js frontends, workers and Kong scale on CPU (target tracking at 70%) between `minInstances` and `maxInstances`
+- On Azure, Kong and Next.js apps only autoscale on a Standard or Premium App Service plan. See [Azure App Service plans](#azure-app-service-plans)
 
 **Example:** If each instance handles 80 concurrent requests and you expect 800 peak concurrent users, set `maxInstances: 10` minimum.
 
@@ -163,11 +175,49 @@ Kong defaults:
 | Option | GCP | AWS | Azure |
 |--------|-----|-----|-------|
 | `minInstances` | `1` | `1` | `1` |
-| `maxInstances` | `10` | `10` | `5` |
-| `cpu` | `"1"` | `"1"` | `"0.5"` |
-| `memory` | `"1Gi"` | `"2Gi"` | `"1Gi"` |
+| `maxInstances` | `10` | `10` | `5` (Standard or Premium plan only) |
+| `cpu` | `"1"` | `"1"` | Set by `appService.kongSku` |
+| `memory` | `"1Gi"` | `"2Gi"` | Set by `appService.kongSku` |
 
 Keep Kong at `minInstances: 1` or more: every API request goes through it. On AWS, `0` fails validation.
+
+On Azure, leave out `cpu` and `memory`: Kong runs on an App Service plan, and the plan's SKU sets them (setting them fails validation). Kong's `maxInstances` only takes effect on a Standard or Premium plan. See [Azure App Service plans](#azure-app-service-plans).
+
+## Azure App Service plans
+
+On Azure, Kong and the Next.js apps run on App Service: Kong on its own plan, and every Next.js app on a second, shared plan. The plan's SKU sets CPU and memory per instance, and decides what `minInstances` and `maxInstances` do.
+
+```json
+{
+  "version": "1.0.0",
+  "prod": {
+    "appService": {
+      "kongSku": "S1",
+      "nextjsSku": "B1"
+    },
+    "kong": { "minInstances": 1, "maxInstances": 4 },
+    "frontend": { "minInstances": 2, "maxInstances": 2 }
+  }
+}
+```
+
+Here Kong autoscales between 1 and 4 instances, and the `frontend` Next.js app runs a fixed 2.
+
+| SKU | Tier | Instances | Most instances per plan |
+|-----|------|-----------|-------------------------|
+| `B1` (default), `B2`, `B3` | Basic | Fixed at `minInstances` | 3 |
+| `S1`, `S2`, `S3` | Standard | CPU autoscale from `minInstances` to `maxInstances` | 10 |
+| `P1v3`, `P2v3`, `P3v3` | Premium | CPU autoscale from `minInstances` to `maxInstances` | 30 |
+
+- **At least one instance.** A plan runs `minInstances` instances. App Service cannot scale to zero, so `minInstances: 0` runs one.
+- **Autoscale needs Standard or Premium.** When `maxInstances` is above `minInstances`, the plan gets an autoscale rule: one more instance when average CPU stays above 70% for 5 minutes, one fewer when it stays below 30% for 10 minutes. A redeploy keeps the current count.
+- **Basic plans run a fixed count.** A `maxInstances` above `minInstances` on a Basic plan fails validation. With the defaults (Kong `maxInstances: 5` on `B1`), `infra:generate` notes the fixed count and names the SKU that autoscales.
+- **Next.js apps share one plan.** It uses the largest `minInstances` and `maxInstances` among them.
+- **Health checks with more than one instance.** App Service pings Kong's `/status` and each Next.js app's `/health` every minute. An instance that fails for 2 minutes leaves rotation; one that stays unhealthy for an hour is replaced. At most half of an app's instances leave rotation at a time.
+- **No sticky sessions.** Requests spread across instances. Kong and the Next.js apps keep no session state.
+- **Limits are checked before deploy.** Counts above the tier's maximum, and `cpu` or `memory` on Kong or a Next.js app, fail validation in `infra:generate`, `infra:plan` and `infra:deploy`. For more CPU or memory per instance, pick a bigger SKU (`B2`, `S2`, `P1v3` and up).
+
+App Service bills per instance, so every instance a plan runs costs as much as the first. Make sure your subscription's App Service quota covers the largest count a plan can reach: see [Azure account setup](/docs/infrastructure/providers/azure/account-setup#app-service-quota) and [Azure cost estimation](/docs/infrastructure/providers/azure/cost-estimation).
 
 ## Detached Workers
 
@@ -195,7 +245,7 @@ Configure BullMQ worker scaling and resources:
 }
 ```
 
-Workers support the same options as services (`minInstances`, `maxInstances`, `cpu`, `memory`). The framework enforces `minInstances >= 1` because workers must always be running to poll Redis queues: on GCP and Azure `0` is overridden to `1`, on AWS it fails validation.
+Workers support the same options as services (`minInstances`, `maxInstances`, `cpu`, `memory`). On GCP, workers need `cpu` 1 or more: they keep their CPU allocated between requests, which Cloud Run allows from 1 vCPU (the `0.25` above is for AWS). The framework enforces `minInstances >= 1` because workers must always be running to poll Redis queues: on GCP and Azure `0` is overridden to `1`, on AWS it fails validation.
 
 On AWS, workers get auto-scaling resources (CPU-based target tracking at 70%), like services and Kong. On GCP and Azure, the container runtime handles scaling natively.
 
@@ -224,31 +274,47 @@ Configure managed PostgreSQL:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `tier` | `"db-f1-micro"` | Instance size |
-| `diskSize` | `10` | Storage in GB (10-1000) |
-| `ha` | `false` | High availability (regional failover) |
-| `backup` | `true` | Automated backups |
+| `diskSize` | GCP `10`, AWS `20`, Azure `32` | Storage in GB. GCP: 10 to 1000. AWS: 20 to 1000. Azure: 32, 64, 128, 256 or 512 |
+| `ha` | `false` | High availability, see below |
+| `backup` | GCP and AWS `true`, Azure `false` | Automated backups, see below |
 | `serverName` | `{project}-{env}-postgres` | Azure only. PostgreSQL server name, see [Custom server name (Azure)](#custom-server-name-azure) |
 
-**Database tiers by provider:**
+**High availability (`ha`)** keeps a standby that takes over when the primary fails. It roughly doubles the database cost.
+- GCP: regional Cloud SQL instance. Needs `backup: true`.
+- AWS: Multi-AZ, with the standby in another Availability Zone.
+- Azure: zone-redundant standby. Only on General Purpose (`GP_`) and Memory Optimized (`MO_`) tiers, and only in regions with availability zones. `infra:deploy` checks the region before it starts.
+
+**Backups (`backup`):**
+- GCP: `false` turns automated backups and point-in-time recovery off.
+- AWS: `false` turns automated backups and point-in-time recovery off. The final snapshot on `infra:destroy` is still taken.
+- Azure: backups can't be turned off. `true` keeps them for 35 days, `false` for 7 (the minimum).
+
+:::note
+On AWS, changes to `ha`, `backup` and `tier` on a running database are applied in the next maintenance window (Mondays 04:00 to 05:00 UTC). Turning backups on or off causes a short outage.
+:::
+
+**Database tiers by provider** (the full list each provider accepts; deploys size the connection pool from each tier's connection limit, and `infra:generate` and the deploy commands reject other values):
 
 **GCP (Cloud SQL):**
 - `db-f1-micro` - Development (shared CPU)
-- `db-g1-small` - Small production
+- `db-g1-small` - Small production (shared CPU)
 - `db-n1-standard-1` - Standard production (1 vCPU)
 - `db-n1-standard-2` - Larger production (2 vCPU)
 - `db-n1-standard-4` - High-traffic production (4 vCPU)
+- `db-n1-standard-8`, `db-n1-standard-16` - 8 and 16 vCPU
 
 **AWS (RDS PostgreSQL):**
 - `db.t3.micro` - Development (~$15/mo)
-- `db.t3.small` - Small production
-- `db.r6g.large` - Standard production
-- `db.r6g.xlarge` - High-traffic production
+- `db.t3.small`, `db.t3.medium` - Small production (burstable)
+- `db.t4g.micro`, `db.t4g.small`, `db.t4g.medium` - Burstable, ARM (Graviton)
+- `db.r6g.large` - Memory optimized, ARM (Graviton)
 
 **Azure (PostgreSQL Flexible Server):**
 - `B_Standard_B1ms` - Development (burstable, ~$14/mo)
-- `B_Standard_B2s` - Small production (burstable)
+- `B_Standard_B2s`, `B_Standard_B2ms` - Small production (burstable)
 - `GP_Standard_D2s_v3` - Standard production (general purpose)
 - `GP_Standard_D4s_v3` - High-traffic production (general purpose)
+- `MO_Standard_E4s_v3` - Memory optimized
 
 ### Custom server name (Azure)
 
@@ -294,7 +360,7 @@ Configure managed Redis:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `tier` | `"BASIC"` | `"BASIC"` or `"STANDARD_HA"` |
-| `memoryGb` | `1` | Memory in GB (1-300) |
+| `memoryGb` | `1` | GCP only. Memory in GB (1-300). AWS and Azure size Redis by `tier` |
 
 **GCP (Memorystore):**
 - `BASIC` - Single instance, no failover

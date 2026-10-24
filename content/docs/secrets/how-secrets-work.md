@@ -81,7 +81,7 @@ The three files:
 
 When you run `npx tsdevstack generate-secrets`, the framework:
 
-1. Regenerates `.secrets.tsdevstack.json`, preserving critical secrets (JWT keys, API keys, database credentials, KONG_TRUST_TOKEN)
+1. Regenerates `.secrets.tsdevstack.json`, preserving critical secrets (JWT keys, API keys, database credentials, KONG_TRUST_TOKEN, KONG_FRONTEND_TOKEN)
 2. Reads your custom secrets from the user file
 3. Merges them together with your values taking precedence
 4. Generates `.env` files for frontends and infrastructure

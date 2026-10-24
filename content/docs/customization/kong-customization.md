@@ -17,7 +17,7 @@ The framework merges `kong.tsdevstack.yml` and `kong.user.yml` to create the fin
 
 - **Services** — combined from both files (framework routes first, then your custom services)
 - **Consumers**: taken from `kong.user.yml` as written. The framework generates none, and no generated route authenticates with them (see [Partner API keys](#partner-api-keys))
-- **Plugins**: framework global plugins first (today one: `tsdevstack-strip-identity`), then yours from `kong.user.yml`. Service-level plugins (oidc on JWT routes; the API key check, the per-IP ceiling and `tsdevstack-api-prefix` on partner routes) are attached inside the individual service definitions. Kong allows one global instance per plugin name, so a `kong.user.yml` that declares a framework global plugin fails generation with a hint
+- **Plugins**: framework global plugins first (`tsdevstack-strip-identity` and `tsdevstack-client-ip`), then yours from `kong.user.yml`. Service-level plugins (oidc on JWT routes; the API key check, the per-IP ceiling and `tsdevstack-api-prefix` on partner routes) are attached inside the individual service definitions. Kong allows one global instance per plugin name, so a `kong.user.yml` that declares a framework global plugin fails generation with a hint
 
 ## Customizing with kong.user.yml
 
@@ -76,7 +76,40 @@ plugins:
 
 ### The global rate limiter and API keys
 
-The global `rate-limiting` plugin limits every caller per IP. On partner routes (`/api/...`) it works differently: its `minute`, `hour`, `day` and `month` values become the default limits of every API key, counted per key, and a key's own limits replace them. On those routes a per-IP ceiling (`framework.apiKeys.ipLimitPerMinute` in `.tsdevstack/config.json`, 600 by default) takes its place. Details in [API Keys](/docs/authentication/api-keys#limits).
+The global `rate-limiting` plugin limits each caller. On routes that require login, the caller is the user from the token. On other routes, it is the client address. Visitors of the Next.js frontend count by their own address (see [Client addresses](#client-addresses)).
+
+Partner routes (`/api/...`) work differently. The plugin's `minute`, `hour`, `day` and `month` values are the default limits of every API key, counted per key; a key's own limits replace them. These routes also have a per-IP ceiling: `framework.apiKeys.ipLimitPerMinute` in `.tsdevstack/config.json`, 600 by default. Details in [API Keys](/docs/authentication/api-keys#limits).
+
+### Client addresses
+
+On routes without login, the gateway limits each client address. It also passes that address to your services in `X-Tsdevstack-Real-IP`, for their own per-IP limits ([`RateLimitGuard`](/docs/packages/nest-common#rate-limiting) with `keyGenerator: 'ip'`). Routes with login are limited per user.
+
+In the cloud, the address comes from a header set by your provider's edge. Clients cannot forge it:
+
+| Provider | Gateway reads the client from | Frontend reads its visitor from |
+|---|---|---|
+| GCP | `X-Tsdevstack-Edge-IP` (set by the load balancer to the client's address) | `X-Tsdevstack-Edge-IP` |
+| AWS | `X-Tsdevstack-Edge-IP` (set by a CloudFront function to the viewer's address) | `X-Tsdevstack-Edge-IP` |
+| Azure | `X-Azure-SocketIP` (set by Front Door) | `X-Azure-SocketIP` |
+| Local | `X-Forwarded-For`, from private networks only | Not forwarded (every visitor is your machine) |
+
+#### Visitors of the Next.js frontend
+
+The Next.js frontend calls the gateway from its server, in route handlers such as login and signup. On each call it tells the gateway which visitor it acts for:
+
+- The frontend sends two headers: the visitor's address in `X-Tsdevstack-Client-IP` and the secret `KONG_FRONTEND_TOKEN` in `X-Tsdevstack-Frontend-Token`. It reads the visitor's address from the header named in `TSDEVSTACK_CLIENT_IP_HEADER`, which the deploy sets (table above).
+- The gateway plugin `tsdevstack-client-ip` checks the token. If it matches, the gateway limits the visitor and passes the visitor's address to your services. Routes with login still count the user.
+- If the token is missing or wrong, the gateway drops both headers. A client cannot pick the address it is counted by.
+
+The frontend template does this in `lib/externalApi/auth-service.api.ts`. If your server calls the gateway through another generated client, add the same interceptor:
+
+```typescript
+import { forwardClientIp } from "@/lib/utils/forward-client-ip";
+
+myClient.instance.interceptors.request.use(forwardClientIp);
+```
+
+A single-page app calls the gateway from the browser. The gateway sees each visitor directly, so none of this is needed.
 
 ### Partner API keys
 
@@ -130,6 +163,9 @@ services:
 
 plugins:
   - name: tsdevstack-strip-identity
+  - name: tsdevstack-client-ip
+    config:
+      frontend_token: ${KONG_FRONTEND_TOKEN}
   - name: cors
     config:
       origins: ${KONG_CORS_ORIGINS}
@@ -138,6 +174,7 @@ plugins:
 In custom mode you own everything the framework would otherwise generate, including the security pieces:
 
 - **`tsdevstack-strip-identity` as a global plugin.** Without it, clients can send forged identity headers (`X-Userinfo`, `X-Consumer-*`) to your backends. `generate-kong` warns when it is missing.
+- **`tsdevstack-client-ip` as a global plugin**, with `frontend_token: ${KONG_FRONTEND_TOKEN}`, if a Next.js frontend calls the gateway, so the gateway counts its visitors rather than the frontend server (see [Client addresses](#client-addresses)).
 - **The trust header `request-transformer`** from [above](#the-trust-header-request-transformer), or backends reject identity headers.
 - **`tsdevstack-api-prefix` on partner services** (`config.prefix: /api`) if you publish partner routes at `/api/...` and your services serve the path without `/api`.
 - **`tsdevstack-api-key` on partner services**, with the Redis connection and `default_limits`, plus a service-scoped `rate-limiting` counted per IP as the ceiling. Without the key plugin, partner routes check no key at all. Copy both from a generated `kong.tsdevstack.yml`.

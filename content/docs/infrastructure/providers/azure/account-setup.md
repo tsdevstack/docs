@@ -3,7 +3,7 @@
 Setting up Azure for tsdevstack deployments. Each environment requires its own subscription for isolation.
 
 :::warning
-**App Service quota required before first deploy.** New subscriptions often have **zero quota** for Basic-tier VMs. You must request a quota increase before running `infra:deploy`, or it will fail with `Current Limit (Basic VMs): 0`. See [App Service Quota](#app-service-quota) below.
+**Check App Service quota before the first deploy.** Some new subscriptions have **zero quota** for Basic-tier VMs, and `infra:deploy` then fails with `Current Limit (Basic VMs): 0`. See [App Service Quota](#app-service-quota) below.
 :::
 
 ## Prerequisites
@@ -53,18 +53,24 @@ The `Microsoft.Web` provider must be registered before you can request App Servi
 
 ## App Service Quota
 
-The framework deploys Kong on a dedicated App Service Plan. If your project includes Next.js apps, they share a second App Service Plan. New subscriptions often have **zero quota** for these VM families, so you must request an increase before the first deployment.
+The framework deploys Kong on a dedicated App Service Plan. If your project includes Next.js apps, they share a second App Service Plan. App Service quota counts instances (VMs), so you need quota for every instance the plans can run. With the defaults that is 1 for Kong, plus 1 with Next.js. On a Standard or Premium plan that autoscales, count its `maxInstances`. See [Azure App Service plans](/docs/infrastructure/service-configuration#azure-app-service-plans).
 
 The default SKU is `B1`. If you override it to an S-series SKU in `infrastructure.json`, you need quota for that family instead (or both, if you mix SKUs).
 
-### Navigate to Quotas
+### Check Your Quota
 
 1. Go to the [Azure Portal](https://portal.azure.com)
 2. Search for **"Quotas"** > click **My quotas**
+3. Filter: **Service:** App Service, **Location:** your deployment region
 
-### Find and Request
+What you see depends on the subscription:
 
-1. Filter: **Service:** App Service, **Location:** your deployment region
+- **One "Total Regional VMs" row** (App Service, shown as a preview): if its limit covers your instance count, you're set. The portal says "Quota need not be requested for this SKU", and no request is needed.
+- **One row per VM family** (for example "B1 VMs"): if the family you need shows a limit of 0, request an increase as below.
+
+### Request an Increase
+
+1. In **My quotas**, keep the App Service filter for your region
 2. Request quota for each VM family you need:
 
 | SKU in infrastructure.json | Quota to Request |
@@ -74,7 +80,7 @@ The default SKU is `B1`. If you override it to an S-series SKU in `infrastructur
 | P1v3, P2v3, P3v3          | P1v3/P2v3/P3v3 VMs |
 
 3. Select the row (e.g., **"B1 VMs"**, showing "0 of 0") > click **Request increase**
-4. Set the new limit based on your needs — 1 for Kong, plus 1 if your project includes Next.js apps (all Next.js apps share one plan)
+4. Set the new limit to your instance count: Kong's instances plus the Next.js plan's (all Next.js apps share one plan). For a plan that autoscales, count its `maxInstances`
 5. Submit and wait for approval (usually 1-4 hours, often minutes)
 
 If the self-service option is not available, create a support request: **Help + support** > **+ Create a support request** > Issue type: "Service and subscription limits (quotas)" > Quota type: "App Service"
@@ -96,6 +102,21 @@ There is no API to check this ahead of time, so on a new subscription request ac
 4. Ask for Azure Managed Redis with the size you'll use (`Balanced_B0` by default) in your deployment region. If a deploy already failed, add the CorrelationID from the error.
 
 Everything else in a deploy is created before it stops at Redis, so once access is granted, run `infra:deploy` again and it continues where it left off.
+
+## Capacity Is Not Quota
+
+Quota is a limit on your subscription, and you can ask for more. Capacity is whether Azure has a free machine of that size in the region right now. A size can be offered in a region, with plenty of quota left, and still fail:
+
+```
+Status: "RegionalAllocationFailed"
+Message: "We do not have sufficient capacity for the requested compute size in this region."
+```
+
+A quota request doesn't help here, and no API shows capacity ahead of time. Shortages usually pass within minutes, so `infra:deploy` waits 5 minutes and tries again, up to 3 times. Everything created before the failure stays in place. If capacity still isn't back:
+
+- Run `infra:deploy` again later. It continues where it stopped.
+- Pick another size for the resource that failed, for example `database.tier` in `infrastructure.json`. Capacity differs between sizes.
+- Ask Azure support for capacity in your region: **Help + support** > **+ Create a support request**.
 
 ## Step 1: Create App Registration
 
@@ -204,7 +225,7 @@ npx tsdevstack cloud:init --azure
 
 This will:
 1. Validate each environment has a unique subscription
-2. Verify resource providers are registered (skips already-registered providers)
+2. Check all 12 resource providers: registers the missing ones when the service principal may (Contributor on the subscription), otherwise names the ones still to register in the portal
 3. Create Key Vault with RBAC authorization enabled
 4. Assign Key Vault Secrets Officer role to the SP
 5. Test connection to Key Vault

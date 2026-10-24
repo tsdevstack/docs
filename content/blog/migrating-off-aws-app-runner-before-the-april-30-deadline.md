@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/migration-aws-app-runner.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Migrating off AWS App Runner before the April 30 deadline","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-04-14","dateModified":"2026-04-14","image":"https://tsdevstack.dev/blog/migration-aws-app-runner.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/migrating-off-aws-app-runner-before-the-april-30-deadline"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Migrating off AWS App Runner before the April 30 deadline","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-04-14","dateModified":"2026-04-14","image":"https://tsdevstack.dev/blog/migration-aws-app-runner.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/migrating-off-aws-app-runner-before-the-april-30-deadline"}'
 ---
 
 ![Migrating off AWS App Runner before the April 30 deadline](/blog/migration-aws-app-runner.webp)

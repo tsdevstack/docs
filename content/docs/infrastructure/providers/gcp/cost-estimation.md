@@ -48,10 +48,10 @@ Backend services and frontend set to `minInstances: 0`. Kong stays on (`minInsta
 | SPA bucket | GCS + Cloud CDN | Storage + minimal egress | ~$1 |
 | Cloud SQL | db-f1-micro, 10 GB | Shared-core instance + storage | ~$10 |
 | Memorystore Redis | BASIC, 1 GB | Billed per GiB-hour | ~$7 |
-| Load Balancer | 5 forwarding rules, low traffic | Rules + data processing ($0.008-0.012/GB) | ~$2 |
+| Load Balancer | 4 forwarding rules (IPv4 and IPv6, HTTPS and HTTP redirect), low traffic | $0.025/hour covers the first 5 rules (~$18) + $0.008/GiB processed; addresses on forwarding rules are free | ~$18-19 |
 | Cloud Armor | 1 policy, ~6 WAF rules | $5/policy + $1/rule + $0.75/million requests | ~$12 |
 | DNS, Secrets, Registry | Minimal | ~$0.20/zone + ~$0.06/secret-version/month | ~$1 |
-| **Total** | | | **~$45-55** |
+| **Total** | | 13 + (1-5) + (1-3) + 1 + 10 + 7 + (18-19) + 12 + 1 | **~$64-71** |
 
 
 Cold starts after scale-to-zero: **2-8 seconds**. Cloud Run handles this natively — no wake-up mechanisms needed.
@@ -74,10 +74,10 @@ All services set to `minInstances: 1`. **Assumed traffic: ~100,000 requests/day*
 | SPA bucket | GCS + Cloud CDN | Storage + egress | ~$1 |
 | Cloud SQL | db-f1-micro, 10 GB | Same as dev (upgrade if needed) | ~$10 |
 | Memorystore Redis | BASIC, 1 GB | Same as dev | ~$7 |
-| Load Balancer | 5 rules, moderate traffic | Rules + data processing | ~$5-10 |
+| Load Balancer | 4 rules, moderate traffic | $18.25 for the rules + data processing | ~$19-21 |
 | Cloud Armor | 1 policy, ~6 rules | $5 + $6 + 3M × $0.75/M | ~$13 |
 | DNS, Secrets, Registry | Minimal | — | ~$1 |
-| **Total** | | | **~$105-115** |
+| **Total** | | 18 + 39 + 13 + 1 + 10 + 7 + (19-21) + 13 + 1 | **~$121-123** |
 
 Cloud Run has two billing modes: *CPU allocated during requests* (request-based, the tsdevstack default) and *CPU always allocated* (instance-based). Under request-based billing an always-on instance pays memory for the full 730 hours, CPU at the idle rate while waiting, and the active CPU rate only while serving a request. The figures above assume ~3M requests/month at roughly 150ms of CPU each. Slower or heavier requests push these lines up toward the active rate.
 
@@ -97,12 +97,12 @@ Cloud Run has two billing modes: *CPU allocated during requests* (request-based,
 | SPA bucket | GCS + Cloud CDN | Storage + egress at volume | ~$5-15 |
 | Cloud SQL | db-g1-small or db-n1-standard-1 | Upgraded tier for load | ~$25-50 |
 | Memorystore Redis | BASIC, 1 GB | Same | ~$7 |
-| Load Balancer | High traffic | 5 rules + ~3 TB data processing | ~$40-60 |
+| Load Balancer | High traffic | $18.25 for the rules + ~3 TB data processing at $0.008/GiB | ~$40-60 |
 | DNS, Secrets, Registry | — | — | ~$1 |
 | **Total** | | | **~$1,100-1,160** |
 
 :::warning Per-request charges dominate at this volume
-Cloud Armor bills $0.75 per million requests, so at 300M/month it alone is ~$236, more than the database, cache, and load balancer combined. Together with Cloud Run's $0.40/million, per-request fees are ~$356 of this total. Earlier versions of this page listed Cloud Armor at ~$15-20 here, which was roughly 10x too low.
+Cloud Armor bills $0.75 per million requests, so at 300M/month it alone is ~$236, more than the database, cache, and load balancer combined. Together with Cloud Run's $0.40/million, per-request fees are ~$356 of this total. Budget by requests first at this volume.
 :::
 
 :::warning GCP is the expensive option at this scale

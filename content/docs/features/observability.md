@@ -76,12 +76,10 @@ logger.error('Error message', error, { context: 'optional' });
 
 ### Log output
 
-In development, logs are pretty-printed:
+In development, each entry is one line: time, level, `[context]`, message, then any extra fields. The service name comes from the dev runner's line prefix.
 
 ```
-[2024-01-15 10:30:45] INFO (auth-service): Creating user
-    context: "UserService"
-    email: "user@example.com"
+[10:30:45.120] INFO: [UserService] Creating user {"userId":"cm1x2y3z"}
 ```
 
 In production, logs are JSON for log aggregation:
@@ -93,11 +91,38 @@ In production, logs are JSON for log aggregation:
   "service": "auth-service",
   "context": "UserService",
   "msg": "Creating user",
-  "email": "user@example.com",
+  "userId": "cm1x2y3z",
   "trace_id": "abc123...",
   "span_id": "def456..."
 }
 ```
+
+### Request logs
+
+Each request logs one entry when it ends, in the `HTTP` context. The message summarizes the request. The request fields are grouped under `http`; the local one-line output hides them, since the message already shows them:
+
+```
+[10:30:45.124] INFO: [HTTP] POST /auth/v1/auth/signup 201 38ms {"correlationId":"b3f1c2d4-..."}
+[10:30:46.002] WARN: [HTTP] GET /auth/v1/user/avatar 404 4ms {"correlationId":"c9a8b7c6-...","reason":"Avatar not found"}
+```
+
+```json
+{
+  "level": "info",
+  "context": "HTTP",
+  "msg": "POST /auth/v1/auth/signup 201 38ms",
+  "http": { "method": "POST", "url": "/auth/v1/auth/signup", "statusCode": 201, "duration": 38 },
+  "correlationId": "b3f1c2d4-..."
+}
+```
+
+- Successful requests log at `info`.
+- Client errors (4xx) log at `warn`, with the error message in `reason` and no stack trace.
+- Server errors (5xx) log at `error`, with the stack trace.
+- `/health` and `/metrics` log at `debug`. A failing probe logs at `warn`.
+- `correlationId` is Kong's request id (`X-Request-ID`), also returned to the client as `X-Correlation-ID`. Requests with a partner API key add `apiKeyId` and `apiKeyConsumer`.
+
+Nest's own messages (startup, routes, unhandled errors) use the same logger and the same `LOG_LEVEL`: JSON in the cloud, one line locally. An unhandled error is logged once.
 
 ### Configuration
 
@@ -107,6 +132,8 @@ Set `LOG_LEVEL` environment variable to control log verbosity:
 - `info` - Info and above (default)
 - `warn` - Warnings and errors
 - `error` - Errors only
+
+Locally, the generated `.env` sets `LOG_LEVEL=debug`. Cloud deployments do not set it, so deployed services log at `info`. Framework classes that log through Nest's `Logger` follow the same level.
 
 ### PII redaction
 
@@ -301,8 +328,7 @@ The health endpoint provides service status for load balancers and orchestrators
   "timestamp": "2024-01-15T10:30:45.000Z",
   "uptime": 3600.5,
   "checks": {
-    "redis": { "status": "up" },
-    "memory": { "status": "up", "details": { "heapUsed": 45, "heapTotal": 128 } }
+    "redis": { "status": "up" }
   },
   "memory": {
     "used": 45,
@@ -311,20 +337,11 @@ The health endpoint provides service status for load balancers and orchestrators
 }
 ```
 
-Status values: `ok`, `degraded`, `down`
+Status values: `ok`, `degraded`, `down`. `/health` always answers HTTP 200. It is the liveness check that Cloud Run, ECS and Container Apps act on, so a Redis outage shows as `degraded` in the body and the service keeps running. It does not check the database: a service starts listening only once its database answers (`waitForDatabase()` in `PrismaService`).
 
 ### Configuring health checks
 
-```typescript
-ObservabilityModule.forRoot({
-  health: {
-    redis: true,        // Enable Redis health check
-    memory: {
-      heapThreshold: 0.9  // Alert at 90% heap usage
-    }
-  }
-})
-```
+Redis is checked automatically when the service imports `RedisModule`. `ObservabilityModule.forRoot({ health: false })` turns the health endpoints off.
 
 ## Configuration options
 

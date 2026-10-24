@@ -56,7 +56,7 @@ All modules are global — import once in `AppModule` and they're available ever
 | `NotificationModule` | Email notifications (console in dev, Resend in prod) |
 | `RateLimitModule` | Redis-backed rate limiting |
 | `EmailRateLimitModule` | Per-email rate limiting |
-| `StorageModule` | Unified object storage (S3, GCS, Azure Blob, MinIO) |
+| `StorageModule` | Unified object storage (S3, GCS, Azure Blob, RustFS locally) |
 | `MessagingModule` | Inter-service event broadcasting via Redis Streams |
 
 ## Bootstrap
@@ -227,10 +227,12 @@ Always use `SecretsService` — never `process.env`. The secrets system handles 
 
 ```typescript
 await secrets.get('KEY');        // Get secret value (cached)
-await secrets.set('KEY', 'val'); // Set secret
-await secrets.delete('KEY');     // Delete secret
+await secrets.set('KEY', 'val'); // Set secret (local only, see below)
+await secrets.delete('KEY');     // Delete secret (local only, see below)
 secrets.clearCache();            // Clear cache
 ```
+
+`set` and `delete` write `.secrets.user.json` in local development. Deployed services can read secrets but not change them: their cloud identities have read access only. Set cloud secrets with `npx tsdevstack cloud-secrets:set`.
 
 For deeper coverage, see [How Secrets Work](/docs/secrets/how-secrets-work).
 
@@ -411,7 +413,9 @@ await this.authClient.client.v1.someEndpoint({ headers: safeHeaders });
 
 ### General rate limiting
 
-Redis-backed sliding window rate limiting with configurable key generators.
+Redis-backed rate limiting with configurable key generators.
+
+Each route has its own counter, keyed by service, controller and handler. A decorator on a controller class limits each of its routes separately. Windows are fixed: a window starts at a multiple of `windowMs`, not at the first request.
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
@@ -443,15 +447,16 @@ export class ApiController {
 
 Key generators:
 
-- `ip`: the client IP. That is `X-Real-IP` (set by Kong) only for requests that passed the Kong trust check; for anything else, such as direct calls to the service, the socket address. `X-Forwarded-For` is never read, because clients control its first entry.
+- `ip`: the client IP. Behind the gateway, this is `X-Tsdevstack-Real-IP`, which Kong sets to the client's address (or to the visitor's address for calls the Next.js frontend makes, see [Client addresses](/docs/customization/kong-customization#client-addresses)). For direct calls to the service, it is the socket address. `X-Forwarded-For` is never read.
 - `userId`: the logged-in user's id. Partner API key requests on dual-access endpoints are limited per key id instead. Anything else gets 401.
 - `apiKey`: partner key requests per key id, internal service calls per (hashed) service key, everyone else per IP.
+- `custom`: the key your `customKeyGenerator` returns, used as is. Routes that return the same key share one counter.
 
 Fail-open: if Redis is unavailable, requests are allowed through.
 
 ### Email rate limiting
 
-Per-email address rate limiting for auth flows (signup, password reset, verification).
+Per-email address rate limiting for auth flows (signup, password reset, verification). Each route has its own counter and a fixed window, like the general limiter.
 
 ```typescript
 import { Controller, Post, UseGuards, Body } from '@nestjs/common';
@@ -507,7 +512,7 @@ You can replace Resend with SendGrid, Mailgun, Postmark, or any other provider b
 
 ## Storage
 
-`StorageModule` provides unified object storage across all cloud providers. The same code works on local [MinIO](https://min.io/), AWS S3, GCP Cloud Storage, and Azure Blob Storage.
+`StorageModule` provides unified object storage across all cloud providers. The same code works on local [RustFS](https://rustfs.com/), AWS S3, GCP Cloud Storage, and Azure Blob Storage.
 
 ```typescript
 import { Module } from '@nestjs/common';
@@ -565,7 +570,7 @@ The adapter is selected automatically from the `SECRETS_PROVIDER` environment va
 
 | `SECRETS_PROVIDER` | Adapter | Environment |
 |-------------------|---------|-------------|
-| `local` | S3 (MinIO) | Local development |
+| `local` | S3 (RustFS) | Local development |
 | `aws` | S3 (AWS) | AWS cloud |
 | `gcp` | GCS | Google Cloud |
 | `azure` | Azure Blob | Azure cloud |
@@ -721,19 +726,47 @@ For configuration, custom metrics, manual spans, and cloud setup, see [Observabi
 
 Creates a [Prisma](https://www.prisma.io/) client with connection pooling optimized for containers.
 
+The service templates use it in `PrismaService`:
+
 ```typescript
-import { createPrismaConnection } from '@tsdevstack/nest-common';
-import { PrismaClient } from '@prisma/client';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { createPrismaConnection, waitForDatabase } from '@tsdevstack/nest-common';
+import { PrismaClient } from '../generated/prisma/client';
+import type { Pool } from 'pg';
 
-const { config, pool } = createPrismaConnection();
-const prisma = new PrismaClient(config);
+@Injectable()
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
+  private readonly pool: Pool;
 
-// On shutdown:
-await prisma.$disconnect();
-pool.end();
+  constructor() {
+    const { config, pool } = createPrismaConnection();
+    super(config);
+    this.pool = pool;
+  }
+
+  async onModuleInit(): Promise<void> {
+    await waitForDatabase(this.pool);
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.$disconnect();
+    await this.pool.end();
+  }
+}
 ```
 
 Uses Prisma 7 with the `pg` adapter.
+
+### waitForDatabase()
+
+Waits until the database answers `SELECT 1`. It retries with backoff (0.5 s, doubling to 5 s) for up to 60 seconds; pass `{ timeoutMs }` to change the limit. Called from `onModuleInit`, it holds the service back from listening until the database is ready, so the platform's startup probe passes only when the service can serve requests. Each failed attempt logs a warning. If the deadline passes, startup fails and the platform restarts the instance.
+
+Only startup waits. `/health` never checks the database, so a database outage does not restart instances.
+
+Existing services add the `onModuleInit` method above to their `PrismaService`.
 
 ### Pool sizing
 
@@ -750,13 +783,15 @@ totalUsable = floor(dbConnections × 0.90)
 poolMax     = floor(totalUsable / totalInstances)
 ```
 
-You never set `DB_POOL_MAX` manually — it's injected as an environment variable during deployment.
+You never set `DB_POOL_MAX` manually: it's injected as an environment variable during deployment. If the result is one connection per instance, the deploy warns; pick a larger database tier or a lower `maxInstances`.
 
 ### Connection options
 
 - SSL for AWS RDS (`rejectUnauthorized: false`)
-- 30-second idle timeout
 - 10-second connection timeout
+- Idle connections close after 10 minutes, but one stays open (`min: 1`)
+- Connections are recycled after 30 minutes
+- TCP keepalive from 30 seconds idle, so a dead connection is noticed
 
 ## Health checks
 
@@ -775,8 +810,7 @@ The health system is included in `ObservabilityModule`. It exposes two endpoints
   "timestamp": "2026-01-15T10:30:45.000Z",
   "uptime": 3600.5,
   "checks": {
-    "redis": { "status": "up" },
-    "memory": { "status": "up", "details": { "heapUsed": 45, "heapTotal": 128 } }
+    "redis": { "status": "up" }
   },
   "memory": {
     "used": 45,
@@ -789,9 +823,11 @@ Status values: `ok`, `degraded`, `down`. When Redis is disconnected, the Redis c
 
 ### Health indicators
 
-| Indicator | What it checks |
-|-----------|---------------|
-| Redis | Is the connection ready and does Redis answer `PING` within 2 seconds? |
-| Memory | Is heap usage below the threshold? (default: 90%) |
+| Indicator | When | What it checks |
+|-----------|------|---------------|
+| Redis | Automatic when the service imports `RedisModule` | Is the connection ready and does Redis answer `PING` within 2 seconds? |
+| Memory | Only with `HealthModule.forRoot({ memory: { heapThreshold } })` | Is heap usage below the threshold? (default: 500 MB) |
+
+`/health` does not check the database. It is the liveness check, and platforms restart instances on it. Database readiness is handled at startup instead (see [waitForDatabase()](#waitfordatabase)).
 
 Health and metrics endpoints are `@Public()` and excluded from API docs. They bypass Kong's trust header so load balancers and monitoring systems can access them directly.

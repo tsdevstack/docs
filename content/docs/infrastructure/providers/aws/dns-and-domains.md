@@ -71,7 +71,7 @@ Terraform will:
 2. Auto-create DNS validation records in Route 53
 3. Wait for certificate to become ISSUED (~5 minutes)
 4. Create CloudFront with validated certificate
-5. Create Route 53 A records pointing to CloudFront
+5. Create Route 53 A and AAAA alias records pointing to CloudFront (every distribution serves IPv6)
 
 **All automated in a single command.**
 
@@ -125,7 +125,7 @@ Route 53 is not required in this case.
 
 ### "no matching Route 53 Hosted Zone found"
 
-The hosted zone doesn't exist or the domain name doesn't match exactly. Verify the hosted zone exists in Route 53 and the `DOMAIN` secret matches.
+The hosted zone doesn't exist or the domain name doesn't match exactly. Verify the hosted zone exists in Route 53 and the `DOMAIN` secret matches. `infra:plan` needs the zone as well: Terraform looks it up at plan time, so create it before the first plan, not only before the deploy.
 
 ### Certificate stuck on PENDING_VALIDATION
 

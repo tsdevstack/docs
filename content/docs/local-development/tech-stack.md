@@ -12,7 +12,7 @@ tsdevstack is built on battle-tested technologies chosen for reliability, develo
 | Gateway | [Kong](https://konghq.com/) | API routing, auth, rate limiting |
 | Database | [PostgreSQL](https://www.postgresql.org/) | Primary data storage |
 | Cache | [Redis](https://redis.io/) | Caching and rate limiting |
-| Object Storage | [MinIO](https://min.io/) / S3 / GCS / Azure Blob | File storage (unified interface) |
+| Object Storage | [RustFS](https://rustfs.com/) / S3 / GCS / Azure Blob | File storage (unified interface) |
 | ORM | [Prisma](https://www.prisma.io/) | Database interactions |
 | Logging | [Pino](https://getpino.io/) | Structured JSON logging |
 | Metrics | [Prometheus](https://prometheus.io/) | Metrics collection and storage |
@@ -277,7 +277,7 @@ resource "google_cloud_run_service" "auth_service" {
          +----------------+
 
          +----------------+
-         |  MinIO (S3)    |
+         |  RustFS (S3)    |
          | Object Storage |
          +----------------+
 ```

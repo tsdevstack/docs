@@ -31,7 +31,7 @@ head:
       content: "https://tsdevstack.dev/blog/cloudrun-private-networking.webp"
   - - script
     - type: "application/ld+json"
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Cloud Run private networking without a VPC Connector","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-05-07","dateModified":"2026-05-07","image":"https://tsdevstack.dev/blog/cloudrun-private-networking.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/cloud-run-private-networking-without-a-vpc-connector"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Cloud Run private networking without a VPC Connector","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-05-07","dateModified":"2026-05-07","image":"https://tsdevstack.dev/blog/cloudrun-private-networking.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/cloud-run-private-networking-without-a-vpc-connector"}'
 ---
 
 ![Cloud Run private networking without a VPC Connector](/blog/cloudrun-private-networking.webp)

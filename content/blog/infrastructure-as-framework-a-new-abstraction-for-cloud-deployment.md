@@ -31,7 +31,7 @@ head:
       content: "https://tsdevstack.dev/blog/storm.webp"
   - - script
     - type: "application/ld+json"
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Infrastructure as Framework: A New Abstraction for Cloud Deployment","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-03-04","dateModified":"2026-03-04","image":"https://tsdevstack.dev/blog/storm.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/infrastructure-as-framework-a-new-abstraction-for-cloud-deployment"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Infrastructure as Framework: A New Abstraction for Cloud Deployment","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-03-04","dateModified":"2026-03-04","image":"https://tsdevstack.dev/blog/storm.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/infrastructure-as-framework-a-new-abstraction-for-cloud-deployment"}'
 ---
 
 ![Infrastructure as Framework: A New Abstraction for Cloud Deployment](/blog/storm.webp)

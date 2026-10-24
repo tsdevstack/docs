@@ -16,7 +16,7 @@ The CLI is the single entry point for all framework operations. You never write 
 |------|---------------------|
 | Local dev | Docker Compose, Kong gateway config, secrets, Dockerfiles |
 | Services | Add/remove NestJS backends, Next.js frontends, Rsbuild SPAs |
-| Storage | Add/remove object storage buckets (MinIO locally, cloud-native in production) |
+| Storage | Add/remove object storage buckets (RustFS locally, cloud-native in production) |
 | Secrets | Local generation, cloud push/pull/diff with environment isolation |
 | Infrastructure | Terraform generation, planning, and deployment |
 | Deployment | Build Docker images, push to registry, deploy services, Kong, load balancer |

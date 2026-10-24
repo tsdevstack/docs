@@ -79,7 +79,7 @@ This automatically:
 
 The `cloud:init` command calls `infra:bootstrap`, which enables APIs and adds roles.
 
-**APIs enabled:** Secret Manager, Cloud Run, Artifact Registry, Cloud SQL Admin, Memorystore Redis, Compute Engine, Serverless VPC Access, Service Networking, Cloud Resource Manager, Certificate Manager, Cloud DNS, Cloud Functions, Cloud Build, Cloud Scheduler
+**APIs enabled:** Secret Manager, Cloud Run, Artifact Registry, Cloud SQL Admin, Memorystore Redis, Compute Engine, Service Networking, Cloud Resource Manager, Certificate Manager, Cloud DNS, Cloud Scheduler, Cloud Storage, Identity and Access Management (IAM), IAM Service Account Credentials
 
 **Roles added to the service account:**
 - Secret Manager Admin
@@ -88,13 +88,11 @@ The `cloud:init` command calls `infra:bootstrap`, which enables APIs and adds ro
 - Cloud SQL Admin
 - Cloud Memorystore Redis Admin
 - Compute Admin (VPCs, NEGs, load balancers)
-- Serverless VPC Access Admin
 - Service Networking Admin
 - Storage Admin
 - Service Account Admin + User
 - Certificate Manager Owner
 - DNS Admin
-- Cloud Functions Admin + Cloud Build Builder
 - Cloud Scheduler Admin
 
 ## Environment Isolation

@@ -65,6 +65,8 @@ Front Door provisions managed TLS certificates automatically once DNS is configu
    - **HTTPS certificate status** — should be `Succeeded`
 5. If stuck on `Pending`, ensure nameservers are correctly pointed to Azure DNS
 
+Until the certificate reaches Front Door's edge servers, browsers show `ERR_CERT_COMMON_NAME_INVALID`: the edge still presents Front Door's default `*.azureedge.net` certificate. This can take a while after the portal shows the certificate as issued. Wait and reload.
+
 ### Standard vs Premium SSL
 
 - **Standard:** Front Door connects to public App Service endpoints, validates via FDID header

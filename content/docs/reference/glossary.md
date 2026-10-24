@@ -21,10 +21,10 @@ Key terms used throughout the tsdevstack documentation.
 | **Route prefix** | The URL path prefix for a service, derived from its short name (e.g., `/auth/`, `/payments/`). |
 | **Exact route** | A generated Kong route that matches one OpenAPI path and its declared methods only. Undeclared paths, methods and trailing slashes get 404 at the gateway. See [Gateway Routing](/docs/building-apis/gateway-routing#exact-routes). |
 | **Kong plugin** | A gateway extension. Kong's bundled plugins are enabled in `kong.user.yml`; your own Lua plugins go in `kong-plugins/` and are built into the gateway image. See [Kong Plugins](/docs/customization/kong-plugins). |
-| **Framework Kong plugins** | Plugins that ship with the CLI and are always in the gateway image: `tsdevstack-strip-identity` (removes client-sent identity headers), `tsdevstack-api-key` (checks API keys against Redis) and `tsdevstack-api-prefix` (removes `/api` from partner requests). |
+| **Framework Kong plugins** | Plugins that ship with the CLI and are always in the gateway image: `tsdevstack-strip-identity` (removes client-sent identity headers), `tsdevstack-client-ip` (identifies the frontend's visitors for rate limits), `tsdevstack-api-key` (checks API keys against Redis) and `tsdevstack-api-prefix` (removes `/api` from partner requests). |
 | **Cloud Map** | AWS service discovery. Services and Kong reach each other at `{service}.{project}.local` inside the VPC. |
 | **Load balancer** | Cloud-managed entry point that terminates TLS and routes traffic to Kong and frontends. ALB on AWS, Cloud Run's built-in LB on GCP, Container App ingress on Azure. |
-| **Bucket** | An object storage container for files. [MinIO](https://min.io/) locally, S3 (AWS), Cloud Storage (GCP), or Blob Storage (Azure) in the cloud. Added via `add-bucket-storage`. See [Object Storage](/docs/features/object-storage). |
+| **Bucket** | An object storage container for files. [RustFS](https://rustfs.com/) locally, S3 (AWS), Cloud Storage (GCP), or Blob Storage (Azure) in the cloud. Added via `add-bucket-storage`. See [Object Storage](/docs/features/object-storage). |
 | **Terraform** | [Terraform](https://www.terraform.io/) by HashiCorp — the infrastructure-as-code tool used under the hood. You never write Terraform directly; the framework generates and applies it. |
 
 ## Configuration

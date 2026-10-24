@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/agent-knowledge-channels.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Agent knowledge is a trigger problem, not a writing problem","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-08-08","dateModified":"2026-08-08","image":"https://tsdevstack.dev/blog/agent-knowledge-channels.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/agent-knowledge-is-a-trigger-problem"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Agent knowledge is a trigger problem, not a writing problem","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-08-08","dateModified":"2026-08-08","image":"https://tsdevstack.dev/blog/agent-knowledge-channels.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/agent-knowledge-is-a-trigger-problem"}'
 ---
 
 ![Agent knowledge is a trigger problem, not a writing problem](/blog/agent-knowledge-channels.webp)

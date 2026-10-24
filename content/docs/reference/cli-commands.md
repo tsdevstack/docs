@@ -151,7 +151,7 @@ npx tsdevstack add-bucket-storage --name <name>
 **What it does:**
 
 - Adds bucket to `storage.buckets` in `config.json`
-- Regenerates `docker-compose.yml` with MinIO (first bucket adds MinIO container + minio-init job)
+- Regenerates `docker-compose.yml` with RustFS (the first bucket adds the `rustfs` and `rustfs-init` services)
 - Regenerates secrets with `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET_{NAME}`
 
 **Options:**
@@ -167,7 +167,7 @@ npx tsdevstack add-bucket-storage --name uploads
 npx tsdevstack add-bucket-storage --name media-assets
 ```
 
-After adding, run `docker compose up -d` to start MinIO. Console at http://localhost:9001 (minioadmin/minioadmin).
+After adding, run `docker compose up -d` to start RustFS. Console at http://localhost:9001 (rustfsadmin/rustfsadmin).
 
 ### `remove-bucket-storage`
 
@@ -177,7 +177,7 @@ Remove a storage bucket from the project.
 npx tsdevstack remove-bucket-storage [--name <name>]
 ```
 
-Removes the bucket from `config.json` and regenerates docker-compose and secrets. If no name is provided, prompts for selection. Does **not** delete local MinIO data or cloud resources.
+Removes the bucket from `config.json` and regenerates docker-compose and secrets. If no name is provided, prompts for selection. Does **not** delete local RustFS data or cloud resources.
 
 **Options:**
 
@@ -265,11 +265,13 @@ npx tsdevstack cloud:init --gcp    # or --aws, --azure
 
 ### `cloud-secrets:push`
 
-Push local secrets to cloud environment.
+Generate fresh framework secrets and push them, with your user secrets, to a cloud environment.
 
 ```bash
-npx tsdevstack cloud-secrets:push --env <environment>
+npx tsdevstack cloud-secrets:push --env <environment> [--skip-user-secrets]
 ```
+
+`--skip-user-secrets` runs without prompts (CI, AI agents): it pushes the framework secrets and lists the user secrets still missing in the cloud.
 
 ### `cloud-secrets:diff`
 
@@ -358,6 +360,8 @@ Deploy full infrastructure: base + services + Kong + load balancer.
 ```bash
 npx tsdevstack infra:deploy --env <environment>
 ```
+
+If the provider has no capacity for a size you asked for (a database or Redis size in your region), the deploy waits 5 minutes and tries again, up to 3 times. This is a shortage on the provider's side, not a quota or configuration error. If it still fails, run the command again later; it continues where it stopped. Or pick another `database.tier` or `redis.tier` in `infrastructure.json`.
 
 ### `infra:destroy`
 

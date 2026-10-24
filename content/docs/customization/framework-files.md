@@ -117,7 +117,7 @@ Framework files (`*.tsdevstack.*`) regenerate in these situations:
 
 Your user files are never modified by the framework.
 
-**Note on secrets preservation:** When `.secrets.tsdevstack.json` regenerates, critical values are automatically preserved: JWT keys, service API keys, database credentials, and KONG_TRUST_TOKEN. The file is rewritten, but these values are read first and carried forward. Only delete `.secrets.tsdevstack.json` if you need completely fresh credentials.
+**Note on secrets preservation:** When `.secrets.tsdevstack.json` regenerates, critical values are automatically preserved: JWT keys, service API keys, database credentials, KONG_TRUST_TOKEN and KONG_FRONTEND_TOKEN. The file is rewritten, but these values are read first and carried forward. Only delete `.secrets.tsdevstack.json` if you need completely fresh credentials.
 
 ## Safe customization practices
 

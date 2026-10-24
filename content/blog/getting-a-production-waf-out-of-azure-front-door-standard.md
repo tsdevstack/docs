@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/azure-front-door-waf.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Getting a production WAF out of Azure Front Door Standard","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-01","dateModified":"2026-06-01","image":"https://tsdevstack.dev/blog/azure-front-door-waf.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/getting-a-production-waf-out-of-azure-front-door-standard"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Getting a production WAF out of Azure Front Door Standard","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-01","dateModified":"2026-06-01","image":"https://tsdevstack.dev/blog/azure-front-door-waf.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/getting-a-production-waf-out-of-azure-front-door-standard"}'
 ---
 
 ![Getting a production WAF out of Azure Front Door Standard](/blog/azure-front-door-waf.webp)

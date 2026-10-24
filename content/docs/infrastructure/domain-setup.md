@@ -65,7 +65,7 @@ DNS configuration differs by cloud provider:
 
 | Provider | DNS Management | A Records | SSL Certificates |
 |----------|---------------|-----------|-----------------|
-| **GCP** | Your domain registrar | Manual — point to Load Balancer IP | Manual — add CNAME validation records |
+| **GCP** | Your domain registrar | Manual: A and AAAA records to the Load Balancer addresses | Manual — add CNAME validation records |
 | **AWS** | Route 53 (nameservers moved to AWS) | Auto-created by Terraform | Auto-created and validated by Terraform |
 | **Azure** | Azure DNS (nameservers moved to Azure) | Auto-created by Terraform | Auto-provisioned by Front Door |
 

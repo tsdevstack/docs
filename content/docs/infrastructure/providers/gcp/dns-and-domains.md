@@ -4,7 +4,7 @@ Provider-specific DNS configuration and SSL certificate setup for GCP deployment
 
 ## Overview
 
-GCP uses a Global HTTPS Load Balancer with a static IP. All domains (API, frontends, redirects) point to this single IP via A records. SSL certificates are managed by Certificate Manager with DNS authorization.
+GCP uses a Global HTTPS Load Balancer with a static IPv4 and a static IPv6 address. All domains (API, frontends, redirects) point to them: A records for IPv4, AAAA records for IPv6. SSL certificates are managed by Certificate Manager with DNS authorization.
 
 ## Finding the Load Balancer IP
 
@@ -14,23 +14,29 @@ After running `infra:deploy-lb`, the CLI displays the Load Balancer IP. To find 
 2. Click on your load balancer (named `{projectName}-lb`)
 3. The **Frontend** section shows the static IP address
 
-Alternatively: **VPC network > IP addresses** > look for `{projectName}-lb-ip`
+Alternatively: **VPC network > IP addresses** > look for `{projectName}-lb-ip` (IPv4) and `{projectName}-lb-ipv6` (IPv6). The CLI prints both after a deploy.
 
 ## DNS Records
 
-Point all your domains to the Load Balancer IP with A records:
+Point all your domains to the Load Balancer with A records, and to its IPv6 address with AAAA records:
 
 | Record Type | Registrar Host Field | Value | Purpose |
 |-------------|---------------------|-------|---------|
 | A | `api` | Load Balancer IP | API traffic |
 | A | `@` (or blank) | Load Balancer IP | Frontend traffic |
 | A | `app` | Load Balancer IP | SPA traffic |
+| AAAA | `api` | Load Balancer IPv6 | API traffic over IPv6 |
+| AAAA | `@` (or blank) | Load Balancer IPv6 | Frontend traffic over IPv6 |
+| AAAA | `app` | Load Balancer IPv6 | SPA traffic over IPv6 |
+
+Without the AAAA records everything still works over IPv4; visitors on IPv6-only networks cannot reach you.
 
 For redirect domains on a **separate TLD** (e.g., `example.io` redirecting to `example.com`), add an A record in that domain's DNS zone:
 
 | Record Type | Registrar Host Field | Value | Purpose |
 |-------------|---------------------|-------|---------|
 | A | `@` (or blank) | Load Balancer IP | Redirect domain |
+| AAAA | `@` (or blank) | Load Balancer IPv6 | Redirect domain over IPv6 |
 
 :::warning Registrar host field
 Most domain registrars automatically append your domain to the host field. Enter only the **relative** part — e.g., `api` instead of `api.example.com`. Using the full domain name would create a record at `api.example.com.example.com`, which is incorrect. For the root domain, use `@` or leave the host field blank.
@@ -92,6 +98,7 @@ To redirect alternate domains (e.g., `.io`, `.app`) to your canonical domain:
 2. Deploy: `npx tsdevstack infra:deploy-lb --env prod`
 3. **At each redirect domain's registrar**, add:
    - **A record** `@` → Load Balancer IP (same IP as your main domain)
+   - **AAAA record** `@` → Load Balancer IPv6 (same as your main domain)
    - **CNAME record** for SSL validation — use the values printed by the CLI
 
 :::warning Redirect domains need their own DNS records

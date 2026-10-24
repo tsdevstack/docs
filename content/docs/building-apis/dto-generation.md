@@ -183,8 +183,16 @@ export class UserDto {
   @IsString()
   @ApiProperty({ required: false, nullable: true })
   notes?: string | null;
+
+  @IsDefined()
+  @IsArray()
+  @IsString({ each: true })
+  @ApiProperty({ required: true })
+  roles: string[];
 }
 ```
+
+The validators come from each property's OpenAPI type: strings, numbers and booleans get `@IsString()`, `@IsNumber()` or `@IsBoolean()`, and arrays get `@IsArray()` plus the item check with `{ each: true }`. Nested objects, maps (`Record<string, ...>`), unions and file (`binary`) fields get no type validator.
 
 ### Date Handling
 

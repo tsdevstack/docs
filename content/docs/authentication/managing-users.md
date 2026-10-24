@@ -159,3 +159,9 @@ On success the response is a **new token pair** (`accessToken`, `refreshToken`).
 ### Forgotten passwords
 
 Users who cannot log in use the email flow: `POST /auth/v1/auth/forgot-password` sends a reset link, and `POST /auth/v1/auth/reset-password` sets the new password. Locally the reset email appears in the auth-service logs; in the cloud it needs Resend, like confirmation.
+
+### Email letter case
+
+Email addresses ignore letter case: `Ada@Example.com` and `ada@example.com` are the same account. Signup stores the address with its ASCII letters lowercased, and login, resend-confirmation and forgot-password accept any case. Other characters are kept as typed, because case folding of some Unicode characters can turn one address into another. Confirmation and reset emails always go to the stored address.
+
+Existing accounts keep the case they were stored with and log in when the address is typed that way.

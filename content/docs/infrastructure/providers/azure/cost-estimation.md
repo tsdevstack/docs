@@ -29,6 +29,7 @@ A typical tsdevstack project (3 NestJS backends + 1 Next.js frontend) creates th
 | Edge / CDN / WAF / SSL | Front Door | Standard or Premium tier |
 | Secrets | Key Vault | RBAC mode |
 | DNS | Azure DNS | 1 zone |
+| Kong private endpoint (with Next.js apps) | Private Link + private DNS zone | 1 endpoint, the Next.js servers' path to Kong |
 | Container images | Azure Container Registry | Basic tier |
 
 You can override CPU, memory, instance counts, database tier, Redis tier, disk size, App Service SKU, and Front Door tier in `infrastructure.json`. See [Service Configuration](/docs/infrastructure/service-configuration) for all available options.
@@ -65,8 +66,9 @@ Backend services set to `minInstances: 0` (default on Azure). Kong and Next.js a
 | Front Door (Standard) | CDN + WAF + SSL + routing | Base fee + requests + data transfer | ~$35 |
 | ACR Basic | Container Registry | 10 GB included storage | ~$5 |
 | DNS, Key Vault, Logs | Minimal | — | ~$1-3 |
-| **Total (Standard)** | | | **~$95-100** |
-| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$473-478** |
+| Kong private endpoint | Next.js servers to Kong | $0.01/hour + $0.01/GB processed + $0.50 DNS zone | ~$8 |
+| **Total (Standard)** | | | **~$103-108** |
+| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$481-486** |
 
 Cold starts after scale-to-zero: **2-5 seconds**. Container Apps use KEDA HTTP scaling — no wake-up mechanisms needed.
 
@@ -86,31 +88,33 @@ All services with `minInstances: 1`. **Assumed traffic: ~100,000 requests/day** 
 | Managed Redis | Balanced B0 | — | ~$13 |
 | Front Door (Standard) | Moderate traffic | $35 base + 3M × $0.011/10k | ~$38-45 |
 | ACR, DNS, Key Vault, Logs | Minimal | — | ~$6-8 |
-| **Total (Standard)** | | | **~$135-150** |
-| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$513-528** |
+| Kong private endpoint | Next.js servers to Kong | $0.01/hour + $0.01/GB processed + $0.50 DNS zone | ~$8 |
+| **Total (Standard)** | | | **~$143-158** |
+| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$521-536** |
 
 :::tip
-Container Apps idle billing is the reason this stays moderate: a `minInstances: 1` replica with no requests bills vCPU at $0.000003/sec rather than the active $0.000024/sec, and the first 180,000 vCPU-seconds and 360,000 GiB-seconds each month are free. Upgrading App Service to S1 (~$69/plan) enables auto-scaling for Kong and Next.js.
+Container Apps idle billing keeps this moderate: a `minInstances: 1` replica with no requests bills vCPU at $0.000003/sec instead of the active $0.000024/sec, and the first 180,000 vCPU-seconds and 360,000 GiB-seconds a month are free. Kong and Next.js run one instance each on B1. Autoscale needs a Standard plan (S1, ~$69 per instance) with `maxInstances` above `minInstances`; see [Azure App Service plans](/docs/infrastructure/service-configuration#azure-app-service-plans).
 :::
 
 ---
 
 ## Scenario 3 — Production Under Load (3 Instances, 24/7, Standard)
 
-Services auto-scale to 3 replicas average. App Service upgraded to S1 for auto-scaling. **Assumed traffic: ~10M requests/day** (300M/month).
+Services auto-scale to 3 replicas on average. App Service runs S1 with autoscale (`minInstances: 1`, `maxInstances` above it). Kong and the frontend are assumed to average one instance each; every extra instance adds ~$69. **Assumed traffic: ~10M requests/day** (300M/month).
 
 | Resource | Configuration | How it's calculated | Est. monthly |
 |----------|--------------|---------------------|-------------|
-| Kong (App Service) | S1 plan, auto-scale | Upgraded plan | ~$69 |
-| Frontend (App Service) | S1 plan, auto-scale | Upgraded plan | ~$69 |
+| Kong (App Service) | S1 plan, autoscale, avg 1 instance (assumed) | $69 per instance | ~$69 |
+| Frontend (App Service) | S1 plan, autoscale, avg 1 instance (assumed) | $69 per instance | ~$69 |
 | **Backend services ×3** | 0.5 vCPU, 1 GiB, avg 3 each | 11.8M vCPU-sec mostly at **active** rate + 23.7M GiB-sec | **~$250** |
 | **Front Door (Standard)** | High traffic | $35 base + 300M × $0.011/10k | **~$250-380** |
 | SPA bucket | Blob Storage + Front Door | Storage + egress at volume | ~$5-15 |
 | PostgreSQL Flexible Server | GP_Standard_D2s_v3, 32 GB | Upgraded for load (General Purpose) | ~$100-130 |
 | Managed Redis | Balanced B1 | Upgraded for load | ~$25 |
 | ACR, DNS, Key Vault, Logs | — | — | ~$8-12 |
-| **Total (Standard)** | | | **~$780-950** |
-| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$1,158-1,328** |
+| Kong private endpoint | Next.js servers to Kong | $7.30 + $0.01/GB processed (assumed under 200 GB) + $0.50 DNS zone | ~$8-10 |
+| **Total (Standard)** | | | **~$788-960** |
+| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$1,166-1,338** |
 
 :::warning The Container Apps idle discount disappears under load
 At moderate traffic these replicas bill at $0.000003/vCPU-sec. Once they are serving continuously they bill at $0.000024/vCPU-sec, the same active rate as Cloud Run, which is why this line jumps from ~$39 to ~$250. Front Door's $0.011 per 10,000 requests is the other dominant line at this volume. Earlier versions of this page listed these at ~$15-40 and ~$45-65, which was far too low.
@@ -125,7 +129,7 @@ At this scale, consider [Azure Reservations](https://azure.microsoft.com/en-us/p
 | # | Cost driver | Why |
 |---|------------|-----|
 | 1 | **Front Door tier** | Standard ($35) vs Premium ($412.50). The single biggest cost variable. |
-| 2 | **App Service plans** | B1 ($13/plan × 2) vs S1 ($69/plan × 2). Needed for Kong + Next.js. |
+| 2 | **App Service plans** | Billed per instance: B1 ~$13, S1 ~$69 a month. Two plans (Kong, Next.js), at least one instance each. |
 | 3 | **PostgreSQL tier** | Burstable B1ms ($14) vs General Purpose D2s ($100+). Pick based on load. |
 | 4 | **Container Apps** | Very cheap on Consumption plan. Not a major cost driver. |
 
@@ -134,7 +138,7 @@ At this scale, consider [Azure Reservations](https://azure.microsoft.com/en-us/p
 ## How to Reduce Costs
 
 - **Use Standard Front Door** unless you need Private Link or managed WAF rulesets — saves $377.50/month
-- **Stay on B1 App Service** for development — upgrade to S1 only when you need auto-scaling
+- **Stay on B1 App Service** for development, one instance per plan. Move to S1 only when you need autoscale, and keep `maxInstances` at what you are willing to pay for
 - **Keep `minInstances: 0`** on Container Apps **in development** — accept 2-5s cold starts
 - **Use `B_Standard_B1ms`** for development databases — upgrade only when needed
 - **Azure Reservations** — 1-year commitment saves up to 40% on App Service and PostgreSQL
@@ -146,7 +150,8 @@ Set it per environment in `.tsdevstack/infrastructure.json`:
 
 ```json
 {
-  "services": {
+  "version": "1.0.0",
+  "prod": {
     "auth-service": { "minInstances": 1 }
   }
 }
@@ -160,24 +165,25 @@ Override any default in `.tsdevstack/infrastructure.json`:
 ```json
 {
   "version": "1.0.0",
-  "services": {
+  "prod": {
     "auth-service": {
       "cpu": "0.5",
       "memory": "1Gi",
-      "minInstances": 0,
+      "minInstances": 1,
       "maxInstances": 3
-    }
-  },
-  "database": {
-    "tier": "GP_Standard_D2s_v3",
-    "diskSize": 64
-  },
-  "redis": {
-    "tier": "Balanced_B1"
-  },
-  "appService": {
-    "kongSku": "S1",
-    "nextjsSku": "S1"
+    },
+    "database": {
+      "tier": "GP_Standard_D2s_v3",
+      "diskSize": 64
+    },
+    "redis": {
+      "tier": "Balanced_B1"
+    },
+    "appService": {
+      "kongSku": "S1",
+      "nextjsSku": "S1"
+    },
+    "kong": { "minInstances": 1, "maxInstances": 3 }
   }
 }
 ```

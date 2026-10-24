@@ -58,6 +58,13 @@ This command:
 
 Custom secrets are pushed to the **shared scope** (available to all services). If a secret already exists in cloud, you won't be prompted again.
 
+**Without prompts** (CI, AI agents): `--skip-user-secrets` pushes the framework secrets and lists the user secrets still missing in the cloud, with a `cloud-secrets:set` command for each. If `DOMAIN` is set in the cloud, it also derives `API_URL`, `APP_URL` and `KONG_CORS_ORIGINS`; set `DOMAIN` first, or push again after. The MCP server's `cloud_secrets_push` tool always runs this way.
+
+```bash
+npx tsdevstack cloud-secrets:set DOMAIN example.com --env staging
+npx tsdevstack cloud-secrets:push --env staging --skip-user-secrets
+```
+
 **Important**: Cloud secrets are generated fresh and never copied from local development. This ensures production uses unique, secure values.
 
 > You can also set secrets directly in your cloud provider's console (GCP Secret Manager, AWS Secrets Manager, Azure Key Vault). The CLI provides convenience — it's not the only way.

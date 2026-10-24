@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/democratizing-cloud-cover.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Democratizing professional cloud infrastructure","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-17","dateModified":"2026-06-17","image":"https://tsdevstack.dev/blog/democratizing-cloud-cover.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/democratizing-professional-cloud-infrastructure"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Democratizing professional cloud infrastructure","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-17","dateModified":"2026-06-17","image":"https://tsdevstack.dev/blog/democratizing-cloud-cover.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/democratizing-professional-cloud-infrastructure"}'
 ---
 
 ![Democratizing professional cloud infrastructure](/blog/democratizing-cloud-cover.webp)

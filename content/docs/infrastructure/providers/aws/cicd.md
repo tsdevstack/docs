@@ -63,7 +63,7 @@ Do this **once per AWS account**.
 
 ## Step 3: Add Inline Policy
 
-AWS limits roles to 10 managed policies. Use a single inline policy to cover all services needed for deployment.
+Use a single inline policy to cover all services needed for deployment.
 
 1. Go to [IAM](https://console.aws.amazon.com/iam/) > **Roles** > click the **github-actions-deploy** role you just created
 2. Go to **Permissions** tab > **Add permissions** > **Create inline policy**
@@ -206,7 +206,7 @@ AWS limits roles to 10 managed policies. Use a single inline policy to cover all
 4. **Policy name:** `tsdevstack-deploy`
 
 :::info
-Why an inline policy? AWS limits roles to 10 managed policies by default. A single inline policy covers all 15+ services needed for deployment without hitting that limit.
+Why an inline policy? One policy covers every service the framework deploys, including KMS and CloudTrail, without stacking AWS managed policies (a role holds 20 by default, a user 10). The same policy works for an IAM user.
 :::
 
 ## Step 4: Copy the Role ARN

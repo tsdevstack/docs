@@ -29,7 +29,7 @@ A typical tsdevstack project (3 NestJS backends + 1 Next.js frontend) creates th
 | Database | RDS PostgreSQL 16 | `db.t3.micro`, 20 GB disk |
 | Cache | ElastiCache Redis 7 | `cache.t3.micro` |
 | Load Balancer | Application Load Balancer | 2 listeners (HTTP redirect, HTTPS), target groups for Kong and Next.js |
-| CDN | CloudFront | Separate distributions for API, frontend, SPAs |
+| CDN | CloudFront | Separate distributions for API, frontend, SPAs; a CloudFront function on the API and frontend distributions sets the client address header (billed per million invocations, free tier; not in the totals below) |
 | WAF | AWS WAF | Managed + custom rules |
 | Networking | NAT Gateway | 2 NAT Gateways (one per AZ) |
 | Secrets | Secrets Manager | ~10-20 secrets |

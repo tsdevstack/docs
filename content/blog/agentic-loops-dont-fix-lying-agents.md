@@ -31,7 +31,7 @@ head:
       content: 'https://tsdevstack.dev/blog/agentic-loops.webp'
   - - script
     - type: 'application/ld+json'
-    - '{"@context":"https://schema.org","@type":"Article","headline":"Agentic loops don''t fix lying agents","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-15","dateModified":"2026-06-15","image":"https://tsdevstack.dev/blog/agentic-loops.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/agentic-loops-dont-fix-lying-agents"}'
+      children: '{"@context":"https://schema.org","@type":"Article","headline":"Agentic loops don''t fix lying agents","author":{"@type":"Person","name":"gyorgy"},"datePublished":"2026-06-15","dateModified":"2026-06-15","image":"https://tsdevstack.dev/blog/agentic-loops.webp","mainEntityOfPage":"https://tsdevstack.dev/blog/agentic-loops-dont-fix-lying-agents"}'
 ---
 
 ![Agentic loops don't fix lying agents](/blog/agentic-loops.webp)

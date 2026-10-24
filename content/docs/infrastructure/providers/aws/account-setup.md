@@ -66,7 +66,7 @@ Attach `AdministratorAccess`.
 
 **For least-privilege:**
 
-Use a single inline policy instead of managed policies (AWS limits roles to 10 managed policies). See the [inline policy in the CI/CD guide](/docs/infrastructure/providers/aws/cicd#step-3-add-inline-policy) — the same policy works for IAM users.
+Use a single inline policy instead of managed policies. An IAM user can hold 10 managed policies by default, and the usual full-access set leaves out KMS and CloudTrail, which the framework uses. See the [inline policy in the CI/CD guide](/docs/infrastructure/providers/aws/cicd#step-3-add-inline-policy). The same policy works for IAM users and fits within their 2,048-character inline policy limit.
 
 ### 3.6 Create Access Key
 
