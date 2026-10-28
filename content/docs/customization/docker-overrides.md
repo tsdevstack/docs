@@ -270,20 +270,19 @@ volumes:
   elasticsearch-data:
 ```
 
-To configure backend services to use these infrastructure services, add to `.secrets.user.json`:
+To configure a backend service to use these infrastructure services, add the values to its section of `.secrets.user.json`:
 
 ```json
 {
-  "secrets": {
+  "bff-service": {
     "ELASTICSEARCH_URL": "http://localhost:9200",
     "SMTP_HOST": "localhost",
     "SMTP_PORT": "8025"
-  },
-  "bff-service": {
-    "secrets": ["ELASTICSEARCH_URL", "SMTP_HOST", "SMTP_PORT"]
   }
 }
 ```
+
+Put them in the top-level `secrets` object instead if every backend service uses them.
 
 ## Cloud deployment considerations
 
@@ -294,8 +293,8 @@ To configure backend services to use these infrastructure services, add to `.sec
 2. **Configure connection strings** - Add URLs via cloud secrets:
 
 ```bash
-npx tsdevstack cloud-secrets:set ELASTICSEARCH_URL https://my-cluster.es.cloud:9243 --env prod
-npx tsdevstack cloud-secrets:set SMTP_HOST smtp.sendgrid.net --env prod
+npx tsdevstack cloud-secrets:set ELASTICSEARCH_URL https://my-cluster.es.cloud:9243 --service bff-service --env prod
+npx tsdevstack cloud-secrets:set SMTP_HOST smtp.sendgrid.net --service bff-service --env prod
 ```
 
 3. **Update service code** - Ensure your code uses the same environment variable names locally and in production

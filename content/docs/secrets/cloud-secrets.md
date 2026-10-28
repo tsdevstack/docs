@@ -52,11 +52,11 @@ This command:
 - Generates and pushes framework secrets automatically (JWT keys, API keys, token TTLs, email provider)
 - Prompts you for **3 values**: `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM`. [Resend](https://resend.com) is an email delivery service used for transactional emails (account confirmation, password reset)
 - Auth template projects: asks for `ADMIN_EMAILS` (the first admins, optional) when it has a value in your local `.secrets.user.json`, and pushes it to the auth-service scope. Otherwise it prints the `cloud-secrets:set ADMIN_EMAILS --service auth-service --env <env>` command to run later. See [Managing Users](/docs/authentication/managing-users#the-first-admin)
-- **Includes your custom secrets** from `.secrets.user.json` — prompts you for each one interactively (you can skip any by leaving the value empty)
+- **Includes your custom secrets** from `.secrets.user.json`: prompts you for each environment's value (you can skip any by leaving the value empty)
 - Auto-derives the rest from your domain: `API_URL`, `APP_URL`, `KONG_CORS_ORIGINS`
 - Skips infrastructure secrets (`DATABASE_URL`, `REDIS_*`) — these are synced from Terraform outputs during deployment
 
-Custom secrets are pushed to the **shared scope** (available to all services). If a secret already exists in cloud, you won't be prompted again.
+Custom secrets keep the scope they have locally. Top-level ones go to the **shared scope**, which every service reads. Values in a service's section go to **that service's scope**. Values in a frontend's or a worker's section are listed, not pushed. If a secret already exists in the cloud, you won't be prompted again.
 
 **Without prompts** (CI, AI agents): `--skip-user-secrets` pushes the framework secrets and lists the user secrets still missing in the cloud, with a `cloud-secrets:set` command for each. If `DOMAIN` is set in the cloud, it also derives `API_URL`, `APP_URL` and `KONG_CORS_ORIGINS`; set `DOMAIN` first, or push again after. The MCP server's `cloud_secrets_push` tool always runs this way.
 
@@ -115,6 +115,23 @@ npx tsdevstack cloud-secrets:diff --env staging
 npx tsdevstack cloud-secrets:remove OLD_KEY --env staging
 ```
 
+### Upgrade an Existing Environment
+
+Environments deployed before 0.11 keep the auth secrets in the shared scope. On Azure, they keep every service's secrets in the shared Key Vault. Move them to the services' own scopes in three steps:
+
+```bash
+# 1. Copy them to their new places (never deletes or overwrites, safe to repeat)
+npx tsdevstack cloud-secrets:migrate --env staging
+
+# 2. Deploy, so the services read the new places
+npx tsdevstack infra:deploy --env staging
+
+# 3. Delete the old copies (asks first)
+npx tsdevstack cloud-secrets:cleanup --env staging
+```
+
+The values are copied as they are, never regenerated, so your users stay logged in. `cleanup` deletes the old copies whose new copy has the same value. If you changed a value after `migrate`, it asks separately before deleting that old copy. On Azure, it runs once every service is on the new deploy.
+
 ## Secret Naming in Cloud
 
 Secrets are stored with a naming convention:
@@ -130,9 +147,11 @@ Examples:
 ### Scopes
 
 - **shared** - Available to all services (most secrets)
-- **{service-name}** - Service-specific secrets (primarily DATABASE_URL)
+- **{service-name}** - Service-specific secrets, such as each service's `DATABASE_URL`. With the auth template, the auth secrets live in the auth service's scope: the JWT keys, the refresh token secret, `BCRYPT_ROUNDS` and `ADMIN_EMAILS`
 
-When a service requests a secret, tsdevstack checks the shared scope first, then falls back to the service scope. Nearly every runtime secret lives in shared, so this resolves in a single lookup. If the same key exists in both scopes, the shared value wins.
+`cloud-secrets:set`, `get` and `remove` pick the right scope for these keys on their own. Pass `--service` to choose another one.
+
+When a service requests a secret, tsdevstack reads its own scope and the shared scope at the same time. If the same key exists in both, the service's own value wins, in the cloud and locally. Values are cached for 5 minutes (1 minute locally).
 
 ### Azure Key Vault Naming
 

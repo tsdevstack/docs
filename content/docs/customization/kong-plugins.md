@@ -10,7 +10,7 @@ tsdevstack builds one Kong image, the same one locally and in every cloud enviro
 - the framework plugins shipped with the CLI (see [below](#framework-plugins)),
 - every plugin in the `kong-plugins/` folder at your project root.
 
-All of them are copied into the image and listed in `KONG_PLUGINS`, next to Kong's bundled plugins. The differences between local and cloud are runtime settings only: locally the config file is mounted and the Admin API is on (port 8001); in the cloud the config is baked into the image and the Admin API is off.
+All of them are copied into the image and listed in `KONG_PLUGINS`, next to Kong's bundled plugins. Local and cloud differ only in runtime settings. Locally, the config file is mounted and the Admin API is on (port 8001). In the cloud, the config is baked into the image and the Admin API is off. Three values never go into the config, locally or in the cloud: the Redis password, the trust token and the frontend token. The config refers to them (`{vault://env/redis-password}`), and Kong reads them from its environment when it starts.
 
 The image definition lives in two generated files:
 
@@ -117,12 +117,13 @@ A fresh clone needs `npx tsdevstack sync` (or `generate-kong`) before the first 
 
 ## Framework plugins
 
-Four plugins ship with the CLI and are always in the image. You don't enable or configure them; `generate-kong` does.
+Five plugins ship with the CLI and are always in the image. You don't enable or configure them. `generate-kong` does.
 
 | Plugin | Where | What it does |
 |---|---|---|
 | `tsdevstack-strip-identity` | Global, in `kong.tsdevstack.yml` | Removes identity headers sent by clients (`X-Userinfo`, `X-Consumer-*`, `X-Credential-Identifier`, `X-Kong-Trust` and similar) before any authentication plugin runs, so backends only ever see identity that Kong set |
 | `tsdevstack-client-ip` | Global, in `kong.tsdevstack.yml` | Lets the Next.js frontend name the visitor it calls the gateway for, checked with the secret `KONG_FRONTEND_TOKEN`, so rate limits apply per visitor. Passes the client address to services in `X-Tsdevstack-Real-IP`. See [Client addresses](/docs/customization/kong-customization#client-addresses) |
+| `tsdevstack-trust` | Global, in `kong.tsdevstack.yml` | Sets the trust header `X-Kong-Trust` on every request it forwards, so your services know it came through the gateway. The token (`KONG_TRUST_TOKEN`) is read when Kong starts and never stored in the image |
 | `tsdevstack-api-key` | On each partner service | Checks the `x-api-key` against the key records in Redis and enforces the key's limits; see [API Keys](/docs/authentication/api-keys) |
 | `tsdevstack-api-prefix` | On each partner service | Partner routes match `/api/...`; this plugin removes `/api` before the request reaches your service, which serves the path without it |
 

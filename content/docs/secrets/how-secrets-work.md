@@ -92,9 +92,18 @@ When you run `npx tsdevstack generate-secrets`, the framework:
 
 Database passwords, API keys, and other sensitive values are generated fresh for each project. You never need to copy secrets from documentation or other projects.
 
-### Each Service Gets Only What It Needs
+### Each Service Reads Shared Secrets and Its Own
 
-Services receive only the secrets they require. The auth service gets database credentials, the frontend gets API URLs, and so on. This follows the principle of least privilege.
+Every secret belongs to one scope: **shared**, which every service reads, or a **service scope**, which only that service reads. A backend service looks a key up in its own scope and in shared. When a key is in both, its own value wins.
+
+- **In the cloud, this is enforced.** Each service runs with its own identity. That identity reads only the shared secrets and the service's own. GCP uses an IAM condition per service account, AWS a policy per task role, and Azure a Key Vault per service. A service can't read another service's secrets, even if its code asks for them.
+- **Locally, it isn't.** `.secrets.local.json` holds every scope, and any process on your machine can read it. The scopes still decide what a lookup returns, so your code behaves as it will in the cloud.
+
+A service scope holds that service's `DATABASE_URL`. With the auth template, the auth service's scope also holds the JWT signing keys, the refresh token secret, `BCRYPT_ROUNDS` and `ADMIN_EMAILS`. Only the auth service can sign tokens. A secret of your own that one service needs goes in that service's scope. See [Adding Your Own Secrets](/docs/secrets/local-secrets#adding-your-own-secrets).
+
+Two kinds of secrets are shared on purpose: the gateway trust token (`KONG_TRUST_TOKEN`) and the service API keys (`{SERVICE}_API_KEY`). Every service checks them, and checking a token means knowing it. Both work only inside your project's network.
+
+Frontends work differently. At deploy, they get the shared keys listed in their `secrets` array as environment variables, and nothing else.
 
 ### Local and Cloud Use the Same Interface
 

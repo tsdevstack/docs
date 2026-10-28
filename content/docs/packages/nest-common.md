@@ -226,13 +226,11 @@ Always use `SecretsService` — never `process.env`. The secrets system handles 
 ### Methods
 
 ```typescript
-await secrets.get('KEY');        // Get secret value (cached)
-await secrets.set('KEY', 'val'); // Set secret (local only, see below)
-await secrets.delete('KEY');     // Delete secret (local only, see below)
-secrets.clearCache();            // Clear cache
+await secrets.get('KEY'); // Get secret value (cached)
+secrets.clearCache();     // Clear cache
 ```
 
-`set` and `delete` write `.secrets.user.json` in local development. Deployed services can read secrets but not change them: their cloud identities have read access only. Set cloud secrets with `npx tsdevstack cloud-secrets:set`.
+Services read secrets. They don't write them, and their cloud identities have read access only. Change local secrets in `.secrets.user.json` and run `npx tsdevstack generate-secrets`. Set cloud secrets with `npx tsdevstack cloud-secrets:set`.
 
 For deeper coverage, see [How Secrets Work](/docs/secrets/how-secrets-work).
 

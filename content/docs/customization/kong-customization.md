@@ -17,15 +17,17 @@ The framework merges `kong.tsdevstack.yml` and `kong.user.yml` to create the fin
 
 - **Services** — combined from both files (framework routes first, then your custom services)
 - **Consumers**: taken from `kong.user.yml` as written. The framework generates none, and no generated route authenticates with them (see [Partner API keys](#partner-api-keys))
-- **Plugins**: framework global plugins first (`tsdevstack-strip-identity` and `tsdevstack-client-ip`), then yours from `kong.user.yml`. Service-level plugins (oidc on JWT routes; the API key check, the per-IP ceiling and `tsdevstack-api-prefix` on partner routes) are attached inside the individual service definitions. Kong allows one global instance per plugin name, so a `kong.user.yml` that declares a framework global plugin fails generation with a hint
+- **Plugins**: framework global plugins first (`tsdevstack-strip-identity`, `tsdevstack-client-ip` and `tsdevstack-trust`), then yours from `kong.user.yml`. Service-level plugins are attached inside each service definition: oidc on JWT routes, and the API key check, the per-IP ceiling and `tsdevstack-api-prefix` on partner routes. Kong allows one global instance per plugin name. A `kong.user.yml` that declares a framework global plugin fails generation with a hint
 
 ## Customizing with kong.user.yml
 
 Edit `kong.user.yml` to add global plugins or custom services. This file is created once and preserved across regenerations.
 
-### The trust header (request-transformer)
+### The trust header and the request-transformer
 
-The generated `kong.user.yml` starts with a `request-transformer` that proves to your backends that a request came through Kong:
+Kong proves to your backends that a request came through it with the trust header, `X-Kong-Trust`. Its value is the secret `KONG_TRUST_TOKEN`. The framework plugin `tsdevstack-trust` sets it on every request. Backends reject identity headers on requests without a valid trust token. See [Protected Routes](/docs/authentication/protected-routes#trust-first).
+
+The generated `kong.user.yml` starts with a `request-transformer` that only removes Kong's request id:
 
 ```yaml
 plugins:
@@ -34,18 +36,14 @@ plugins:
       remove:
         headers:
           - X-Kong-Request-Id
-          - X-Kong-Trust
-      add:
-        headers:
-          - X-Kong-Trust:${KONG_TRUST_TOKEN}
 ```
 
-It removes any client-sent `X-Kong-Trust` and adds the real token. Keep it: backends reject identity headers on requests without a valid trust token (see [Protected Routes](/docs/authentication/protected-routes#trust-first)).
-
-Only `X-Kong-Request-Id` and `X-Kong-Trust` belong in its remove list. Client-sent identity headers (`X-Userinfo`, `X-Consumer-*`, `X-Credential-Identifier` and so on) are removed by the framework plugin `tsdevstack-strip-identity`, which runs before authentication. The `request-transformer` runs after authentication, so removing identity headers there deletes the values Kong itself just set; for example removing `X-Api-Key-Consumer` leaves `@Partner()` without a consumer name.
+Only `X-Kong-Request-Id` belongs in its remove list. Client-sent identity headers (`X-Userinfo`, `X-Consumer-*`, `X-Credential-Identifier`, `X-Kong-Trust` and so on) are removed by the framework plugin `tsdevstack-strip-identity`, which runs before authentication. The `request-transformer` runs after authentication, so removing identity headers there deletes the values Kong itself just set. For example, removing `X-Api-Key-Consumer` leaves `@Partner()` without a consumer name.
 
 :::warning Upgrading an older kong.user.yml
-Files created by earlier versions list `X-Consumer-Id`, `X-Consumer-Username` and sometimes `X-JWT-Claim-*` headers in that remove list. Delete those entries and keep only `X-Kong-Request-Id` and `X-Kong-Trust`. `generate-kong` and `infra:generate-kong` print a warning while identity headers are still listed.
+Files created before 0.11 add the trust header themselves, with `X-Kong-Trust:${KONG_TRUST_TOKEN}` under `add.headers` and `X-Kong-Trust` under `remove.headers`. Delete both lines. Until you do, `generate-kong`, `infra:generate-kong` and `infra:build-kong` stop and show the lines to delete. The gateway reads the token when it starts, and a `request-transformer` can't use a token read that way.
+
+Older files may also list `X-Consumer-Id`, `X-Consumer-Username` and sometimes `X-JWT-Claim-*` headers in the remove list. Delete those too and keep only `X-Kong-Request-Id`. Generation prints a warning while identity headers are still listed.
 :::
 
 ### Global plugins
@@ -166,6 +164,9 @@ plugins:
   - name: tsdevstack-client-ip
     config:
       frontend_token: ${KONG_FRONTEND_TOKEN}
+  - name: tsdevstack-trust
+    config:
+      token: ${KONG_TRUST_TOKEN}
   - name: cors
     config:
       origins: ${KONG_CORS_ORIGINS}
@@ -175,7 +176,7 @@ In custom mode you own everything the framework would otherwise generate, includ
 
 - **`tsdevstack-strip-identity` as a global plugin.** Without it, clients can send forged identity headers (`X-Userinfo`, `X-Consumer-*`) to your backends. `generate-kong` warns when it is missing.
 - **`tsdevstack-client-ip` as a global plugin**, with `frontend_token: ${KONG_FRONTEND_TOKEN}`, if a Next.js frontend calls the gateway, so the gateway counts its visitors rather than the frontend server (see [Client addresses](#client-addresses)).
-- **The trust header `request-transformer`** from [above](#the-trust-header-request-transformer), or backends reject identity headers.
+- **`tsdevstack-trust` as a global plugin**, with `token: ${KONG_TRUST_TOKEN}`. Without it, backends reject identity headers. See [above](#the-trust-header-and-the-request-transformer).
 - **`tsdevstack-api-prefix` on partner services** (`config.prefix: /api`) if you publish partner routes at `/api/...` and your services serve the path without `/api`.
 - **`tsdevstack-api-key` on partner services**, with the Redis connection and `default_limits`, plus a service-scoped `rate-limiting` counted per IP as the ceiling. Without the key plugin, partner routes check no key at all. Copy both from a generated `kong.tsdevstack.yml`.
 
@@ -212,6 +213,8 @@ plugins:
       add:
         headers: ['X-Custom-Header:${MY_SECRET_VALUE}']
 ```
+
+The value is written into the gateway config, which in the cloud is part of the gateway image. Three placeholders are different: `${REDIS_PASSWORD}`, `${KONG_TRUST_TOKEN}` and `${KONG_FRONTEND_TOKEN}`. They become references, such as `{vault://env/redis-password}`, that Kong resolves from its environment when it starts. Their values never reach the config or the image. A reference works only in fields Kong allows, such as the Redis password of `rate-limiting` and the framework plugins' tokens. A `request-transformer` header is not one of them.
 
 ## Common customizations
 

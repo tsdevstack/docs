@@ -95,7 +95,7 @@ If you're setting up CI without running `cloud:init` locally, you need to create
 1. Go to the [Azure Portal](https://portal.azure.com) > search **"Key vaults"** > **+ Create**
 2. **Subscription:** Select the subscription for this environment
 3. **Resource group:** Select the resource group you created during Account Setup
-4. **Key vault name:** `{projectName}-{env}-kv` (e.g., `myapp-dev-kv`)
+4. **Key vault name:** `{projectName}-{env}-kv` (e.g., `myapp-dev-kv`). If that's longer than 24 characters, the CLI shortens it. `cloud:init` lists each environment with its vault name
 5. **Region:** Must match your resource group region
 6. **Pricing tier:** Standard
 7. Click **Review + create** > **Create**

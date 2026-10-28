@@ -44,6 +44,8 @@ Most domain registrars automatically append your domain to the host field. Enter
 
 Create these records at your domain registrar.
 
+After each deploy the CLI checks your domains and lists the records that are missing or point elsewhere: A, AAAA and the certificate CNAMEs below, with their values. When everything is in place it says so. A new app or domain adds its records to that list on the next deploy.
+
 ## SSL Certificate Validation
 
 GCP uses Certificate Manager with DNS authorization. Each domain needs a CNAME record for validation.

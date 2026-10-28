@@ -289,6 +289,12 @@ Set or update a secret in cloud.
 npx tsdevstack cloud-secrets:set <key> [value] --env <environment>
 ```
 
+Without a value, it prompts, masked for credentials. In scripts, pipe the value in with `--stdin`. It stays out of the process list and your shell history:
+
+```bash
+printf '%s' "$STRIPE_KEY" | npx tsdevstack cloud-secrets:set STRIPE_KEY --stdin --env prod
+```
+
 ### `cloud-secrets:get`
 
 Get a secret value from cloud.
@@ -311,6 +317,22 @@ Remove a secret from cloud.
 
 ```bash
 npx tsdevstack cloud-secrets:remove <key> --env <environment>
+```
+
+### `cloud-secrets:migrate`
+
+Copy secrets from where earlier versions kept them to where services read them now. The auth secrets move from shared to the auth service's scope. On Azure, each service's secrets move from the shared vault to its own. It never deletes or overwrites, so you can run it again. Run it before `infra:deploy` when you upgrade an existing environment.
+
+```bash
+npx tsdevstack cloud-secrets:migrate --env <environment>
+```
+
+### `cloud-secrets:cleanup`
+
+Delete the old copies after `infra:deploy`. Copies whose new copy has the same value are deleted after one question, which `--force` skips. A copy whose new copy has a different value is deleted only after a second question, never with `--force`. On Azure, it runs once every service is on the new deploy.
+
+```bash
+npx tsdevstack cloud-secrets:cleanup --env <environment> [--force]
 ```
 
 ## Infrastructure Commands
@@ -363,6 +385,8 @@ npx tsdevstack infra:deploy --env <environment>
 
 If the provider has no capacity for a size you asked for (a database or Redis size in your region), the deploy waits 5 minutes and tries again, up to 3 times. This is a shortage on the provider's side, not a quota or configuration error. If it still fails, run the command again later; it continues where it stopped. Or pick another `database.tier` or `redis.tier` in `infrastructure.json`.
 
+Images are tagged with the current commit. A service already running that tag can keep its old image, so commit before you deploy a change. With uncommitted changes outside `infrastructure/` and `.tsdevstack/`, the deploy warns you. `--tag <tag>` uses a tag of your choice instead. The other build and deploy commands take it too.
+
 ### `infra:destroy`
 
 Destroy infrastructure.
@@ -370,6 +394,8 @@ Destroy infrastructure.
 ```bash
 npx tsdevstack infra:destroy --env <environment>
 ```
+
+On GCP, Google frees the network of the deleted services and database only after a while (up to 2 hours). If destroy stops with "Google has not released the network yet", run it again later. It removes what is left, and nothing left behind is billed.
 
 ### `infra:deploy-service`
 
@@ -577,7 +603,7 @@ npx tsdevstack infra:generate-kong --env <environment>
 
 ### `infra:build-kong`
 
-Build and push the Kong Docker image for an environment: the same image definition as locally, with the framework plugins, your `kong-plugins/` and the resolved config baked in. Deploy it with `infra:deploy-kong`.
+Build and push the Kong Docker image for an environment. It uses the same image definition as locally, with the framework plugins, your `kong-plugins/` and the resolved config baked in. The Redis password, the trust token and the frontend token are not in it. The config refers to them, and Kong reads them from its environment when it starts. Deploy it with `infra:deploy-kong`.
 
 ```bash
 npx tsdevstack infra:build-kong --env <environment>

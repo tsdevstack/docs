@@ -79,15 +79,12 @@ You can also use `useFactory` instead of `useClass` if you need more control ove
 
 ## Step 3: Add your secrets
 
-Add your provider's API key to `.secrets.user.json` and assign it to the service that sends emails:
+Add your provider's API key to `.secrets.user.json`, in the section of the service that sends emails, so only that service can read it:
 
 ```json
 {
-  "secrets": {
-    "SENDGRID_API_KEY": "SG.xxx..."
-  },
   "auth-service": {
-    "secrets": ["SENDGRID_API_KEY"]
+    "SENDGRID_API_KEY": "SG.xxx..."
   }
 }
 ```
@@ -98,10 +95,10 @@ Then regenerate secrets:
 npx tsdevstack generate-secrets
 ```
 
-For cloud environments, push the secret:
+For cloud environments, set it in the same service's scope (the command asks for the value):
 
 ```bash
-npx tsdevstack cloud-secrets:set SENDGRID_API_KEY --value "SG.xxx..." --env prod
+npx tsdevstack cloud-secrets:set SENDGRID_API_KEY --service auth-service --env prod
 ```
 
 ## What stays the same

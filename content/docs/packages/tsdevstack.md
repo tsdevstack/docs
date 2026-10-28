@@ -54,6 +54,8 @@ For the full command reference with syntax, options, and examples, see [CLI Comm
 | `cloud-secrets:set` | Set or update a cloud secret |
 | `cloud-secrets:list` | List all secrets in cloud environment |
 | `cloud-secrets:remove` | Remove a cloud secret |
+| `cloud-secrets:migrate` | Copy secrets left in old places to their new places |
+| `cloud-secrets:cleanup` | Delete the old copies of moved secrets |
 
 ### Infrastructure & deployment
 

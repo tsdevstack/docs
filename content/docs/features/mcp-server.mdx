@@ -2,7 +2,7 @@
 
 import { Prompt } from '@rspress/core/theme';
 
-tsdevstack includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes CLI commands and project context to AI agents. This gives tools like Claude Code, Claude Desktop, Cursor, and VS Code Copilot an understanding of your project structure, service configuration, and available workflows — so they can assist you accurately instead of guessing.
+tsdevstack includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes CLI commands and project context to AI agents. This gives tools like Claude Code, Claude Desktop, Cursor, and VS Code Copilot an understanding of your project structure, service configuration, and available workflows, so they can assist you accurately instead of guessing.
 
 ## Quick start
 
@@ -35,12 +35,12 @@ Once the MCP server is connected, paste this read-only health-check prompt into 
 3. For each environment, call infra_status and list_deployed_services.
 4. For the dev environment, call diff_secrets to flag any drift between local and cloud.
 
-Summarize the findings as a punch list (in sync vs. needs attention) and recommend next actions. Do NOT call any mutating tools — read-only only.`}
+Summarize the findings as a punch list (in sync vs. needs attention) and recommend next actions. Do NOT call any mutating tools. Read-only only.`}
 />
 
 ## How it works
 
-The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `npx tsdevstack <command>` as a child process and captures the output. There are no direct imports from other CLI packages — the MCP server is a standalone wrapper.
+The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `npx tsdevstack <command>` as a child process and captures the output. There are no direct imports from other CLI packages. The MCP server is a standalone wrapper.
 
 - **Transport:** stdio (the AI client spawns the server as a child process)
 - **No background process:** The server starts when the client connects and exits when it disconnects
@@ -48,7 +48,7 @@ The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `
 
 ## Tools
 
-The server exposes 54 tools organized into query tools (read-only) and action tools (mutating).
+The server exposes 56 tools organized into query tools (read-only) and action tools (mutating).
 
 ### Query tools (13)
 
@@ -67,10 +67,10 @@ Safe, read-only operations. No confirmation needed.
 | `get_secret` | Get a single secret value from cloud |
 | `list_schedulers` | Scheduled jobs and their status |
 | `plan_db_migrate` | Preview pending database migrations |
-| `infra_plan` | Terraform plan — preview infrastructure changes |
+| `infra_plan` | Terraform plan: preview infrastructure changes |
 | `infra_status` | Check if infrastructure config is in sync |
 
-### Action tools — local (14)
+### Action tools: local (14)
 
 Low-risk operations that modify local files only.
 
@@ -91,7 +91,7 @@ Low-risk operations that modify local files only.
 | `remove_messaging_topic` | Remove a messaging topic from config |
 | `update_messaging_topic` | Update publishers/subscribers for a topic |
 
-### Action tools — cloud (14)
+### Action tools: cloud (16)
 
 Higher-risk operations that modify cloud infrastructure.
 
@@ -100,6 +100,8 @@ Higher-risk operations that modify cloud infrastructure.
 | `cloud_secrets_push` | No | Push framework secrets to cloud without prompts; lists user secrets still missing |
 | `cloud_secrets_set` | No | Set a single secret in cloud |
 | `cloud_secrets_remove` | Yes | Remove a secret from cloud |
+| `cloud_secrets_migrate` | No | Copy secrets an older CLI left in old places to where the services read them |
+| `cloud_secrets_cleanup` | Yes | Delete the old copies of moved secrets (after the deploy) |
 | `infra_deploy` | No | Full deployment (Terraform + build + deploy all) |
 | `deploy_services` | No | Deploy code changes to existing services |
 | `deploy_service` | No | Build, push, and deploy a single service |
@@ -112,7 +114,7 @@ Higher-risk operations that modify cloud infrastructure.
 | `remove_detached_worker` | Yes | Remove a worker from cloud (permanent) |
 | `infra_destroy` | Yes | Destroy ALL cloud infrastructure for an environment |
 
-### Action tools — setup and CI (13)
+### Action tools: setup and CI (13)
 
 Infrastructure setup, Docker builds, and CI/CD operations.
 
@@ -142,14 +144,14 @@ These read files from your project and stay up-to-date:
 
 | URI | Description |
 |-----|-------------|
-| `tsdevstack://config` | `.tsdevstack/config.json` — service definitions |
-| `tsdevstack://infrastructure` | `.tsdevstack/infrastructure.json` — per-environment settings |
-| `tsdevstack://infrastructure-schema` | `.tsdevstack/infrastructure.schema.json` — JSON schema |
-| `tsdevstack://ci` | `.tsdevstack/ci.json` — CI/CD configuration |
-| `tsdevstack://secrets/map` | `.tsdevstack/secret-map.json` — secret structure |
-| `tsdevstack://secrets/names` | `.secrets.local.json` — local development secrets |
-| `tsdevstack://secrets/user` | `.secrets.user.json` — user-defined secrets (keys only) |
-| `tsdevstack://kong/routes` | `kong.tsdevstack.yml` — API gateway routes |
+| `tsdevstack://config` | `.tsdevstack/config.json`: service definitions |
+| `tsdevstack://infrastructure` | `.tsdevstack/infrastructure.json`: per-environment settings |
+| `tsdevstack://infrastructure-schema` | `.tsdevstack/infrastructure.schema.json`: JSON schema |
+| `tsdevstack://ci` | `.tsdevstack/ci.json`: CI/CD configuration |
+| `tsdevstack://secrets/map` | `.tsdevstack/secret-map.json`: secret structure |
+| `tsdevstack://secrets/names` | `.secrets.local.json`: local development secrets |
+| `tsdevstack://secrets/user` | `.secrets.user.json`: user-defined secrets (keys only) |
+| `tsdevstack://kong/routes` | `kong.tsdevstack.yml`: API gateway routes |
 
 ### Guides (static)
 
@@ -166,9 +168,9 @@ Hardcoded reference content for AI agents:
 
 The MCP server uses [tool annotations](https://modelcontextprotocol.io/docs/concepts/tools#annotations) to communicate risk to AI clients:
 
-- **`readOnlyHint: true`** — Query tools. Safe to run without confirmation.
-- **`destructiveHint: true`** — Tools that permanently delete data (`remove_service_cloud`, `infra_destroy`, etc.). AI clients should always confirm before running these.
-- **`idempotentHint: true`** — Tools that can be safely re-run (most generate/deploy commands).
+- **`readOnlyHint: true`**: Query tools. Safe to run without confirmation.
+- **`destructiveHint: true`**: Tools that permanently delete data (`remove_service_cloud`, `infra_destroy`, etc.). AI clients should always confirm before running these.
+- **`idempotentHint: true`**: Tools that can be safely re-run (most generate/deploy commands).
 
 Long-running commands like `infra_deploy` (30+ minutes) include a note in their description advising the AI to suggest the user runs them in their terminal instead.
 

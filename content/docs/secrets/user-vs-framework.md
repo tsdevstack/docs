@@ -10,7 +10,7 @@ These secrets are generated automatically when you run `npx tsdevstack generate-
 
 Each service with a database gets unique credentials:
 
-- `DB_{SERVICE}_USERNAME` - Generated username (e.g., `auth_user`)
+- `DB_{SERVICE}_USERNAME` - Generated username for the local database (e.g., `auth_user`). In the cloud, database users are named after the service.
 - `DB_{SERVICE}_PASSWORD` - Cryptographically secure random password
 - `DATABASE_URL` - Full connection string with credentials
 
@@ -24,7 +24,7 @@ When using authentication templates, the framework generates RSA key pairs:
 - `JWT_PUBLIC_KEY_CURRENT` - For verifying tokens
 - Previous key versions for rotation support
 
-These are preserved across regenerations to avoid invalidating existing tokens.
+These are preserved across regenerations, so existing tokens stay valid. They live in the auth service's scope, with `REFRESH_TOKEN_SECRET`, `BCRYPT_ROUNDS` and `ADMIN_EMAILS`. Only the auth service can read them, so only it can sign tokens.
 
 ### Service API Keys
 
@@ -54,7 +54,7 @@ In production, these are automatically updated to actual cloud URLs after deploy
 - `REDIS_PASSWORD` - Redis authentication (hardcoded as `redis_pass` for local development)
 - `KONG_TRUST_TOKEN` - API gateway trust token (preserved across regenerations)
 - `KONG_FRONTEND_TOKEN` - Proves to the gateway that a visitor address comes from your Next.js frontend. Given to the gateway and every Next.js app; preserved across regenerations. See [Client addresses](/docs/customization/kong-customization#client-addresses)
-- `REFRESH_TOKEN_SECRET` - Token encryption key (preserved across regenerations)
+- `REFRESH_TOKEN_SECRET` - Token encryption key, in the auth service's scope. Preserved across regenerations.
 
 ## User-Supplied Secrets
 
@@ -62,17 +62,20 @@ These are secrets you must provide. Add them to `.secrets.user.json`.
 
 ### Third-Party API Keys
 
-Any external service you integrate with:
+Any external service you integrate with, in the section of the service that calls it:
 
 ```json
 {
-  "secrets": {
-    "STRIPE_API_KEY": "sk_test_xxx",
-    "SENDGRID_API_KEY": "SG.xxx",
+  "offers-service": {
+    "STRIPE_API_KEY": "sk_test_xxx"
+  },
+  "auth-service": {
     "TWILIO_ACCOUNT_SID": "ACxxx"
   }
 }
 ```
+
+A key every service needs goes in the top-level `secrets` object instead. See [Adding Your Own Secrets](#adding-your-own-secrets).
 
 ### Configuration Overrides
 
@@ -109,68 +112,45 @@ This is only needed when you've disabled the auth template. See [Escape Hatches]
 
 ### Step 1: Define the Secret
 
-Add your secret to the top-level `secrets` object:
+Where you put the value decides which backend services can read it. A secret one service needs goes in that service's section. Only that service can read it:
 
 ```json
 {
-  "secrets": {
-    "MY_API_KEY": "your-value-here"
+  "offers-service": {
+    "STRIPE_API_KEY": "your-value-here"
   }
 }
 ```
 
-### Step 2: Assign to Services
-
-Specify which services need the secret:
+A secret every backend service needs goes in the top-level `secrets` object, the shared scope:
 
 ```json
 {
   "secrets": {
-    "MY_API_KEY": "your-value-here"
-  },
-  "auth-service": {
-    "secrets": ["MY_API_KEY"]
-  },
-  "bff-service": {
-    "secrets": ["MY_API_KEY"]
+    "SENTRY_DSN": "your-value-here"
   }
 }
 ```
 
-### Step 3: Regenerate
+### Step 2: Regenerate
 
 ```bash
 npx tsdevstack generate-secrets
 ```
 
-### Step 4: Access in Code
+### Step 3: Access in Code
 
 ```typescript
-const myApiKey = await this.secrets.get('MY_API_KEY');
+const stripeKey = await this.secrets.get('STRIPE_API_KEY');
 ```
+
+A service looks a key up in its own scope and in shared, and its own value wins when the key is in both. See [How Secrets Work](/docs/secrets/how-secrets-work#each-service-reads-shared-secrets-and-its-own).
 
 ## Common Patterns
 
 ### Sharing a Secret Across All Backend Services
 
-Add it to each service's `secrets` array:
-
-```json
-{
-  "secrets": {
-    "SHARED_KEY": "value"
-  },
-  "auth-service": {
-    "secrets": ["SHARED_KEY"]
-  },
-  "bff-service": {
-    "secrets": ["SHARED_KEY"]
-  },
-  "offers-service": {
-    "secrets": ["SHARED_KEY"]
-  }
-}
-```
+Put it in the top-level `secrets` object. Every backend service reads the shared scope, so no list is needed.
 
 ### Frontend-Only Secrets
 
@@ -193,11 +173,13 @@ For local development, define values in `.secrets.user.json`. For cloud environm
 
 ```bash
 # Staging
-npx tsdevstack cloud-secrets:set STRIPE_API_KEY --env staging --value sk_test_xxx
+npx tsdevstack cloud-secrets:set STRIPE_API_KEY --service offers-service --env staging
 
 # Production
-npx tsdevstack cloud-secrets:set STRIPE_API_KEY --env prod --value sk_live_xxx
+npx tsdevstack cloud-secrets:set STRIPE_API_KEY --service offers-service --env prod
 ```
+
+The command prompts for the value, masked, so it stays out of your shell history. `--service` puts it in that service's scope. Leave it out for a shared secret.
 
 ## What Not to Do
 
@@ -246,7 +228,7 @@ Even for testing, use the secrets system:
 | Domain | You | `cloud-secrets:push` prompt | `DOMAIN` |
 | Email config | You | `cloud-secrets:push` prompt | `RESEND_API_KEY`, `EMAIL_FROM` |
 | First admins (auth template) | You | `.secrets.user.json` locally; auth-service scope in the cloud | `ADMIN_EMAILS` |
-| Third-party APIs | You | `.secrets.user.json` | `STRIPE_API_KEY` |
+| Third-party APIs | You | `.secrets.user.json`, in the service's section (top level when every service needs it) | `STRIPE_API_KEY` |
 | External OIDC | You | `.secrets.user.json` | `OIDC_DISCOVERY_URL` |
 
 Partner API keys are not secrets of your project: they are created at runtime through the auth-service admin API and stored hashed in Postgres and Redis, never in secrets files or the cloud secret manager. See [API Keys](/docs/authentication/api-keys).

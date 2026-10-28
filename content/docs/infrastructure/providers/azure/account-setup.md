@@ -226,10 +226,9 @@ npx tsdevstack cloud:init --azure
 This will:
 1. Validate each environment has a unique subscription
 2. Check all 12 resource providers: registers the missing ones when the service principal may (Contributor on the subscription), otherwise names the ones still to register in the portal
-3. Create Key Vault with RBAC authorization enabled
-4. Assign Key Vault Secrets Officer role to the SP
-5. Test connection to Key Vault
-6. Update `.tsdevstack/config.json` with `cloud.provider: "azure"`
+3. Create the shared Key Vault with RBAC authorization enabled. If a vault with that name was deleted in the last 90 days, it's recovered
+4. Check that the service principal can read the vault's secrets. This needs the Key Vault Secrets Officer role from Step 5. `cloud:init` doesn't assign roles.
+5. Update `.tsdevstack/config.json` with `cloud.provider: "azure"`
 
 Safe to run multiple times — all operations are idempotent.
 
@@ -252,6 +251,10 @@ Each environment must use a separate subscription (unique `subscriptionId`). The
 1. Check the SP has all three roles on the resource group (Step 5)
 2. Verify credentials match the App Registration
 3. Verify `subscriptionId` matches the subscription containing the resource group
+
+### "Caller is not authorized to perform action on resource" (Key Vault)
+
+The service principal has no Key Vault role that allows the action named on the error's `Action:` line. Give it **Key Vault Secrets Officer** on the resource group (Step 5, Role 2). Key Vault Secrets User has a similar name but can only read, so pushing secrets fails on `setSecret`. A new role assignment can take up to 10 minutes to apply.
 
 ### "does not have authorization to perform action ... register/action"
 
