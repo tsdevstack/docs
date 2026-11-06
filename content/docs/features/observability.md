@@ -20,8 +20,10 @@ This enables:
 
 - **Logging** - Structured JSON logs with [Pino](https://getpino.io/)
 - **Metrics** - Prometheus-compatible metrics at `/metrics`
-- **Tracing** - Distributed traces to [Jaeger](https://www.jaegertracing.io/) via [OpenTelemetry](https://opentelemetry.io/)
+- **Tracing** - One [OpenTelemetry](https://opentelemetry.io/) trace per request, to [Jaeger](https://www.jaegertracing.io/) locally and to your cloud's trace service when deployed
 - **Health** - Health check endpoint at `/health`
+
+For deployed environments, see [Cloud Logs](/docs/features/cloud-logs) (reading logs from the terminal) and [Traces and Dashboards](/docs/features/traces-and-dashboards).
 
 ## Local observability stack
 
@@ -33,7 +35,7 @@ When running `npm run dev`, the following services are available:
 | [Grafana](https://grafana.com/) | http://localhost:4001 | Dashboards and visualization |
 | [Jaeger](https://www.jaegertracing.io/) | http://localhost:16686 | Distributed tracing UI |
 
-Default Grafana credentials: `admin` / `admin`
+Grafana's dashboards are in the `tsdevstack` folder and open without a login. Sign in with `admin` / `admin` to edit them.
 
 ## Logging
 
@@ -112,7 +114,8 @@ Each request logs one entry when it ends, in the `HTTP` context. The message sum
   "context": "HTTP",
   "msg": "POST /auth/v1/auth/signup 201 38ms",
   "http": { "method": "POST", "url": "/auth/v1/auth/signup", "statusCode": 201, "duration": 38 },
-  "correlationId": "b3f1c2d4-..."
+  "correlationId": "b3f1c2d4-...",
+  "trace_id": "4bf92f35..."
 }
 ```
 
@@ -133,11 +136,18 @@ Set `LOG_LEVEL` environment variable to control log verbosity:
 - `warn` - Warnings and errors
 - `error` - Errors only
 
-Locally, the generated `.env` sets `LOG_LEVEL=debug`. Cloud deployments do not set it, so deployed services log at `info`. Framework classes that log through Nest's `Logger` follow the same level.
+Locally, the generated `.env` sets `LOG_LEVEL=debug`. Deployed services and workers log at the `logLevel` set for them in `infrastructure.json`, `info` by default (see [Cloud Logs](/docs/features/cloud-logs#log-level-of-deployed-services)). Framework classes that log through Nest's `Logger` follow the same level.
 
 ### PII redaction
 
-The logger automatically redacts sensitive data to prevent PII from appearing in logs. By default, common fields like `password`, `email`, `ssn`, `creditCard`, `token`, `secret`, and `apiKey` are redacted.
+The logger automatically redacts sensitive data to prevent PII from appearing in logs. By default it redacts these fields:
+
+- **Personal data:** `email`, `ssn`, `creditCard`
+- **Passwords:** `password`, `newPassword`, `currentPassword`, `passwordHash`
+- **Tokens and keys:** `token`, `accessToken`, `refreshToken`, `secret`, `privateKey`, `apiKey`
+- **Request headers:** `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-kong-trust`, `x-tsdevstack-frontend-token` (lowercase, as Node gives them in `req.headers`)
+
+Each name is matched at the top of the entry and one level down: `{ password }` and `{ user: { password } }`, or `{ headers: req.headers }`. A field nested deeper, like `{ body: { user: { email } } }`, is logged as it is. Add a path for it (below) or log the inner object.
 
 ```typescript
 // This log entry:
@@ -183,9 +193,12 @@ Redaction paths support wildcards:
 | Pattern | Matches |
 |---------|---------|
 | `email` | Top-level `email` field |
-| `*.email` | `email` nested at any level |
+| `*.email` | `email` one level down (`user.email`, `body.email`) |
+| `*.*.email` | `email` two levels down (`body.user.email`) |
 | `user.email` | Specific nested path |
 | `data[*].ssn` | Array elements |
+
+Each pattern matches one depth only, so a pattern per level is needed.
 
 ## Metrics
 
@@ -255,59 +268,13 @@ metrics.createUpDownCounter('name', { description: '...' });
 
 ## Tracing
 
-Distributed tracing helps debug requests across services. Traces are sent to Jaeger via [OpenTelemetry](https://opentelemetry.io/) OTLP.
+Each request gets one span around everything Nest does with it: guards, interceptors, the handler and the exception filter. It records the method, the route (`/auth/v1/users/:id`) and the status code. A 5xx response marks the span as an error; a 4xx is an answer, not a failure. Health checks and `/metrics` get no span.
 
-### Automatic tracing
+The span continues the trace Kong started. Calls through generated clients carry the trace to the next service, and BullMQ jobs, messages and Prisma queries join it. Locally, open Jaeger at http://localhost:16686, pick a service and click **Find Traces**.
 
-HTTP requests are automatically traced. The `TracingInterceptor` creates spans for each request with:
+Every line logged inside a request carries `trace_id` and `span_id`, the request line included.
 
-- HTTP method and route
-- Status code
-- Duration
-- Error details (if any)
-
-### Viewing traces
-
-1. Make a request to your API
-2. Open Jaeger UI: http://localhost:16686
-3. Select your service from the dropdown
-4. Click "Find Traces"
-
-### Manual spans
-
-For custom operations within a request:
-
-```typescript
-import { Injectable } from '@nestjs/common';
-import { trace } from '@opentelemetry/api';
-
-@Injectable()
-export class PaymentService {
-  private readonly tracer = trace.getTracer('payment-service');
-
-  async processPayment(orderId: string) {
-    return this.tracer.startActiveSpan('processPayment', async (span) => {
-      try {
-        span.setAttribute('order.id', orderId);
-
-        // ... process payment
-
-        span.setStatus({ code: 1 }); // OK
-        return result;
-      } catch (error) {
-        span.setStatus({ code: 2, message: error.message }); // ERROR
-        throw error;
-      } finally {
-        span.end();
-      }
-    });
-  }
-}
-```
-
-### Trace context in logs
-
-When tracing is enabled, logs automatically include `trace_id` and `span_id`. This allows you to correlate logs with traces in your observability platform.
+What a trace contains, where it goes in each cloud, sampling and your own spans: [Traces and Dashboards](/docs/features/traces-and-dashboards).
 
 ## Health checks
 
@@ -353,7 +320,7 @@ ObservabilityModule.forRoot({
   logging: true,                   // Enable/disable logging (default: true)
   metrics: true,                   // Enable/disable metrics (default: true)
   tracing: true,                   // Enable/disable tracing (default: true)
-  tracingEndpoint: 'http://jaeger:4318',  // OTLP endpoint
+  tracingEndpoint: 'http://localhost:4318',  // OTLP endpoint for local runs
   health: true,                    // Enable/disable health (default: true)
 })
 ```
@@ -363,10 +330,11 @@ Environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVICE_NAME` | Package name | Service identifier in logs/traces |
-| `LOG_LEVEL` | `info` | Logging verbosity |
+| `LOG_LEVEL` | `info` | Logging verbosity. The deploy sets it from `logLevel` in `infrastructure.json` |
 | `LOG_REDACT_PATHS` | - | Additional paths to redact (comma-separated) |
 | `NODE_ENV` | - | `production` enables JSON logs |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | Trace collector endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | Trace endpoint for local runs. In the cloud, traces go to the cloud's trace service |
+| `TRACE_SAMPLE_RATE` | `1` | Share of new traces kept. The deploy sets it from `tracing.sampleRate` |
 
 ## Infrastructure endpoints
 
@@ -384,7 +352,7 @@ In production, logs are sent to your cloud provider's logging service. The JSON 
 | **AWS** | CloudWatch Logs | Log Insights queries, metric filters, alarms |
 | **Azure** | Azure Monitor | Log Analytics, Kusto queries, workbooks |
 
-No code changes required - the same JSON logs work everywhere. Cloud Run, ECS, and AKS automatically capture stdout and route it to their respective logging services.
+No code changes required: the same JSON logs work everywhere. Cloud Run, ECS, Container Apps and App Service capture standard output and send it to the cloud's logging service. Read them from your terminal with [`infra:logs`](/docs/features/cloud-logs).
 
-For tracing in production, configure `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your trace collector (Cloud Trace, X-Ray, or Application Insights).
+Traces go to Cloud Trace, X-Ray or Application Insights without configuration. See [Traces and Dashboards](/docs/features/traces-and-dashboards).
 

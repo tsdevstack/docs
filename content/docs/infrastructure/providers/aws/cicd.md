@@ -148,7 +148,7 @@ Use a single inline policy to cover all services needed for deployment.
     {
       "Sid": "CloudWatchLogsAndMetrics",
       "Effect": "Allow",
-      "Action": ["logs:*", "cloudwatch:*"],
+      "Action": ["logs:*", "cloudwatch:*", "xray:*"],
       "Resource": "*"
     },
     {

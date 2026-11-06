@@ -45,16 +45,15 @@ function ContactForm() {
 
 ### Behavioral analysis (`useBotDetection`)
 
-Tracks mouse movements, typing patterns, focus events, and time on form. Scores each signal:
+Tracks pointer activity (mouse, touch, pen), typing patterns, focus events, and time on form. Scores each signal:
 
 | Signal | Score | Description |
 |--------|-------|-------------|
-| No mouse movement | +30 | Bots often skip mouse events |
-| Unnatural mouse patterns | +20 | Perfectly straight lines |
+| No pointer activity | +30 | Fewer than 5 mouse moves and no touch or pen tap |
 | Consistent typing speed | +15 | Humans have variable rhythm |
 | Superhuman typing | +20 | < 50ms between keystrokes |
 | Fast form completion | +40 | < 2 seconds total |
-| Few focus events | +15 | < 2 field interactions |
+| Few focus events | +15 | < 2 focus events (< 1 on a one-field form) |
 | WebDriver detected | +25 | `navigator.webdriver === true` |
 | Headless browser | +35 | Window size is 0 |
 

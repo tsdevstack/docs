@@ -34,11 +34,7 @@ curl -X POST http://localhost:8000/auth/v1/auth/signup \
   -d '{ "firstName": "Ada", "lastName": "Lovelace", "email": "ada@example.com", "password": "SecurePass123" }'
 ```
 
-No email is sent locally. The confirmation email, with its link (`{APP_URL}/confirm?token=...`), is printed in the auth-service logs:
-
-```bash
-docker compose logs auth-service
-```
+No email is sent locally. `auth-worker` prints the confirmation email, with its link (`{APP_URL}/confirm#token=...`), in the `npm run dev` output.
 
 Open the link to confirm through your frontend, or post the token yourself:
 

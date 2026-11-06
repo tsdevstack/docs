@@ -81,6 +81,7 @@ WAF rules can be customized via `infrastructure.json` — including custom match
 - Default SKU: B1 (~$13/month per instance), a fixed instance count (`minInstances`, at least 1)
 - Standard (S1, ~$69/month per instance) and Premium plans autoscale on CPU between `minInstances` and `maxInstances`, with App Service health checks when more than one instance runs. See [Azure App Service plans](/docs/infrastructure/service-configuration#azure-app-service-plans)
 - VNet integrated for outbound traffic to Container Apps
+- Next.js apps must answer `/health` with 200 (the framework template includes the route). Front Door probes it to decide whether the app is up, and App Service's health check uses it too
 - With Next.js apps, Kong also has a private endpoint. The Next.js servers call Kong at its default host name (`KONG_INTERNAL_URL`), which resolves to that endpoint inside the VNet. Front Door still reaches Kong through its public access, restricted as above
 
 **Container Apps (NestJS backends):**
@@ -192,7 +193,7 @@ Kong (App Service) resolves Container App FQDNs via a private DNS zone with a wi
 | Per-service secrets MI (from Terraform) | Key Vault Secrets User on the shared vault and its own vault | Runtime: read-only secrets (each backend service; workers use their base service's) |
 | Container Apps User-Assigned MI (from Terraform) | AcrPull + Key Vault Secrets User on the shared vault | Runtime: image pulls (NestJS backends, workers, jobs) |
 
-Next.js on App Service gets `AcrPull` only. It reads nothing from Key Vault. Kong gets `AcrPull` and read access to exactly three secrets in the shared vault: the Redis password, the trust token and the frontend token. App Service hands them to Kong as environment variables when it starts. They are never in the Kong image.
+Next.js on App Service gets `AcrPull`, plus the role that lets it send traces. It reads nothing from Key Vault. Kong gets `AcrPull` and read access to exactly three secrets in the shared vault: the Redis password, the trust token and the frontend token. App Service hands them to Kong as environment variables when it starts. They are never in the Kong image.
 
 **One vault per service.** The shared secrets live in `{projectName}-{env}-kv`. Each backend service's own secrets live in `{projectName}-{env}-{service}`, shortened with a hash when longer than 24 characters. The CLI creates the service vaults. A service can read the shared vault and its own vault, never another service's.
 
@@ -202,7 +203,7 @@ Secret naming auto-transforms underscores to hyphens: `DATABASE_URL` > `DATABASE
 
 ## Scale-to-Zero
 
-Container Apps use KEDA HTTP scaling — services scale to zero when idle and wake automatically on the next request (2-5s cold start). No wake-up mechanisms needed.
+Services run one replica by default (`minInstances: 1`). With `minInstances: 0`, Container Apps use KEDA HTTP scaling: services scale to zero when idle and wake automatically on the next request (2-5s cold start). No wake-up mechanisms needed. Messages for a scaled-to-zero service wait in Redis until a request starts it. See [minInstances](/docs/infrastructure/service-configuration#mininstances).
 
 Kong runs on App Service with `always_on: true` — always available with no cold start.
 
@@ -214,6 +215,16 @@ Kong runs on App Service with `always_on: true` — always available with no col
 - Backend services are in ILB Container Apps Environment (no public IP)
 - NSG rules: Allow LoadBalancer + VNet traffic, deny all others
 - Managed Identity for zero-credential runtime (no secrets in containers)
+
+## Logs, Traces and Dashboards
+
+- **Logs:** everything lands in the environment's Log Analytics workspace (`{project}-{env}-logs`). Container Apps write to resource-specific tables (`ContainerAppConsoleLogs`, `ContainerAppSystemLogs`) through a diagnostic setting. Kong and the Next.js apps send their console, platform and HTTP logs, and Front Door its access and WAF logs. `infra:logs` reads them. See [Cloud Logs](/docs/features/cloud-logs).
+- **Traces:** Application Insights sits on the same workspace, with local authentication off. Services, workers and Next.js apps send their spans to a data collection endpoint and rule, signed in with Entra tokens from their managed identities (**Monitoring Metrics Publisher** on the rule). Spans land in the `OTelSpans` table.
+- **Kong's collector:** Kong's App Service runs two containers (site containers): Kong itself on port 8080, and an OpenTelemetry Collector that receives Kong's spans on `localhost` and signs in with Kong's identity. It shares Kong's plan, at no extra charge.
+- **Dashboard:** one Azure Monitor workbook per environment in the resource group, created by Terraform. `infra:deploy` prints its link.
+- **Database:** the enhanced Postgres metrics are on. Query Store (per-query statistics) is on for General Purpose and Memory Optimized tiers; Microsoft advises against it on Burstable tiers.
+
+See [Traces and Dashboards](/docs/features/traces-and-dashboards).
 
 ## Cost Estimation
 

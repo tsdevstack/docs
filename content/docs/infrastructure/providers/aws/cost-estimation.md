@@ -22,11 +22,11 @@ A typical tsdevstack project (3 NestJS backends + 1 Next.js frontend) creates th
 
 | Resource | AWS Service | Default Configuration |
 |----------|------------|----------------------|
-| Kong gateway | ECS Fargate | 1 vCPU, 2 GiB memory, **min 1 instance** (always on) |
-| Backend services (x3) | ECS Fargate | 0.5 vCPU, 1 GiB memory, **min 1 instance** each (always on) |
-| Frontend | ECS Fargate | 0.5 vCPU, 1 GiB memory, **min 1 instance** (always on) |
+| Kong gateway | ECS Fargate | 0.25 vCPU, 1 GiB memory, **min 1 instance** (always on); a trace collector runs in the same task and takes 256 MiB of it |
+| Backend services (x3) | ECS Fargate | 0.25 vCPU, 512 MiB memory, **min 1 instance** each (always on) |
+| Frontend | ECS Fargate | 0.25 vCPU, 512 MiB memory, **min 1 instance** (always on) |
 | SPA (react-app) | S3 + CloudFront | Static bucket, no compute |
-| Database | RDS PostgreSQL 16 | `db.t3.micro`, 20 GB disk |
+| Database | RDS PostgreSQL 15 | `db.t3.micro`, 20 GB disk, per-query statistics (Database Insights, 7 days free) |
 | Cache | ElastiCache Redis 7 | `cache.t3.micro` |
 | Load Balancer | Application Load Balancer | 2 listeners (HTTP redirect, HTTPS), target groups for Kong and Next.js |
 | CDN | CloudFront | Separate distributions for API, frontend, SPAs; a CloudFront function on the API and frontend distributions sets the client address header (billed per million invocations, free tier; not in the totals below) |
@@ -35,8 +35,12 @@ A typical tsdevstack project (3 NestJS backends + 1 Next.js frontend) creates th
 | Secrets | Secrets Manager | ~10-20 secrets |
 | DNS | Route 53 | 1 hosted zone |
 | Container images | ECR | ~5 repositories |
+| Traces | X-Ray (CloudWatch Transaction Search) | Every request (`tracing.sampleRate` 1) |
+| Dashboard | CloudWatch | 1 per environment |
 
 AWS has no scale-to-zero: every ECS service runs at least one task, and `minInstances: 0` fails validation. Backend services are reachable only inside the VPC (Kong calls them over Cloud Map), so there is no public entry point that could wake a stopped service.
+
+Services, Next.js apps and workers run at 0.25 vCPU / 512 MiB, the smallest Fargate size, unless you set `cpu` or `memory` for them. Kong runs at 0.25 vCPU / 1 GiB, because its task also holds the trace collector. If you set only one of the two, the other comes from 0.5 vCPU / 1 GiB (Kong: 1 vCPU / 2 GiB).
 
 You can override CPU, memory, instance counts, database tier, Redis tier, and disk size per service in `infrastructure.json`. See [Service Configuration](/docs/infrastructure/service-configuration) for all available options.
 
@@ -48,9 +52,9 @@ All services at the default `minInstances: 1`, the minimum on AWS. **Assumed tra
 
 | Resource | Configuration | How it's calculated | Est. monthly |
 |----------|--------------|---------------------|-------------|
-| Kong (ECS Fargate) | 1 vCPU, 2 GiB, min=1 | 1 task × 730 hrs × ($0.04048/vCPU-hr + $0.004445/GiB-hr × 2) | ~$36 |
-| Backend services ×3 | 0.5 vCPU, 1 GiB, min=1 each | 3 tasks × 730 hrs × ($0.02024 + $0.004445) | ~$54 |
-| Frontend (ECS Fargate) | 0.5 vCPU, 1 GiB, min=1 | 1 task × 730 hrs × $0.024685 | ~$18 |
+| Kong (ECS Fargate) | 0.25 vCPU, 1 GiB, min=1 | 1 task × 730 hrs × ($0.04048/vCPU-hr × 0.25 + $0.004445/GiB-hr × 1) | ~$11 |
+| Backend services ×3 | 0.25 vCPU, 512 MiB, min=1 each | 3 tasks × 730 hrs × $0.01234 | ~$27 |
+| Frontend (ECS Fargate) | 0.25 vCPU, 512 MiB, min=1 | 1 task × 730 hrs × $0.01234 | ~$9 |
 | SPA bucket | S3 + CloudFront | Storage + minimal egress | ~$1 |
 | RDS PostgreSQL | db.t3.micro, 20 GB | Instance + storage | ~$22 |
 | ElastiCache Redis | cache.t3.micro | Single node, no replication | ~$12 |
@@ -60,10 +64,12 @@ All services at the default `minInstances: 1`, the minimum on AWS. **Assumed tra
 | WAF | Managed + custom rules | Web ACL + rules + requests | ~$10 |
 | Secrets Manager | ~10 secrets | $0.40/secret/month | ~$4 |
 | DNS, ECR | Minimal | Zone + image storage | ~$1-2 |
-| **Total** | | | **~$250-255** |
+| Traces (X-Ray) | ~240k spans, ~0.24 GB | $0.35/GB | ~$0 |
+| Dashboard (CloudWatch) | 1 dashboard | Free within the account's first 3, else $3 | ~$0-3 |
+| **Total** | | | **~$188-197** |
 
 :::info Why development costs this much on AWS
-Earlier versions let backend services scale to zero on AWS, which took the backend line close to $0. That relied on sending Kong's traffic to backends through the public load balancer so that a stopped service could be woken up, and the mechanism failed requests with 503 for 30 to 60 seconds while tasks started. Backends are now private and always on, like on GCP and Azure. It is the honest trade: about $54 more per month for three small backends, in exchange for private networking and no failed requests. For cheap throwaway environments, GCP and Azure scale to zero natively; on AWS, keep development environments small (see below) and tear down ones you don't use with `infra:destroy`.
+Earlier versions let backend services scale to zero on AWS, which took the backend line close to $0. That relied on sending Kong's traffic to backends through the public load balancer so that a stopped service could be woken up, and the mechanism failed requests with 503 for 30 to 60 seconds while tasks started. Backends are now private and always on, like on GCP and Azure. It is the honest trade: about $27 more per month for three small backends, in exchange for private networking and no failed requests. For cheap throwaway environments, GCP and Azure scale to zero natively; on AWS, keep development environments small (see below) and tear down ones you don't use with `infra:destroy`.
 :::
 
 :::warning
@@ -78,9 +84,9 @@ All services at `minInstances: 1`, the same footprint as Scenario 1 with more tr
 
 | Resource | Configuration | How it's calculated | Est. monthly |
 |----------|--------------|---------------------|-------------|
-| Kong (ECS Fargate) | 1 vCPU, 2 GiB, min=1 | 1 task × 730 hrs | ~$36 |
-| Backend services ×3 | 0.5 vCPU, 1 GiB, min=1 each | 3 tasks × 730 hrs × ($0.02024 + $0.004445) | ~$54 |
-| Frontend (ECS Fargate) | 0.5 vCPU, 1 GiB, min=1 | 1 task × 730 hrs × $0.024685 | ~$18 |
+| Kong (ECS Fargate) | 0.25 vCPU, 1 GiB, min=1 | 1 task × 730 hrs × $0.01457 | ~$11 |
+| Backend services ×3 | 0.25 vCPU, 512 MiB, min=1 each | 3 tasks × 730 hrs × $0.01234 | ~$27 |
+| Frontend (ECS Fargate) | 0.25 vCPU, 512 MiB, min=1 | 1 task × 730 hrs × $0.01234 | ~$9 |
 | SPA bucket | S3 + CloudFront | Storage + egress | ~$1 |
 | RDS PostgreSQL | db.t3.micro, 20 GB | Instance + storage | ~$22 |
 | ElastiCache Redis | cache.t3.micro | Single node | ~$12 |
@@ -90,19 +96,21 @@ All services at `minInstances: 1`, the same footprint as Scenario 1 with more tr
 | WAF | Managed + custom rules | $5 + $10 + 3M × $0.60/M | ~$17 |
 | Secrets Manager | ~10 secrets | — | ~$4 |
 | DNS, ECR | — | — | ~$1-2 |
-| **Total** | | | **~$265-285** |
+| Traces (X-Ray) | ~24M spans, ~24 GB | $0.35/GB | ~$8 |
+| Dashboard (CloudWatch) | 1 dashboard | — | ~$0-3 |
+| **Total** | | | **~$212-231** |
 
 ---
 
 ## Scenario 3 — Production Under Load (3 Instances, 24/7)
 
-Services auto-scale to 3 tasks average. **Assumed traffic: ~10M requests/day** (300M/month).
+Services auto-scale to 3 tasks average at the default size (an assumption: at 0.25 vCPU this load may need more tasks or bigger ones, which raises the compute lines). **Assumed traffic: ~10M requests/day** (300M/month).
 
 | Resource | Configuration | How it's calculated | Est. monthly |
 |----------|--------------|---------------------|-------------|
-| Kong (ECS Fargate) | 1 vCPU, 2 GiB, avg 3 tasks | 3 × 730 hrs × $0.04934 | ~$108 |
-| Backend services ×3 | 0.5 vCPU, 1 GiB, avg 3 each | 9 tasks × 730 hrs × $0.02469 | ~$162 |
-| Frontend (ECS Fargate) | 0.5 vCPU, 1 GiB, avg 3 | 3 tasks × 730 hrs × $0.024685 | ~$54 |
+| Kong (ECS Fargate) | 0.25 vCPU, 1 GiB, avg 3 tasks | 3 × 730 hrs × $0.01457 | ~$32 |
+| Backend services ×3 | 0.25 vCPU, 512 MiB, avg 3 each | 9 tasks × 730 hrs × $0.01234 | ~$81 |
+| Frontend (ECS Fargate) | 0.25 vCPU, 512 MiB, avg 3 | 3 tasks × 730 hrs × $0.01234 | ~$27 |
 | **WAF** | High request volume | $5 + $10 + 300M × $0.60/M | **~$195** |
 | **CloudFront** | High traffic + transfer | $0.01/10k requests + egress | **~$80-200** |
 | SPA bucket | S3 + CloudFront | Storage + egress at volume | ~$5-15 |
@@ -112,10 +120,15 @@ Services auto-scale to 3 tasks average. **Assumed traffic: ~10M requests/day** (
 | NAT Gateway | 2 gateways + high data processing | Fixed + $0.045/GB processed | ~$75-100 |
 | Secrets Manager | — | — | ~$4 |
 | DNS, ECR | — | — | ~$2 |
-| **Total** | | | **~$770-990** |
+| **Traces (X-Ray)** | ~2.4 billion spans, ~2,400 GB at `sampleRate` 1 | $0.35/GB | **~$840** |
+| Dashboard (CloudWatch) | 1 dashboard | — | ~$0-3 |
+| **Total** | | | **~$1,426-1,644** |
+| **Total with `sampleRate` 0.01** | | Traces ~$8 | **~$594-812** |
 
 :::warning Per-request charges dominate at this volume
 AWS WAF bills $0.60 per million requests, so at 300M/month it alone is ~$195, more than the database and cache combined. CloudFront adds $0.01 per 10,000 requests on top. Earlier versions of this page listed WAF at ~$15-25 here, which was roughly 10x too low.
+
+Traces are per request too. At the default `tracing.sampleRate` of 1 they are the largest line. Keep 1 in 100 traces (`"tracing": { "sampleRate": 0.01 }`) and they cost ~$8. See [Traces and Dashboards](#traces-and-dashboards).
 :::
 
 Unlike Cloud Run, Fargate bills for allocated task time regardless of how busy the tasks are, so the compute lines here do not shift with utilization. At this scale, consider [Fargate Compute Savings Plans](https://aws.amazon.com/savingsplans/compute-pricing/) (up to 52% savings with 3-year commitment).
@@ -130,42 +143,65 @@ Unlike Cloud Run, Fargate bills for allocated task time regardless of how busy t
 | 2 | **ECS Fargate compute** | Per-second billing for running tasks. More instances = higher cost. |
 | 3 | **ALB** | Base hourly rate + LCU-based charges that scale with traffic. |
 | 4 | **RDS tier** | `db.t3.micro` is cheap (~$22), but `db.t3.medium` is ~$60. Pick based on load. |
+| 5 | **Traces** | $0.35 per GB of spans. Small until traffic is high; `tracing.sampleRate` sets it. |
 
 ---
 
 ## How to Reduce Costs
 
-- **Scale-to-zero is not available on AWS.** Every service keeps at least one task, so the number of services is a direct cost lever: each 0.5 vCPU / 1 GiB service is ~$18/month running 24/7.
-- **Smaller dev tasks**: 0.25 vCPU with 512 MiB (`"cpu": "0.25"`, `"memory": "512Mi"`) is the smallest Fargate size, about half the cost of the default per service
+- **Scale-to-zero is not available on AWS.** Every service keeps at least one task, so the number of services is a direct cost lever: each service at the default 0.25 vCPU / 512 MiB is ~$9/month running 24/7.
 - **Tear down idle environments**: `npx tsdevstack infra:destroy --env <env>` removes an environment you don't need right now
 - **Use `db.t3.micro`** for development databases — upgrade only when needed
 - **Right-size CPU/memory** — monitor actual usage and lower from defaults
 - **Savings Plans** — 1-year or 3-year Fargate Compute Savings Plans save up to 52%
+- **Lower `tracing.sampleRate`** in busy production environments: 0.1 keeps 1 trace in 10 and cuts the trace bill by 90%
 
 Override any default in `.tsdevstack/infrastructure.json`:
 
 ```json
 {
   "version": "1.0.0",
-  "services": {
+  "prod": {
     "auth-service": {
       "cpu": "0.5",
       "memory": "1Gi",
       "minInstances": 1,
       "maxInstances": 3
-    }
-  },
-  "database": {
-    "tier": "db.t3.small",
-    "diskSize": 30
-  },
-  "redis": {
-    "tier": "cache.t3.small"
+    },
+    "database": {
+      "tier": "db.t3.small",
+      "diskSize": 30
+    },
+    "redis": {
+      "tier": "cache.t3.small"
+    },
+    "tracing": { "sampleRate": 0.1 }
   }
 }
 ```
 
 See [Service Configuration](/docs/infrastructure/service-configuration) for all available options.
+
+---
+
+## Traces and Dashboards
+
+The trace lines above assume **~8 spans per request** (Kong, the service, its database queries) and **~1 KB per span**. Both are estimates: a request that calls more services or runs more queries makes more spans.
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Traces (X-Ray through Transaction Search) | $0.35 per GB of spans (first 10 TB) | 1% of spans indexed for search is included; more indexing is $0.75 per million spans |
+| Dashboard (CloudWatch) | $3 per month | The first 3 dashboards in the account are free |
+| Dashboard log panels | $0.005 per GB scanned | Charged each time the per-service panels load; a long time range on a busy environment scans more |
+| Slow queries (Database Insights, standard) | Free | 7 days of history |
+| Reading logs (`infra:logs`) | Free | |
+| Container Insights | Off | Not deployed, not billed |
+
+:::warning Transaction Search is account-wide
+`infra:deploy` turns on Transaction Search for the AWS account. From then on, X-Ray spans from every app in the account are billed this way, and it stays on after `infra:destroy`.
+:::
+
+`tracing.sampleRate` sets the share of traces kept, and the trace bill with it. See [Traces and Dashboards](/docs/features/traces-and-dashboards#sampling).
 
 ---
 
@@ -181,3 +217,4 @@ See [Service Configuration](/docs/infrastructure/service-configuration) for all 
 - [Secrets Manager Pricing](https://aws.amazon.com/secrets-manager/pricing/)
 - [Route 53 Pricing](https://aws.amazon.com/route53/pricing/)
 - [ECR Pricing](https://aws.amazon.com/ecr/pricing/)
+- [CloudWatch Pricing](https://aws.amazon.com/cloudwatch/pricing/) (X-Ray spans, dashboards, Logs Insights)

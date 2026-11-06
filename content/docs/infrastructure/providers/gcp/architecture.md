@@ -163,6 +163,15 @@ Cloud Run handles scale-to-zero natively. Services with `minInstances: 0` scale 
 - Cloud Armor provides WAF protection at the edge
 - All data services (SQL, Redis) are on private IPs only
 
+## Logs, Traces and Dashboards
+
+- **Logs:** Cloud Run sends each container's output to Cloud Logging, with its own lines on starts, stops and health checks. The load balancer logs every request, Cloud Armor decisions included. `infra:logs` reads them all. See [Cloud Logs](/docs/features/cloud-logs).
+- **Traces:** services, workers and Next.js apps send their spans to Cloud Trace (`telemetry.googleapis.com`), signed in as their runtime accounts (`roles/telemetry.tracesWriter`). Kong's spans go to an OpenTelemetry Collector that runs as a second container in Kong's Cloud Run service (0.25 vCPU, 256 MiB) and signs in as Kong's account.
+- **Dashboard:** one Cloud Monitoring dashboard per environment, created by Terraform. `infra:deploy` prints its link.
+- **Slow queries:** Cloud SQL Query Insights is on.
+
+See [Traces and Dashboards](/docs/features/traces-and-dashboards).
+
 ## Cost Estimation
 
 See [GCP Cost Estimation](/docs/infrastructure/providers/gcp/cost-estimation) for a detailed breakdown across dev (scale-to-zero), production (always-on), and scaled scenarios, with links to official GCP pricing pages.

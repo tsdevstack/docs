@@ -135,6 +135,11 @@ export default defineConfig({
           text: "Features",
           items: [
             { text: "Observability", link: "/docs/features/observability" },
+            { text: "Cloud Logs", link: "/docs/features/cloud-logs" },
+            {
+              text: "Traces and Dashboards",
+              link: "/docs/features/traces-and-dashboards",
+            },
             { text: "Object Storage", link: "/docs/features/object-storage" },
             { text: "Async Messaging", link: "/docs/features/async-messaging" },
             { text: "Scheduled Jobs", link: "/docs/features/scheduled-jobs" },
@@ -301,6 +306,7 @@ export default defineConfig({
             { text: "tsdevstack (CLI)", link: "/docs/packages/tsdevstack" },
             { text: "nest-common", link: "/docs/packages/nest-common" },
             { text: "cli-mcp", link: "/docs/packages/cli-mcp" },
+            { text: "telemetry", link: "/docs/packages/telemetry" },
             {
               text: "react-bot-detection",
               link: "/docs/packages/react-bot-detection",
@@ -317,6 +323,7 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            { text: "v0.12.0", link: "/docs/releases/v0.12.0" },
             { text: "v0.11.0", link: "/docs/releases/v0.11.0" },
             { text: "v0.10.0", link: "/docs/releases/v0.10.0" },
             { text: "v0.9.0", link: "/docs/releases/v0.9.0" },

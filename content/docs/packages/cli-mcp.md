@@ -1,6 +1,6 @@
 # cli-mcp
 
-`@tsdevstack/cli-mcp` is the [Model Context Protocol](https://modelcontextprotocol.io/) server plugin for the tsdevstack CLI. It exposes 56 tools and 12 resources so AI agents like Claude Code, Cursor, and VS Code Copilot can understand and assist with your project: deployments, debugging, querying state, and following framework patterns.
+`@tsdevstack/cli-mcp` is the [Model Context Protocol](https://modelcontextprotocol.io/) server plugin for the tsdevstack CLI. It exposes 57 tools and 12 resources so AI agents like Claude Code, Cursor, and VS Code Copilot can understand and assist with your project: deployments, debugging, querying state, and following framework patterns.
 
 Installed automatically by `@tsdevstack/cli init`. No separate setup needed.
 
@@ -11,12 +11,13 @@ The MCP server is a thin wrapper around the CLI. Each tool spawns `npx tsdevstac
 - **Transport:** stdio (the AI client spawns the server)
 - **Validation:** All tool inputs validated with Zod schemas
 - **Annotations:** Tools include `readOnlyHint`, `destructiveHint`, and `idempotentHint` metadata so AI clients can make informed decisions about confirmation
+- **Sensitive reads:** the server's instructions and the descriptions of `get_logs` and `get_secret` tell the agent to ask you before every call. MCP can't enforce it; the client decides
 
-## Tools (56)
+## Tools (57)
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| Query (read-only) | 13 | `list_services`, `get_project_config`, `diff_secrets`, `infra_plan` |
+| Query (read-only) | 14 | `list_services`, `get_project_config`, `diff_secrets`, `infra_plan`, `get_logs` |
 | Action: local | 14 | `sync`, `generate_kong`, `add_service`, `add_bucket_storage`, `add_messaging_topic` |
 | Action: cloud | 16 | `deploy_services`, `cloud_secrets_push`, `infra_deploy`, `deploy_scheduler` |
 | Action: setup & CI | 13 | `cloud_init`, `infra_bootstrap`, `infra_generate`, `infra_generate_kong`, `infra_init_ci` |

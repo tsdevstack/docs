@@ -68,7 +68,7 @@ Next.js services must expose a `/health` route (included in the framework templa
 
 ## Data: RDS + ElastiCache
 
-**RDS PostgreSQL 16:**
+**RDS PostgreSQL 15:**
 - Separate databases per service (auth_db, offers_db, kong_db)
 - Private subnets only (no public access)
 - Tiers: `db.t3.micro` (dev) through `db.r6g.large` (prod)
@@ -181,6 +181,15 @@ secrets/
 +-- tsdevstack/dev/auth-service/    # Per-service secrets
 +-- tsdevstack/dev/kong/            # Kong-specific
 ```
+
+## Logs, Traces and Dashboards
+
+- **Logs:** each ECS service writes to its CloudWatch log group (`/ecs/{project}/{name}`). The WAF logs to a group in us-east-1, without the `Authorization`, `Cookie` and frontend token headers. `infra:logs` reads them, and builds the platform lines (crashes, failed health checks, deploys) from ECS service events and stopped tasks. See [Cloud Logs](/docs/features/cloud-logs).
+- **Traces:** services, workers and Next.js apps send their spans to X-Ray, signed with their task roles. Transaction Search is on for the account: spans land in CloudWatch Logs and are searchable there. Kong's spans go to an OpenTelemetry Collector, a second container in Kong's task that signs with Kong's role. It has 256 MiB of the task's 1 GiB and limits its own memory to stay inside it. It is not essential: if it stops, Kong keeps serving.
+- **Dashboard:** one CloudWatch dashboard per environment, created by Terraform. `infra:deploy` prints its link. Container Insights is off.
+- **Slow queries:** Database Insights in standard mode, with Performance Insights keeping 7 days of SQL statistics.
+
+See [Traces and Dashboards](/docs/features/traces-and-dashboards).
 
 ## Cost Estimation
 

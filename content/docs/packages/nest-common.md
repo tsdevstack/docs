@@ -608,7 +608,7 @@ export class AppModule {}
 | `topics` | `string[]` | `[]` | Topics to subscribe to |
 | `maxRetries` | `number` | `3` | Delivery attempts before sending to DLQ |
 | `blockTimeMs` | `number` | `5000` | XREADGROUP block time in ms |
-| `maxLen` | `number` | `10000` | Stream MAXLEN trim per topic |
+| `maxLen` | `number` | `10000` | Entry cap for a topic's stream until it has a subscriber, and for the DLQ (see [How long messages stay in Redis](/docs/features/async-messaging#how-long-messages-stay-in-redis)) |
 | `claimMinIdleMs` | `number` | `60000` | Reclaim stuck messages after (ms) |
 
 `forRootAsync` is available as an escape hatch for dynamic configuration.
@@ -711,12 +711,12 @@ export class AppModule {}
 
 This enables:
 
-- **Logging** — Structured JSON via [Pino](https://getpino.io/) with PII redaction and trace context
-- **Metrics** — Prometheus at `/metrics` with automatic HTTP request tracking
-- **Tracing** — Distributed traces to [Jaeger](https://www.jaegertracing.io/) via [OpenTelemetry](https://opentelemetry.io/)
-- **Health** — `/health` endpoint with Redis and memory checks
+- **Logging**: Structured JSON via [Pino](https://getpino.io/) with PII redaction and trace context
+- **Metrics**: Prometheus at `/metrics` with automatic HTTP request tracking
+- **Tracing**: One [OpenTelemetry](https://opentelemetry.io/) trace per request, through generated clients, BullMQ jobs, messages and Prisma queries, sent by [`@tsdevstack/telemetry`](/docs/packages/telemetry) to the cloud's trace service (Jaeger locally)
+- **Health**: `/health` endpoint with Redis and memory checks
 
-For configuration, custom metrics, manual spans, and cloud setup, see [Observability](/docs/features/observability).
+For configuration and custom metrics, see [Observability](/docs/features/observability). For traces in the cloud and your own spans, see [Traces and Dashboards](/docs/features/traces-and-dashboards).
 
 ## Database
 

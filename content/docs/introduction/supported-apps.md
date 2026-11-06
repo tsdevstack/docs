@@ -21,49 +21,78 @@ Services get:
 
 ### Workers
 
-Workers process background jobs using [BullMQ](https://docs.bullmq.io/) and [Redis](https://redis.io/). They live inside a service's codebase and share its database access and dependencies.
+Workers process background jobs using [BullMQ](https://docs.bullmq.io/) and [Redis](https://redis.io/). They live inside a service's codebase and share its database access and dependencies, but run as their own process, which always runs.
 
 A worker has three parts: a **processor** that handles jobs, a **producer** (any service code) that enqueues them, and a **module** that wires everything together.
 
-#### Inline workers
+Queue processors run only in workers, never inside a service. A service on GCP or Azure can scale to zero, and on GCP a service that does gets CPU only while it handles a request. A processor inside it would stop until the next request. A worker never stops.
 
-The simplest setup — import your processors directly into the service's `AppModule`. Jobs run in the same process as the HTTP server:
+A worker needs these files in its service:
+
+```
+apps/auth-service/
+├── tsconfig.worker.json   # Local build of the worker (see below)
+└── src/
+    ├── main.ts            # HTTP service entry point
+    ├── app.module.ts      # Service module
+    ├── worker.ts          # Worker entry point
+    └── worker.module.ts   # Worker module (no HTTP, just processors)
+```
+
+And two scripts in the service's `package.json`:
+
+```json
+"start-worker:dev": "nest start --entryFile worker --watch --path tsconfig.worker.json",
+"start-worker": "node dist/worker.js"
+```
+
+`worker.ts` calls `startWorker()` from nest-common, which bootstraps a NestJS application context (no HTTP server) with a health endpoint for container orchestration:
 
 ```typescript
-// app.module.ts
+// worker.ts
+import { startWorker } from '@tsdevstack/nest-common';
+import { WorkerModule } from './worker.module';
+
+void startWorker(WorkerModule);
+```
+
+```typescript
+// worker.module.ts
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    SecretsModule,
+    ObservabilityModule.forRoot(),
+    NotificationModule,
     BullConfigModule.forRoot(),
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   providers: [NotificationProcessor],
 })
-export class AppModule {}
+export class WorkerModule {}
 ```
 
-This is fine for lightweight async tasks like sending emails or logging events.
+`npm run dev` starts every service and every worker. Locally the worker compiles into its own folder, so the worker and its service don't delete and rewrite each other's `dist`:
 
-#### Detached workers
-
-For heavy processing or independent scaling, you can run processors in a separate container. This requires two extra files:
-
-```
-apps/auth-service/src/
-├── main.ts            # HTTP service entry point
-├── app.module.ts      # Service module
-├── worker.ts          # Worker entry point
-└── worker.module.ts   # Worker module (no HTTP, just processors)
+```json
+// tsconfig.worker.json
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "outDir": "./node_modules/.cache/worker-dev"
+  }
+}
 ```
 
-`worker.ts` calls `startWorker()` from nest-common, which bootstraps a NestJS application context (no HTTP server) with a health endpoint for container orchestration.
-
-**These files alone do nothing.** The worker won't run unless you register it as a detached worker, which tells the framework to deploy a separate container using the same Docker image but with `node dist/worker.js` as the entrypoint:
+In the cloud, a worker runs once you register it as a detached worker. The framework then deploys a separate container from the same Docker image, with `node dist/worker.js` as the entrypoint:
 
 ```bash
 npx tsdevstack register-detached-worker --name auth-worker --base-service auth-service
 ```
 
-Detached workers get their own Cloud Run / ECS / Container Apps instance with CPU always allocated. Like services, workers are configurable in `infrastructure.json` — you can set `minInstances`, `maxInstances`, `cpu`, and `memory`. Workers enforce a minimum of 1 instance (they must always be running to poll Redis queues).
+Detached workers get their own Cloud Run / ECS / Container Apps instance with CPU always allocated. Like services, workers are configurable in `infrastructure.json`: you can set `minInstances`, `maxInstances`, `cpu`, and `memory`. Workers run at least 1 instance (they must always be running to poll Redis queues).
+
+The auth template comes with a worker, `auth-worker`, which sends the auth service's emails.
 
 #### Enqueueing jobs
 

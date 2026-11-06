@@ -66,14 +66,17 @@ If autocomplete isn't working, ensure the `infrastructure.schema.json` file exis
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `minInstances` | `1` (GCP, AWS), `0` (Azure) | Minimum running instances (`0` = scale to zero, GCP and Azure only) |
+| `minInstances` | `1` | Minimum running instances (`0` = scale to zero, GCP and Azure only). See [minInstances](#mininstances) |
 | `maxInstances` | `10` (GCP, AWS), `5` (Azure) | Maximum instances for auto-scaling |
-| `cpu` | `"1"` (GCP), `"0.5"` (AWS, Azure) | CPU allocation (valid values vary by provider, see below) |
-| `memory` | `"512Mi"` (GCP), `"1Gi"` (AWS, Azure) | Memory allocation (valid values vary by provider, see below) |
+| `cpu` | `"1"` (GCP), `"0.25"` (AWS, see below), `"0.5"` (Azure) | CPU allocation (valid values vary by provider, see below) |
+| `memory` | `"512Mi"` (GCP, AWS, see below), `"1Gi"` (Azure) | Memory allocation (valid values vary by provider, see below) |
 | `timeout` | `"300s"` | Request timeout (30s-3600s) |
 | `concurrency` | `80` | Max concurrent requests per instance |
+| `logLevel` | `"info"` | Log level of a NestJS service or worker: `trace`, `debug`, `info`, `warn`, `error`, `fatal`. See [Cloud Logs](/docs/features/cloud-logs#log-level-of-deployed-services) |
 
 The JSON schema is provider-aware — IDE autocomplete will only show values valid for your cloud provider.
+
+On AWS, a service, Next.js app or worker without `cpu` and `memory` runs at 0.25 vCPU / 512 MiB, the smallest Fargate size. If you set only one of the two, the other comes from 0.5 vCPU / 1 GiB.
 
 On Azure, Next.js apps run on App Service, not Container Apps: `cpu` and `memory` don't apply to them, and their instance counts follow the plan's SKU. See [Azure App Service plans](#azure-app-service-plans).
 
@@ -81,6 +84,7 @@ On Azure, Next.js apps run on App Service, not Container Apps: `cpu` and `memory
 Cloud Run rejects some combinations, so `infra:generate`, `infra:plan`, the deploy commands and `infra:status` check them first:
 
 - `cpu` below 1 needs `"concurrency": 1` (each instance then serves one request at a time). Workers and Kong need `cpu` 1 or more.
+- A NestJS service with `minInstances` 1 or more needs `cpu` 1 or more: its CPU stays on between requests (see [minInstances](#mininstances)), which Cloud Run allows from 1 vCPU.
 - Memory per CPU: up to `512Mi` below 0.5 vCPU, `1Gi` below 1, `4Gi` at 1, `8Gi` at 2. 4 vCPU needs at least `2Gi`, 8 vCPU at least `4Gi`.
 :::
 
@@ -93,7 +97,17 @@ Controls the minimum number of instances always running.
 | Value | Behavior | Cost | Startup |
 |-------|----------|------|---------|
 | `0` | Scale to zero when idle (GCP and Azure only) | Pay only when used | Cold start (see below) |
-| `1+` | Always-on instances | Continuous cost | No cold start |
+| `1+` (default) | Always running | Continuous cost | No cold start |
+
+**`1` or more: the service always runs.** It answers requests, and it keeps working between them: message handlers (`@OnMessage`), timers, anything that waits on Redis. On GCP, a NestJS service with `minInstances` 1 or more keeps its CPU between requests (Cloud Run's instance-based billing). Cloud Run otherwise gives a service CPU only while it handles a request, so its message handlers would wait for the next request. That costs more: about $50 a month instead of about $10 for one instance at 1 vCPU and 512 MiB (list prices). Next.js apps get CPU only during requests.
+
+**`0`: the service scales to zero when idle.** A good fit for dev and staging, which sit idle most of the time. Problematic for production:
+
+- Messages for the service wait in Redis until a request starts it. Nothing is lost, but the work happens late: a user signs up, and the service that gives them their plan does it on its next request.
+- The first request after an idle period waits for a cold start.
+- Between requests the service has no CPU. Work a request started and didn't finish pauses until the next request, and its traces arrive late.
+
+Every service that subscribes to messages should keep `minInstances` at 1 or more. Workers always run.
 
 Scale-to-zero is a platform feature of Cloud Run and Container Apps, and cold start times vary:
 
@@ -109,8 +123,8 @@ On AWS every ECS service (NestJS services, Next.js frontends, workers and Kong) 
 :::
 
 **Recommendations:**
-- **Dev on GCP or Azure**: `0` - Save costs, cold starts are acceptable
-- **Prod critical paths**: `1+` - Avoid cold starts for user-facing APIs
+- **Dev and staging on GCP or Azure**: `0` saves money. Messages and background work wait for the next request, and cold starts are acceptable
+- **Production**: `1+` (the default) for every service
 - **Detached workers**: `1+` - Workers must always be running to poll Redis queues. On GCP and Azure the framework raises `0` to 1 for workers; on AWS it fails validation like any other service
 
 ### maxInstances
@@ -176,10 +190,12 @@ Kong defaults:
 |--------|-----|-----|-------|
 | `minInstances` | `1` | `1` | `1` |
 | `maxInstances` | `10` | `10` | `5` (Standard or Premium plan only) |
-| `cpu` | `"1"` | `"1"` | Set by `appService.kongSku` |
-| `memory` | `"1Gi"` | `"2Gi"` | Set by `appService.kongSku` |
+| `cpu` | `"1"` | `"0.25"` (see below) | Set by `appService.kongSku` |
+| `memory` | `"1Gi"` | `"1Gi"` (see below) | Set by `appService.kongSku` |
 
 Keep Kong at `minInstances: 1` or more: every API request goes through it. On AWS, `0` fails validation.
+
+On AWS, Kong without `cpu` and `memory` runs at 0.25 vCPU / 1 GiB. Its task also holds the trace collector, which takes 256 MiB of it. If you set only one of the two, the other comes from 1 vCPU / 2 GiB.
 
 On Azure, leave out `cpu` and `memory`: Kong runs on an App Service plan, and the plan's SKU sets them (setting them fails validation). Kong's `maxInstances` only takes effect on a Standard or Premium plan. See [Azure App Service plans](#azure-app-service-plans).
 
@@ -247,7 +263,9 @@ Configure BullMQ worker scaling and resources:
 
 Workers support the same options as services (`minInstances`, `maxInstances`, `cpu`, `memory`). On GCP, workers need `cpu` 1 or more: they keep their CPU allocated between requests, which Cloud Run allows from 1 vCPU (the `0.25` above is for AWS). The framework enforces `minInstances >= 1` because workers must always be running to poll Redis queues: on GCP and Azure `0` is overridden to `1`, on AWS it fails validation.
 
-On AWS, workers get auto-scaling resources (CPU-based target tracking at 70%), like services and Kong. On GCP and Azure, the container runtime handles scaling natively.
+A worker adds instances when its average CPU goes above a target, up to `maxInstances`, and removes them when it drops: 70% on AWS and Azure, and Cloud Run's own 60% on GCP (workers there keep their CPU allocated, so Cloud Run counts their CPU even between requests).
+
+Workers scale on CPU, not on the number of jobs waiting. A worker that mostly waits on the network, such as one that sends emails, stays at `minInstances` even with a long queue. Raise `minInstances` when it needs more throughput.
 
 :::note
 Changing a worker's `maxInstances` affects the database connection pool calculation. After changing scaling config, redeploy all services and workers to rebalance pool sizes.
@@ -312,9 +330,11 @@ On AWS, changes to `ha`, `backup` and `tier` on a running database are applied i
 **Azure (PostgreSQL Flexible Server):**
 - `B_Standard_B1ms` - Development (burstable, ~$14/mo)
 - `B_Standard_B2s`, `B_Standard_B2ms` - Small production (burstable)
-- `GP_Standard_D2s_v3` - Standard production (general purpose)
-- `GP_Standard_D4s_v3` - High-traffic production (general purpose)
-- `MO_Standard_E4s_v3` - Memory optimized
+- `GP_Standard_D2s_v3`, `GP_Standard_D2ds_v5` - Standard production (general purpose)
+- `GP_Standard_D4s_v3`, `GP_Standard_D4ds_v5` - High-traffic production (general purpose)
+- `MO_Standard_E4s_v3`, `MO_Standard_E4ds_v5` - Memory optimized
+
+The `_v5` sizes are Azure's current generation, with the same vCores, memory and connection limits as their `_v3` twins. A region can offer one generation to your subscription and not the other (see [PostgreSQL Region Access](/docs/infrastructure/providers/azure/account-setup#postgresql-region-access)).
 
 ### Custom server name (Azure)
 
@@ -684,6 +704,25 @@ This sets Kong's `client_max_body_size`. Requests exceeding this limit receive a
 | Azure | 100MB (Standard Front Door) | Front Door tier limit |
 
 For files larger than these limits, use presigned URL uploads which bypass the WAF/LB/Kong chain entirely. See [Object Storage](/docs/features/object-storage) for details.
+
+## Tracing
+
+Every request is traced by default. `tracing.sampleRate` sets the share of new traces each environment keeps:
+
+```json
+{
+  "version": "1.0.0",
+  "prod": {
+    "tracing": { "sampleRate": 0.1 }
+  }
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `sampleRate` | `1` | Share of new traces kept, from `0` to `1`. Kong decides per request and the services follow; scheduled jobs and workers use the same rate |
+
+Trace volume drives the trace bill at high traffic. See [Traces and Dashboards](/docs/features/traces-and-dashboards#sampling).
 
 ## Cost Optimization
 

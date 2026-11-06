@@ -375,6 +375,14 @@ Show planned infrastructure changes.
 npx tsdevstack infra:plan --env <environment>
 ```
 
+A new CLI version can pin newer Terraform providers than the ones in an environment's lock file (`.terraform.lock.hcl`). Every command that runs Terraform then stops and asks for this step:
+
+```bash
+npx tsdevstack infra:plan --env <environment> --upgrade
+```
+
+It upgrades the providers and shows the plan. Nothing is applied. If the plan looks right, commit the updated lock file and run `infra:deploy`. CI uses the committed lock file.
+
 ### `infra:deploy`
 
 Deploy full infrastructure: base + services + Kong + load balancer.
@@ -386,6 +394,8 @@ npx tsdevstack infra:deploy --env <environment>
 If the provider has no capacity for a size you asked for (a database or Redis size in your region), the deploy waits 5 minutes and tries again, up to 3 times. This is a shortage on the provider's side, not a quota or configuration error. If it still fails, run the command again later; it continues where it stopped. Or pick another `database.tier` or `redis.tier` in `infrastructure.json`.
 
 Images are tagged with the current commit. A service already running that tag can keep its old image, so commit before you deploy a change. With uncommitted changes outside `infrastructure/` and `.tsdevstack/`, the deploy warns you. `--tag <tag>` uses a tag of your choice instead. The other build and deploy commands take it too.
+
+At the end, it prints the link to the environment's dashboard in the cloud's console. See [Traces and Dashboards](/docs/features/traces-and-dashboards#dashboards).
 
 ### `infra:destroy`
 
@@ -416,6 +426,8 @@ npx tsdevstack infra:deploy-services --env <environment>
 ### `infra:remove-service`
 
 Remove a service from cloud (deletes Cloud Run, secrets, database, etc.).
+
+If the service subscribes to messaging topics, remove its subscriptions, deploy it and let it run for 15 minutes first: it then deletes its consumer groups in Redis. A group left behind stops the deleting of read messages on its topic. See [How long messages stay in Redis](/docs/features/async-messaging#how-long-messages-stay-in-redis).
 
 ```bash
 npx tsdevstack infra:remove-service [service-name] --env <environment>
@@ -471,10 +483,10 @@ Like `init-ci`, this re-emits the `NPM_TOKEN` env block into every workflow if `
 
 ### `infra:status`
 
-Check infrastructure configuration status.
+Check that `infrastructure.json` is valid for your cloud provider, and list the environments it overrides.
 
 ```bash
-npx tsdevstack infra:status --env <environment>
+npx tsdevstack infra:status
 ```
 
 ### `infra:list-deployed`
@@ -492,6 +504,30 @@ Check cloud resource status for a specific service.
 ```bash
 npx tsdevstack infra:service-status [service-name] --env <environment>
 ```
+
+### `infra:logs`
+
+Read the logs of a deployed environment: services, workers, frontends, Kong, migration runs, scheduled jobs and the edge (load balancer and WAF). Without a source, it lists the sources and when each one last logged.
+
+```bash
+npx tsdevstack infra:logs --env <environment>
+npx tsdevstack infra:logs [source] --env <environment>
+npx tsdevstack infra:logs --all --env <environment> --since 2h --level error
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--all` | Read every source in one timeline |
+| `--since <time>` | Start of the window: `30m`, `1h` (default), `2d` or a UTC time |
+| `--until <time>` | End of the window (default: now) |
+| `--level <level>` | This level and above: `debug`, `info`, `warn`, `error`, `fatal`. Leaves out lines without a level |
+| `--kind <kind>` | Only `app`, `platform` or `edge` lines |
+| `--grep <text>` | Lines that contain this text, in any case |
+| `--json` | One JSON object per line |
+
+It prints every line of the window, oldest first, in UTC. See [Cloud Logs](/docs/features/cloud-logs).
 
 ## Database Migration Commands
 

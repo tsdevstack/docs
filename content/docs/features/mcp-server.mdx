@@ -48,11 +48,11 @@ The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `
 
 ## Tools
 
-The server exposes 56 tools organized into query tools (read-only) and action tools (mutating).
+The server exposes 57 tools organized into query tools (read-only) and action tools (mutating).
 
-### Query tools (13)
+### Query tools (14)
 
-Safe, read-only operations. No confirmation needed.
+Read-only operations. Two of them read sensitive data, `get_logs` and `get_secret`, so the agent asks you before each call (see [Safety model](#safety-model)).
 
 | Tool | Description |
 |------|-------------|
@@ -64,11 +64,12 @@ Safe, read-only operations. No confirmation needed.
 | `list_deployed_services` | All deployed services in a cloud environment |
 | `list_secrets` | Secret names in a cloud environment (no values) |
 | `diff_secrets` | Compare local vs cloud secrets |
-| `get_secret` | Get a single secret value from cloud |
+| `get_secret` | Get a single secret value from cloud. The agent asks you first |
 | `list_schedulers` | Scheduled jobs and their status |
 | `plan_db_migrate` | Preview pending database migrations |
 | `infra_plan` | Terraform plan: preview infrastructure changes |
 | `infra_status` | Check if infrastructure config is in sync |
+| `get_logs` | Newest log lines of a deployed environment, or its log sources. The agent asks you first |
 
 ### Action tools: local (14)
 
@@ -149,8 +150,8 @@ These read files from your project and stay up-to-date:
 | `tsdevstack://infrastructure-schema` | `.tsdevstack/infrastructure.schema.json`: JSON schema |
 | `tsdevstack://ci` | `.tsdevstack/ci.json`: CI/CD configuration |
 | `tsdevstack://secrets/map` | `.tsdevstack/secret-map.json`: secret structure |
-| `tsdevstack://secrets/names` | `.secrets.local.json`: local development secrets |
-| `tsdevstack://secrets/user` | `.secrets.user.json`: user-defined secrets (keys only) |
+| `tsdevstack://secrets/names` | `.secrets.local.json`: local secret names and scopes (every value hidden) |
+| `tsdevstack://secrets/user` | `.secrets.user.json`: user-defined secrets (keys only, every value hidden) |
 | `tsdevstack://kong/routes` | `kong.tsdevstack.yml`: API gateway routes |
 
 ### Guides (static)
@@ -168,7 +169,8 @@ Hardcoded reference content for AI agents:
 
 The MCP server uses [tool annotations](https://modelcontextprotocol.io/docs/concepts/tools#annotations) to communicate risk to AI clients:
 
-- **`readOnlyHint: true`**: Query tools. Safe to run without confirmation.
+- **`readOnlyHint: true`**: Query tools. They change nothing.
+- **Sensitive reads:** logs can hold personal data, and `get_secret` returns a secret's value. The server's instructions and the descriptions of `get_logs` and `get_secret` tell the agent to ask you before every call, say what it wants to read and why, and wait for your yes. MCP has no way to enforce this: your AI client decides how it uses the tools. The secrets resources show key names only.
 - **`destructiveHint: true`**: Tools that permanently delete data (`remove_service_cloud`, `infra_destroy`, etc.). AI clients should always confirm before running these.
 - **`idempotentHint: true`**: Tools that can be safely re-run (most generate/deploy commands).
 

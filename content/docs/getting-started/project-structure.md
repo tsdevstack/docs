@@ -95,10 +95,11 @@ apps/auth-service/
 │   ├── worker.module.ts    # Worker module
 │   └── processors/         # Job processing logic
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.worker.json    # Local build of the worker
 ```
 
-By default, workers run in the same container as the service. For independent scaling, register them as detached workers:
+Queue processors run only in workers, never in the service. A worker runs as its own process: `npm run dev` starts it locally, and in the cloud it runs in its own container once you register it as a detached worker:
 
 ```bash
 npx tsdevstack register-detached-worker --name email-worker --base-service auth-service

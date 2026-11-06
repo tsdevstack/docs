@@ -39,7 +39,7 @@ Register all 12 providers:
 | `Microsoft.Cdn` | Azure Front Door (CDN / load balancer) |
 | `Microsoft.ContainerRegistry` | Container Registry (Docker images) |
 | `Microsoft.DBforPostgreSQL` | PostgreSQL Flexible Server |
-| `microsoft.insights` | Monitor Diagnostic Settings |
+| `microsoft.insights` | Diagnostic settings, Application Insights, the traces data collection rule, the dashboard workbook |
 | `Microsoft.KeyVault` | Key Vault (secrets management) |
 | `Microsoft.ManagedIdentity` | Managed Identities for containers |
 | `Microsoft.Network` | Virtual Networks, subnets, NSGs |
@@ -102,6 +102,25 @@ There is no API to check this ahead of time, so on a new subscription request ac
 4. Ask for Azure Managed Redis with the size you'll use (`Balanced_B0` by default) in your deployment region. If a deploy already failed, add the CorrelationID from the error.
 
 Everything else in a deploy is created before it stops at Redis, so once access is granted, run `infra:deploy` again and it continues where it left off.
+
+## PostgreSQL Region Access
+
+Azure can also block a subscription from creating a PostgreSQL Flexible Server in a region, whatever size you pick. New pay-as-you-go subscriptions are the usual case. The size list (`az postgres flexible-server list-skus`) and the quota page still show every size as available, so only a create shows the block. The deploy fails with:
+
+```
+Status: "SkuNotAvailable"
+Message: "Specified SKU is not supported in this region. Please choose a different SKU."
+```
+
+Request access for your deployment region:
+
+1. **Help + support** > **Create a support request**. In the panel, describe the issue (for example "postgresql region access"), pick **Service and subscription limits (quotas)**, then **Create a support request**
+2. Quota type: "Azure Database for PostgreSQL flexible server"
+3. Under **Add additional details**, pick **Region access** and your region
+
+Access is granted per series. Name the series of every size you may use: the B-series for `B_` sizes, Dsv3 or Ddsv5 for `GP_` sizes, Esv3 or Edsv5 for `MO_` sizes. Microsoft may enable a different series than the one you asked for, so check the reply: if your size still fails, try the same size from the other generation (for example `GP_Standard_D2ds_v5` instead of `GP_Standard_D2s_v3`).
+
+Microsoft answers quota requests within 24 to 48 hours. Everything created before the database stays in place: once access is granted, run `infra:deploy` again and it continues. The other way out is a region that isn't blocked, which needs a resource group there (Step 4).
 
 ## Capacity Is Not Quota
 
@@ -189,15 +208,18 @@ Go to the Resource Group > **Access control (IAM)** > assign each role:
   - Key Vault Secrets User
   - AcrPull
   - Storage Blob Data Contributor
+  - Monitoring Metrics Publisher
 - Save and assign
 
 | Role | Purpose |
 |------|---------|
 | Contributor | Create and manage resources (Key Vault, Container Apps, databases, etc.) |
 | Key Vault Secrets Officer | Read, write, and delete secrets in Key Vault |
-| User Access Administrator (constrained) | Assign only Key Vault, AcrPull, and Storage roles to Container App Managed Identities |
+| User Access Administrator (constrained) | Assign only the Key Vault, AcrPull, Storage and Monitoring Metrics Publisher roles to the apps' managed identities |
 
 All roles above are scoped to the resource group. Provider registration (done earlier) is a separate subscription-level operation.
+
+Monitoring Metrics Publisher lets the services, Kong and the Next.js apps send their traces to Azure Monitor. A service principal set up before it was on this list can't grant it, and `infra:deploy` stops with an authorization error. Add it: Resource Group > **Access control (IAM)** > **Role assignments** > the User Access Administrator row > **View/Edit** in the Condition column, then add **Monitoring Metrics Publisher** to the roles and save.
 
 ## Step 6: Save Credentials
 

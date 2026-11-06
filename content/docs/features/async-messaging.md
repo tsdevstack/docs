@@ -225,11 +225,33 @@ message delivered
 - Handler throws → message stays pending, will be retried
 - After 3 failed deliveries → message moves to the DLQ stream
 
+### A handler that runs long
+
+While a handler runs, its instance tells Redis every 20 seconds that it is still working on the message, and on the other messages it read with it. Another instance of the service doesn't take them over, so a slow handler doesn't run twice.
+
+### After a crash
+
+An instance that stops in the middle of a handler (a crash, an out-of-memory kill) stops telling Redis. After 60 seconds another instance takes the message and runs the handler again. Write handlers so that a second run does no harm, for example by checking whether the work is already done.
+
 ### Inspecting the DLQ
 
 Use Redis Commander (available locally at http://localhost:8081) to inspect DLQ streams. Each DLQ entry contains the original message data plus failure metadata.
 
 Recovery is manual — read messages from the DLQ stream and republish to the original topic after fixing the root cause.
+
+## How long messages stay in Redis
+
+Redis keeps a stream entry until something deletes it:
+
+- **A topic with subscribers:** every 30 seconds, the subscribers delete the entries every subscribing service has finished. An entry a subscriber hasn't read yet stays.
+- **A topic without a subscriber yet:** the stream keeps the newest 10,000 entries (`maxLen`). A subscriber that starts later reads those.
+- **The DLQ:** keeps the newest 10,000 entries (`maxLen`).
+
+A subscriber that stops reading keeps everything after its position, and the stream grows. For example, a service scaled to zero that gets no requests (see [minInstances](/docs/infrastructure/service-configuration#mininstances)). Redis never evicts this data. When it is full, every write fails: publishing, BullMQ jobs, rate limiting. Watch Redis memory on your environment's dashboard.
+
+**Removing a subscription.** When a service stops subscribing to a topic and you deploy it, the service deletes its consumer group on that topic, once none of its instances has read from the group for 10 minutes (the previous version can still be running right after a deploy). It checks when it starts and every 5 minutes. From then on, the stream's read messages are deleted again.
+
+**Removing a service.** A removed service never starts again, so it can't delete its groups. Before you remove a service that subscribes to topics, remove its subscriptions, deploy it, and let it run for 15 minutes.
 
 ## Infrastructure
 
@@ -256,6 +278,10 @@ No Terraform generators, no new secrets, no new env vars, no docker-compose chan
 ### Messages stuck in pending
 
 Messages stay pending if the handler throws. Check handler error logs and use `XPENDING` in Redis Commander. Messages idle > 60s are auto-reclaimed via `XCLAIM`. After 3 failures, messages move to the DLQ.
+
+### Messages handled late
+
+The subscribing service is scaled to zero (`minInstances: 0`): its messages wait in Redis until a request starts it. Set `minInstances` to 1 or more. See [minInstances](/docs/infrastructure/service-configuration#mininstances).
 
 ### Consumer group already exists
 
