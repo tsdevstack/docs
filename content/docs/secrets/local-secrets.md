@@ -49,6 +49,8 @@ npx tsdevstack cloud-secrets:set STRIPE_API_KEY --service offers-service --env p
 
 See [How Secrets Work](/docs/secrets/how-secrets-work#each-service-reads-shared-secrets-and-its-own).
 
+In the cloud's secret store, the scope is part of the name: `{projectName}-{scope}-{KEY}`. With a project named `myapp`, `SENTRY_DSN` is stored as `myapp-shared-SENTRY_DSN` and `STRIPE_API_KEY` as `myapp-offers-service-STRIPE_API_KEY` (hyphens instead of underscores on Azure). You only need these names when you create a secret in the cloud console yourself, for example before the first CI deployment. See [Secret Naming in Cloud](/docs/secrets/cloud-secrets#secret-naming-in-cloud).
+
 Values in a frontend's or a worker's section stay local. In the cloud, a frontend gets the shared keys listed in its `secrets` array, and a worker reads its base service's scope. `cloud-secrets:push` lists these values so you can move them.
 
 Frontends (Next.js, SPA) work differently. Their section's `secrets` array lists the shared keys they get as environment variables at deploy, for example `"frontend": { "secrets": ["SENTRY_DSN"] }`. Backends ignore this array. They read the shared scope and their own at runtime.

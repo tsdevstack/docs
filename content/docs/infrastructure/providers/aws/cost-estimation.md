@@ -195,6 +195,7 @@ The trace lines above assume **~8 spans per request** (Kong, the service, its da
 | Dashboard log panels | $0.005 per GB scanned | Charged each time the per-service panels load; a long time range on a busy environment scans more |
 | Slow queries (Database Insights, standard) | Free | 7 days of history |
 | Reading logs (`infra:logs`) | Free | |
+| Following logs (`infra:logs --follow`) | $0.01 per Live Tail session minute | 1,800 minutes a month are free. One session per 10 log groups; `--all` on a typical project opens 2 or 3, and the command prints the count |
 | Container Insights | Off | Not deployed, not billed |
 
 :::warning Transaction Search is account-wide
@@ -202,6 +203,19 @@ The trace lines above assume **~8 spans per request** (Kong, the service, its da
 :::
 
 `tracing.sampleRate` sets the share of traces kept, and the trace bill with it. See [Traces and Dashboards](/docs/features/traces-and-dashboards#sampling).
+
+## Storage Access Logs
+
+With storage buckets, every read and write of their files is logged: S3 data events from a CloudTrail trail of their own, sent to CloudWatch Logs. The trail records only data events, so the account's own events aren't paid twice.
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Data events (CloudTrail) | $0.10 per 100,000 events | |
+| Delivery to CloudWatch Logs | $0.25 per GB | CloudTrail's charge |
+| CloudWatch Logs | $0.50 per GB ingested | Kept 30 days |
+| S3 copy of the events | Storage only | CloudTrail always writes one, to the CloudTrail bucket (kept 90 days) |
+
+Example: **~1.5 KB per access** (our estimate). A million reads and writes cost about $1.00 in events, $0.38 in delivery and $0.75 in CloudWatch: about $2.10. Every file counts: a page that shows 20 images from a bucket makes 20 reads.
 
 ---
 
@@ -218,3 +232,4 @@ The trace lines above assume **~8 spans per request** (Kong, the service, its da
 - [Route 53 Pricing](https://aws.amazon.com/route53/pricing/)
 - [ECR Pricing](https://aws.amazon.com/ecr/pricing/)
 - [CloudWatch Pricing](https://aws.amazon.com/cloudwatch/pricing/) (X-Ray spans, dashboards, Logs Insights)
+- [CloudTrail Pricing](https://aws.amazon.com/cloudtrail/pricing/) (storage access logs)

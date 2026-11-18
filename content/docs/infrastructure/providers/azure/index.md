@@ -2,7 +2,7 @@
 
 tsdevstack on Azure uses [Container Apps](https://azure.microsoft.com/en-us/products/container-apps) for backend services, [App Service](https://azure.microsoft.com/en-us/products/app-service) for Kong and Next.js, [PostgreSQL Flexible Server](https://azure.microsoft.com/en-us/products/postgresql) for databases, and [Azure Managed Redis](https://azure.microsoft.com/en-us/products/cache). [Azure Front Door](https://azure.microsoft.com/en-us/products/frontdoor) provides a unified edge service combining CDN, WAF, SSL, and load balancing in one.
 
-Azure has the simplest architecture overall (~25-30 Terraform resources vs AWS's ~45). Front Door replaces three separate AWS services (CloudFront + ALB + ACM) with one unified service. There are two security tiers: Standard and Premium (adding Private Link origins and managed WAF rulesets).
+Front Door replaces three separate AWS services (CloudFront, ALB and ACM) with one unified service. There are two security tiers: Standard and Premium (adding Private Link origins and managed WAF rulesets).
 
 :::info Cost
 tsdevstack is free and open source — there are no license fees. You only pay Microsoft directly for the cloud resources. See [Azure Cost Estimation](/docs/infrastructure/providers/azure/cost-estimation) for a full breakdown by scenario.

@@ -230,6 +230,10 @@ export default defineConfig({
             { text: "CI/CD Setup", link: "/docs/infrastructure/cicd-setup" },
             { text: "Domain Setup", link: "/docs/infrastructure/domain-setup" },
             {
+              text: "Account Hardening",
+              link: "/docs/infrastructure/account-hardening",
+            },
+            {
               text: "GCP",
               items: [
                 { text: "Overview", link: "/docs/infrastructure/providers/gcp/" },
@@ -323,6 +327,7 @@ export default defineConfig({
         {
           text: "Releases",
           items: [
+            { text: "v0.13.0", link: "/docs/releases/v0.13.0" },
             { text: "v0.12.0", link: "/docs/releases/v0.12.0" },
             { text: "v0.11.0", link: "/docs/releases/v0.11.0" },
             { text: "v0.10.0", link: "/docs/releases/v0.10.0" },

@@ -72,6 +72,21 @@ All services run on Cloud Run: Kong, backends, workers, and frontends.
 
 Kong and Next.js use `internal-load-balancer` ingress. Their Cloud Run URLs do not answer from the internet; public traffic comes through the Load Balancer and Cloud Armor WAF. Internal ingress also admits the project's VPC networks and Google services of the project. This is how the Next.js servers reach Kong over the VPC, and how Cloud Scheduler reaches backends with `ingress: internal`.
 
+**Names.** Every Cloud Run name carries the project, so two tsdevstack projects can share one GCP project:
+
+| Resource | Name |
+|----------|------|
+| Services, Next.js apps, workers | `{project}-{service}` |
+| Database migration jobs | `{project}-migrate-{service}` |
+| Cloud Scheduler jobs | `{project}-{job}` |
+| Kong | `{project}-kong` |
+
+A Cloud Run name has at most 49 characters. `infra:generate` stops on a longer one and says which.
+
+Each service also carries the label `tsdevstack-project: {project}`, and each Cloud Scheduler job the description `tsdevstack project: {project}`. The CLI lists only those as the project's, so `shop` never mistakes `shop-admin`'s services for its own. You can filter on the label in the Cloud Run console too.
+
+Environments first deployed with v0.12.0 or earlier keep the names they have: `{service}`, `migrate-{service}` and `{job}` (Kong was already `{project}-kong`). A Cloud Run service can't be renamed, and its name is in its URL, which Kong and the scheduler call. The CLI reads which names an environment uses from its Terraform state and never renames anything.
+
 ## Data: Cloud SQL + Memorystore
 
 **Cloud SQL (PostgreSQL 16):**
@@ -89,8 +104,9 @@ Kong and Next.js use `internal-load-balancer` ingress. Their Cloud Run URLs do n
 
 When storage buckets are configured in `config.json`, Terraform creates GCS buckets:
 
-- One bucket per logical name: `{project}-{name}-{env}`
+- One bucket per logical name: `{project}-{name}-{env}-{suffix}`. The suffix is 6 characters derived from the GCP project ID, since bucket names are unique across all of GCS. Environments first deployed with v0.12.0 or earlier keep `{project}-{name}-{env}`.
 - Uniform bucket-level access (no per-object ACLs)
+- Public access prevention enforced: nobody can make the bucket or a file public
 - Private access only — presigned URLs are the access mechanism
 - CORS set to `*` (presigned URLs are the security boundary)
 
@@ -99,6 +115,8 @@ When storage buckets are configured in `config.json`, Terraform creates GCS buck
 - `roles/iam.serviceAccountTokenCreator` on each service's own account, so it can sign presigned URLs as itself and as no other account
 
 No storage access keys in containers — Cloud Run uses its service account identity automatically.
+
+**Access logs:** every read and write of the buckets' files goes to Cloud Logging (Cloud Storage's Data Access audit logs). Google turns these on for the whole project, so the logs of your other buckets (the Terraform state, the SPA buckets) are dropped before they are stored. If you set Cloud Storage audit logging in the console yourself, the deploy replaces it. See [cost estimation](/docs/infrastructure/providers/gcp/cost-estimation#storage-access-logs).
 
 For setup and usage, see [Object Storage](/docs/features/object-storage).
 
@@ -121,7 +139,13 @@ For setup and usage, see [Object Storage](/docs/features/object-storage).
 **Access Logging:**
 - Backend service logs enabled on Load Balancer (`log_config` on backend services)
 - Cloud Armor verbose logging enabled (WAF allow/block decisions)
-- SPA backend buckets: no logging (not supported on `google_compute_backend_bucket`)
+- SPA requests: Google always logs requests to backend buckets, and `infra:logs edge` shows them
+
+**SPA hosting:**
+- Each SPA's files sit in a private Cloud Storage bucket, with Cloud CDN in front.
+- Only the Load Balancer reads the bucket.
+- A path that isn't a file serves `index.html` (client-side routing).
+- An SPA needs a domain in `infrastructure.json`. Without one, nothing serves it.
 
 ## Networking
 
@@ -182,4 +206,4 @@ Async messaging uses Redis Streams on the same Memorystore instance used for cac
 
 ## Terraform Resources
 
-GCP deployments create approximately 35 Terraform resources including VPC, subnets, Cloud SQL instance, Memorystore instance, load balancer components (IP, URL map, proxy, forwarding rule, SSL certificate), Cloud Armor policy, IAM service accounts, and Secret Manager secrets.
+The number of Terraform resources grows with your services and settings. They include VPC, subnets, Cloud SQL instance, Memorystore instance, load balancer components (IP, URL map, proxy, forwarding rule, SSL certificate), Cloud Armor policy, IAM service accounts, and Secret Manager secrets.

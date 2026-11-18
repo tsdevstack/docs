@@ -253,12 +253,13 @@ interface StorageMetadata {
 | Property | Rule |
 |----------|------|
 | Logical name | Kebab-case, 2-30 characters (e.g., `uploads`, `media-assets`) |
-| Cloud name (GCP/Azure) | `{project}-{name}-{env}` (max 63 characters) |
+| Cloud name (GCP) | `{project}-{name}-{env}-{suffix}`, the suffix 6 characters from the GCP project ID (max 63 characters). Environments first deployed with v0.12.0 or earlier keep `{project}-{name}-{env}` |
+| Cloud name (Azure) | `{project}-{name}-{env}` (max 63 characters) |
 | Cloud name (AWS) | `{project}-{name}-{env}-{accountId}` (max 63 characters) |
-| Azure storage account | `{project}{env}storage` (alphanumeric only, max 24 characters) |
+| Azure storage account | `{project}{env}st{suffix}`, the suffix 6 characters from the subscription ID (alphanumeric only, max 24 characters). Environments set up with v0.12.0 or earlier keep `{project}{env}storage` |
 | Reserved names | `rustfs`, `minio`, `storage`, `gateway`, `kong`, `redis`, `postgres`, etc. |
 
-Cloud bucket names are derived automatically. You only specify the logical name.
+Cloud bucket names are derived automatically. You only specify the logical name. `add-bucket-storage` keeps room for the longest account part (AWS's 13 characters), so `{project}-{name}-{env}` can have at most 50.
 
 ## Secrets
 
@@ -299,12 +300,24 @@ Running `infra:deploy` handles everything:
 | | AWS | GCP | Azure |
 |---|-----|-----|-------|
 | **Resource** | S3 bucket | GCS bucket | Blob container in shared storage account |
-| **Access** | Block all public access | Uniform bucket-level access | Private container |
+| **Access** | Block all public access; requests without HTTPS refused | Uniform bucket-level access; public access prevention enforced | Private container; HTTPS only, TLS 1.2 or later |
+| **Deleted or overwritten files** | Kept 7 days (versioning) | Kept 7 days (soft delete) | Kept 7 days (soft delete) |
 | **Encryption** | AES-256 server-side | Google-managed | Microsoft-managed |
 | **IAM** | `s3:GetObject/PutObject/DeleteObject/ListBucket` on service task roles | `roles/storage.objectUser` + `roles/iam.serviceAccountTokenCreator` on each service's own account | `Storage Blob Data Contributor` on managed identity |
 | **CORS** | `*` | `*` | `*` |
+| **Access logs** | CloudTrail data events in CloudWatch Logs | Cloud Storage audit logs in Cloud Logging | Blob logs in Log Analytics |
 
 CORS is set to `*` on all providers. Buckets are private — presigned URLs are the security boundary, not CORS. Browser access requires a presigned URL obtained via your API (which is protected by Kong's CORS).
+
+### Access logs
+
+Every read and write of a bucket's files is logged in the cloud, with who did it and from where. Read them with `infra:logs`, one source per bucket:
+
+```bash
+npx tsdevstack infra:logs bucket-uploads --env dev
+```
+
+See [Cloud Logs](/docs/features/cloud-logs#storage-bucket-access). Each access costs a little; see your provider's cost page. On GCP, the deploy account needs the Logs Configuration Writer role, which `infra:bootstrap` adds. A project set up with an older CLI runs `npx tsdevstack infra:bootstrap --env <env>` once.
 
 For provider-specific architecture details, see [GCP Architecture](/docs/infrastructure/providers/gcp/architecture), [AWS Architecture](/docs/infrastructure/providers/aws/architecture), or [Azure Architecture](/docs/infrastructure/providers/azure/architecture).
 

@@ -54,16 +54,18 @@ Standard is the default and provides strong security within Azure's constraints.
 
 Origin protection uses App Service Access Restrictions — a **platform-level** networking feature. The generated Terraform sets `ip_restriction_default_action = "Deny"` on each App Service, with a single Allow rule for the `AzureFrontDoor.Backend` service tag filtered by the Front Door instance's FDID (`x_azure_fdid` header). Traffic that doesn't match is rejected by Azure's platform before it ever reaches your container. The origins do have public endpoints, but the platform denies any request that didn't come through your specific Front Door instance.
 
+Each app's Kudu site (App Service's deployment and log stream site, `{app}.scm.azurewebsites.net`) has its own access rule: it accepts only an Azure sign-in with deploy rights on the app. Username/password sign-in and SSH into the containers are off. `infra:logs --follow` reads Kong's and the Next.js apps' live logs there, with the environment's credentials.
+
 ### Premium — Private Link + managed rulesets (+$295/month)
 
-Premium adds two things. First, **Private Link origins** — Front Door connects to App Service over Azure's backbone network instead of the public internet. Your origins have zero public surface. Second, **Microsoft managed WAF rulesets** (DRS 2.1 Default Rule Set + Bot Manager 1.1) — professionally maintained rules updated by Microsoft's security team. With managed rulesets handling SQLi, XSS, and common attack patterns, the custom rule count drops from ~75 to ~31 (covering rate limiting, restricted paths, scanner fingerprints, CVE patterns, and protocol abuse that managed rulesets don't address).
+Premium adds two things. First, **Private Link origins** — Front Door connects to App Service over Azure's backbone network instead of the public internet. Your App Service origins have zero public surface. Second, **Microsoft managed WAF rulesets** (DRS 2.1 Default Rule Set + Bot Manager 1.1) — professionally maintained rules updated by Microsoft's security team. With managed rulesets handling SQLi, XSS, and common attack patterns, the custom rule count drops from ~75 to ~31 (covering rate limiting, restricted paths, scanner fingerprints, CVE patterns, and protocol abuse that managed rulesets don't address).
 
 ### Comparison
 
 | Aspect | Standard | Premium |
 |--------|----------|---------|
 | SKU | `Standard_AzureFrontDoor` | `Premium_AzureFrontDoor` |
-| Origin connection | Public endpoints + Access Restrictions (FDID validation) | Private Link (zero public surface) |
+| Origin connection | Public endpoints + Access Restrictions (FDID validation) | Private Link to App Service (zero public surface) |
 | WAF managed rulesets | None (not available on Standard) | DRS 2.1 + Bot Manager 1.1 |
 | WAF custom rules | ~75 (full coverage written by tsdevstack) | ~31 (managed rulesets cover the rest) |
 | Monthly cost delta | Base (~$35) | +$295/month (~$330 total) |
@@ -93,12 +95,13 @@ WAF rules can be customized via `infrastructure.json` — including custom match
 
 **PostgreSQL Flexible Server:**
 - VNet-integrated (postgres subnet, no public access)
-- Databases created directly by Terraform (no separate init task, unlike AWS)
+- Databases created by Terraform. On every deploy, the `db-init` job (a Container Apps Job) sets up each service's two database users. See [Database users](/docs/local-development/database-migrations#database-users)
 - Default: `B_Standard_B1ms` (~$14/month, burstable)
 - Migrations run via Container Apps Jobs (in VNet, can reach PostgreSQL)
+- Delete lock on the server while `database.deletionProtection` is on (the default). The CLI manages it, not Terraform: `infra:remove-service` and `infra:destroy` lift it while they delete. See [Database](/docs/infrastructure/service-configuration#database)
 
 **Azure Managed Redis:**
-- `Balanced_B0` (~$13/month) with `EnterpriseCluster` policy
+- `Balanced_B0` (~$26/month: two nodes, high availability) with `EnterpriseCluster` policy
 - Private endpoint only (no public access)
 - TLS required, dynamic port (from Terraform output)
 
@@ -110,7 +113,7 @@ WAF rules can be customized via `infrastructure.json` — including custom match
 
 When storage buckets are configured in `config.json`, Terraform creates a shared storage account with blob containers:
 
-- One storage account per project-env: `{project}{env}storage` (alphanumeric only, max 24 chars)
+- One storage account per project-env: `{project}{env}st{suffix}` (alphanumeric only, max 24 chars; see [Names](#names))
 - One blob container per logical bucket name
 - Soft delete enabled (7-day retention)
 - CORS set to `*` (presigned URLs are the security boundary)
@@ -120,6 +123,8 @@ When storage buckets are configured in `config.json`, Terraform creates a shared
 **Special:** `AZURE_STORAGE_ACCOUNT_NAME` is injected as an environment variable on Container Apps (not a secret — it's a Terraform output). The Azure Blob adapter uses this alongside managed identity for authentication.
 
 No client secrets in containers — Container Apps use managed identity automatically.
+
+**Access logs:** every read, write and delete of the buckets' files goes to the environment's Log Analytics workspace (`StorageBlobLogs`). See [cost estimation](/docs/infrastructure/providers/azure/cost-estimation#storage-access-logs).
 
 For setup and usage, see [Object Storage](/docs/features/object-storage).
 
@@ -154,6 +159,10 @@ Azure Front Door replaces three AWS services (CloudFront + ALB + ACM) with one u
   - `FrontDoorHealthProbeLog` — health probe traffic
   - `FrontDoorWebApplicationFirewallLog` — WAF allow/block decisions
 - Logs are sent to a Log Analytics workspace
+
+**SPA hosting:**
+- Each SPA's files sit in its own storage account (static website), with Front Door in front.
+- A path that isn't a file serves `index.html` (client-side routing).
 
 ## Networking
 
@@ -192,10 +201,13 @@ Kong (App Service) resolves Container App FQDNs via a private DNS zone with a wi
 | Service Principal (from `cloud:init`) | Key Vault Secrets Officer | CLI: read + write + delete |
 | Per-service secrets MI (from Terraform) | Key Vault Secrets User on the shared vault and its own vault | Runtime: read-only secrets (each backend service; workers use their base service's) |
 | Container Apps User-Assigned MI (from Terraform) | AcrPull + Key Vault Secrets User on the shared vault | Runtime: image pulls (NestJS backends, workers, jobs) |
+| Database jobs MI (from Terraform) | AcrPull + Key Vault Secrets Officer on the database jobs' vault and each database service's vault | The `db-init` job: sets up each service's two database users and writes their URLs. Migration jobs use it to read the owner's URL |
 
 Next.js on App Service gets `AcrPull`, plus the role that lets it send traces. It reads nothing from Key Vault. Kong gets `AcrPull` and read access to exactly three secrets in the shared vault: the Redis password, the trust token and the frontend token. App Service hands them to Kong as environment variables when it starts. They are never in the Kong image.
 
-**One vault per service.** The shared secrets live in `{projectName}-{env}-kv`. Each backend service's own secrets live in `{projectName}-{env}-{service}`, shortened with a hash when longer than 24 characters. The CLI creates the service vaults. A service can read the shared vault and its own vault, never another service's.
+**One vault per service.** The shared secrets live in `{projectName}-{env}-kv-{suffix}`. Each backend service's own secrets live in `{projectName}-{env}-{service}-{suffix}`, shortened with a hash when longer than 24 characters ([Names](#names)). The CLI creates the service vaults. A service can read the shared vault and its own vault, never another service's.
+
+**The database jobs' vault.** `{projectName}-{env}-dbjobs-{suffix}` holds what only the database jobs may read: the server admin's password and each service's `MIGRATION_DATABASE_URL` (its database owner). A service reads everything in its own vault, so these can't live there. No service can read this vault. The CLI creates it, and `dbjobs` can't be a service name. See [Database users](/docs/local-development/database-migrations#database-users).
 
 **Zero-credential runtime:** Container Apps get `SECRETS_PROVIDER=azure`, `AZURE_CLIENT_ID` (the shared identity), `AZURE_SECRETS_CLIENT_ID` (the service's own identity), `AZURE_KEYVAULT_NAME` and `AZURE_SERVICE_KEYVAULT_NAME`. No service principal credentials are injected.
 
@@ -211,6 +223,7 @@ Kong runs on App Service with `always_on: true` — always available with no col
 
 - **Standard:** Front Door validates requests via Access Restrictions with FDID header matching
 - **Premium:** Front Door connects via Private Link (zero public surface on App Service origins)
+- App Service's Kudu sites: Azure sign-in with deploy rights only; no username/password sign-in, no SSH
 - Kong reads each client's address from `X-Azure-SocketIP`, set by Front Door. The Next.js frontend forwards its visitors' addresses the same way ([Client addresses](/docs/customization/kong-customization#client-addresses))
 - Backend services are in ILB Container Apps Environment (no public IP)
 - NSG rules: Allow LoadBalancer + VNet traffic, deny all others
@@ -234,6 +247,24 @@ See [Azure Cost Estimation](/docs/infrastructure/providers/azure/cost-estimation
 
 Async messaging uses Redis Streams on the same Azure Cache for Redis instance used for caching and BullMQ. No additional Azure resources are created — messaging is a framework-level feature that runs on existing infrastructure. See [Async Messaging](/docs/features/async-messaging) for details.
 
+## Names
+
+Some Azure names are unique across all of Azure, not only in your subscription. Each of these carries a 6-character suffix from the subscription ID, so another project with the same name can't take it first:
+
+| Resource | Name |
+|----------|------|
+| Key Vaults | `{project}-{env}-kv-{suffix}`, `{project}-{env}-{service}-{suffix}` |
+| Terraform state storage account | `{project}{env}tf{suffix}` |
+| Storage account (buckets) | `{project}{env}st{suffix}` |
+| Container registry | `{project}{env}acr{suffix}` |
+| Kong and Next.js App Services | `{project}-{env}-kong-{suffix}`, `{project}-{env}-{app}-{suffix}` |
+| Redis | `{project}-{env}-redis-{suffix}` |
+| PostgreSQL server | `{project}-{env}-postgres-{suffix}`, unless `database.serverName` sets it |
+
+A name longer than Azure allows (24 characters for Key Vaults and storage accounts) keeps its start and ends in a hash of the full name. SPA storage accounts already end in part of the subscription ID and don't change.
+
+Environments set up with v0.12.0 or earlier keep the names they have, without the suffix. Every command checks once whether the shared Key Vault exists under its old name, `{project}-{env}-kv`, in `{project}-{env}-rg`. If it does, nothing is renamed. If the check itself fails (permissions, network), the command stops instead of guessing.
+
 ## Terraform Resources
 
-Azure deployments create approximately 25-30 Terraform resources — the fewest of all three providers. This includes VNet, subnets, Container Apps Environment, App Service plans, Front Door profile with WAF policy, PostgreSQL Flexible Server, Managed Redis, Key Vault, ACR, DNS zones, and Managed Identity role assignments.
+The number of Terraform resources grows with your services and settings. They include VNet, subnets, Container Apps Environment, App Service plans, Front Door profile with WAF policy, PostgreSQL Flexible Server, Managed Redis, Key Vault, ACR, DNS zones, and Managed Identity role assignments.

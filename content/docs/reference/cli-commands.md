@@ -67,7 +67,7 @@ Remove a service from the local project.
 npx tsdevstack remove-service [service-name]
 ```
 
-Removes the service directory and updates `.tsdevstack/config.json`. If no service name is provided, prompts for selection.
+Removes the service directory and updates `.tsdevstack/config.json`. If no service name is provided, prompts for selection. To remove it from the cloud too, run `infra:remove-service`, then `infra:deploy`, in each environment it ran in.
 
 ### `generate-kong`
 
@@ -130,6 +130,8 @@ Register a worker for separate container deployment.
 npx tsdevstack register-detached-worker --name <worker-name> --base-service <service-name>
 ```
 
+It adds the worker to `config.json` and creates whichever of the base service's `src/worker.ts`, `src/worker.module.ts` and `tsconfig.worker.json` are missing, plus the `start-worker` and `start-worker:dev` scripts. It never overwrites a file or a script, and lists what it created and what it left alone.
+
 ### `unregister-detached-worker`
 
 Remove a detached worker registration.
@@ -137,6 +139,8 @@ Remove a detached worker registration.
 ```bash
 npx tsdevstack unregister-detached-worker --worker <worker-name>
 ```
+
+It only changes `config.json`. The worker's files and scripts stay; delete them yourself if you no longer need them.
 
 ## Storage Commands
 
@@ -367,6 +371,8 @@ npx tsdevstack infra:generate --env <environment>
 
 With the auth template, it warns when the environment's `scheduledJobs` lack the `sync-api-key-usage` job and prints the entry to add. See [API Keys](/docs/authentication/api-keys#the-usage-job).
 
+On GCP it reads the environment's Terraform state from the state bucket first, so an environment keeps the names it was deployed with ([names](/docs/infrastructure/providers/gcp/architecture#compute-cloud-run)). The credentials need read access to that bucket, as for every other infra command.
+
 ### `infra:plan`
 
 Show planned infrastructure changes.
@@ -393,7 +399,7 @@ npx tsdevstack infra:deploy --env <environment>
 
 If the provider has no capacity for a size you asked for (a database or Redis size in your region), the deploy waits 5 minutes and tries again, up to 3 times. This is a shortage on the provider's side, not a quota or configuration error. If it still fails, run the command again later; it continues where it stopped. Or pick another `database.tier` or `redis.tier` in `infrastructure.json`.
 
-Images are tagged with the current commit. A service already running that tag can keep its old image, so commit before you deploy a change. With uncommitted changes outside `infrastructure/` and `.tsdevstack/`, the deploy warns you. `--tag <tag>` uses a tag of your choice instead. The other build and deploy commands take it too.
+Images are tagged with the current commit, so commit before you deploy a change. Then the tag tells you which code runs. Every deploy starts new instances of each service, even with the same tag, so they read the current secrets. With uncommitted changes outside `infrastructure/` and `.tsdevstack/`, the deploy warns you. `--tag <tag>` uses a tag of your choice instead. The other build and deploy commands take it too.
 
 At the end, it prints the link to the environment's dashboard in the cloud's console. See [Traces and Dashboards](/docs/features/traces-and-dashboards#dashboards).
 
@@ -407,6 +413,8 @@ npx tsdevstack infra:destroy --env <environment>
 
 On GCP, Google frees the network of the deleted services and database only after a while (up to 2 hours). If destroy stops with "Google has not released the network yet", run it again later. It removes what is left, and nothing left behind is billed.
 
+On Azure, the DNS zone is deleted with the environment, with every record in it. Before it asks to go ahead, destroy lists the records the framework didn't make (Resend's email records, for example) and the command that saves a copy of the zone. A later deploy creates a new zone, maybe on other name servers, so check them at your registrar.
+
 ### `infra:deploy-service`
 
 Build, push, and deploy a single service.
@@ -414,6 +422,8 @@ Build, push, and deploy a single service.
 ```bash
 npx tsdevstack infra:deploy-service [service-name] --env <environment>
 ```
+
+For an SPA, files from earlier builds stay in the bucket for a day after their last upload. A visitor who still has the old version open can keep loading its pages. A later deploy deletes them.
 
 ### `infra:deploy-services`
 
@@ -425,13 +435,46 @@ npx tsdevstack infra:deploy-services --env <environment>
 
 ### `infra:remove-service`
 
-Remove a service from cloud (deletes Cloud Run, secrets, database, etc.).
+Remove a service from one environment in the cloud: its containers, workers, database, migration job, SPA bucket, secrets and logs. On AWS it also deletes the service's own CloudFront distribution (SPA or Next.js), which CloudFront takes several minutes to disable before it can be deleted.
 
 If the service subscribes to messaging topics, remove its subscriptions, deploy it and let it run for 15 minutes first: it then deletes its consumer groups in Redis. A group left behind stops the deleting of read messages on its topic. See [How long messages stay in Redis](/docs/features/async-messaging#how-long-messages-stay-in-redis).
 
 ```bash
 npx tsdevstack infra:remove-service [service-name] --env <environment>
 ```
+
+Then take the service out of the project with `remove-service`, and run `infra:deploy` for the environment. The deploy removes the service's Kong routes, its load balancer routes and the scheduled jobs that call it. Until then, its routes and its domain stop working, and those jobs fail. The deploy also gives the other services the removed service's share of database connections: pool sizes are worked out at deploy (see [Pool sizing](/docs/packages/nest-common#pool-sizing)), so until then they keep their smaller pools.
+
+Before it drops the database, the command saves it to the environment's bucket of saved databases, where the file stays 7 days. `infra:restore-database` brings it back. If the save fails twice, a terminal asks whether to stop (the default), try again or remove the service without saving. CI and `--confirm` stop. See [Data of a removed service](/docs/infrastructure/service-configuration#data-of-a-removed-service).
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--env <environment>` | Target environment |
+| `--confirm` | Skip the prompts (required in CI) |
+| `--dry-run` | Show what would be deleted, delete nothing |
+| `--skip-export` | Drop the database without saving it first |
+
+### `infra:restore-database`
+
+Replace a service's database with a file `infra:remove-service` saved. Run it once the service is deployed again: `cloud-secrets:push`, then `infra:deploy`.
+
+```bash
+npx tsdevstack infra:restore-database [service-name] --env <environment>
+```
+
+Without a service name, a terminal lists the services that have saved files. CI needs the name.
+
+It saves the database's current contents first, so a restore can be undone by restoring that file. By default it takes the newest file from a removal. In a terminal it lists the service's files to pick from. The service gets database errors while it runs. If the service's migrations are newer than the file, run `infra:run-db-migrate` afterwards.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--env <environment>` | Target environment |
+| `--file <name>` | The saved file, for example `auth-service/2026-11-14T12-30-00Z-removed.dump` |
+| `--confirm` | Skip the confirmation (required in CI) |
 
 ### `infra:deploy-kong`
 
@@ -513,6 +556,7 @@ Read the logs of a deployed environment: services, workers, frontends, Kong, mig
 npx tsdevstack infra:logs --env <environment>
 npx tsdevstack infra:logs [source] --env <environment>
 npx tsdevstack infra:logs --all --env <environment> --since 2h --level error
+npx tsdevstack infra:logs [source] --env <environment> --follow
 ```
 
 **Options:**
@@ -526,6 +570,8 @@ npx tsdevstack infra:logs --all --env <environment> --since 2h --level error
 | `--kind <kind>` | Only `app`, `platform` or `edge` lines |
 | `--grep <text>` | Lines that contain this text, in any case |
 | `--json` | One JSON object per line |
+| `--follow` | Print new lines as they are written, until Ctrl+C. Stops after 1 hour. Not with `--since` or `--until` |
+| `--no-time-limit` | With `--follow`: keep going until Ctrl+C |
 
 It prints every line of the window, oldest first, in UTC. See [Cloud Logs](/docs/features/cloud-logs).
 

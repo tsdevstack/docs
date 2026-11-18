@@ -9,13 +9,16 @@ You don't write Terraform. You don't configure gateways. You don't set up CI/CD 
 Building production-ready microservices involves a lot of repetitive work:
 
 - Setting up API gateways and routing
-- Managing secrets across environments
-- Configuring CI/CD pipelines
-- Setting up observability and monitoring
-- Writing and maintaining infrastructure as code
 - Handling authentication flows
+- Managing secrets across environments
+- Setting up each cloud environment: networks, databases, caches, load balancers, certificates and DNS
+- Configuring CI/CD pipelines
+- Setting up logs, traces and monitoring
+- Writing and maintaining infrastructure as code
 
-Most teams spend months on this infrastructure before writing any business logic. Even with Infrastructure as Code, you're still writing and maintaining Terraform, Helm charts, and deployment scripts by hand.
+And it has to keep working for everyone else. A new team member needs the whole stack running on their machine, with the right secrets, before they can change a line. A second environment, then a third, means doing the cloud setup again without drifting from the first.
+
+Most teams spend months on this before writing any business logic. Even with Infrastructure as Code, you're still writing and maintaining Terraform, Helm charts, and deployment scripts by hand.
 
 ## The solution
 

@@ -70,7 +70,7 @@ Queue processors run only in workers, never in the service. A worker runs as its
 In the cloud, a worker runs in its own container once you register it as a detached worker:
 
 ```bash
-# Register for deployment
+# Register for deployment (also creates the worker files and scripts the service doesn't have)
 npx tsdevstack register-detached-worker --name email-worker --base-service auth-service
 
 # Unregister

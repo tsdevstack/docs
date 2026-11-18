@@ -60,7 +60,7 @@ Where you create the DNS records depends on your cloud provider:
 
 - **GCP** — Add the records at your **domain registrar** (Namecheap, Cloudflare, GoDaddy, etc.). GCP does not manage your DNS zone, so all DNS records (infrastructure and Resend) go to the registrar.
 - **AWS** — Add the records in **Route 53**. Since your nameservers point to Route 53, it is the authoritative DNS for your domain. Go to [Route 53](https://console.aws.amazon.com/route53/) > Hosted zones > your domain > Create record.
-- **Azure** — Add the records in **Azure DNS**. Since your nameservers point to Azure DNS, it is the authoritative DNS for your domain. Go to [Azure Portal](https://portal.azure.com) > DNS zones > your domain > + Record set.
+- **Azure** — Add the records in **Azure DNS**. Since your nameservers point to Azure DNS, it is the authoritative DNS for your domain. Go to [Azure Portal](https://portal.azure.com) > DNS zones > your domain > + Record set. `infra:destroy` deletes the zone with these records; it lists them first.
 
 :::tip
 Set up Resend domain verification alongside your [infrastructure DNS records](/docs/infrastructure/domain-setup#dns-records). You'll be adding DNS records for both at the same time, so doing them together avoids waiting for propagation twice.

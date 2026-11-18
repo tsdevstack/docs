@@ -137,6 +137,27 @@ A quota request doesn't help here, and no API shows capacity ahead of time. Shor
 - Pick another size for the resource that failed, for example `database.tier` in `infrastructure.json`. Capacity differs between sizes.
 - Ask Azure support for capacity in your region: **Help + support** > **+ Create a support request**.
 
+### App Service Plans
+
+App Service plans (Kong, Next.js) can be short of machines too:
+
+```
+No available instances to satisfy this request. App Service is attempting to increase capacity. Please retry your request later
+```
+
+`infra:deploy` doesn't retry this one. Every App Service plan create that fails counts toward an Azure limit: after too many creates or failed creates in a short time, Azure refuses plan creates for the subscription in that region:
+
+```
+App Service Plan Create operation is throttled for subscription ... Please contact support if issue persists.
+```
+
+(extended code 51025). Azure documents no duration; its support answers mention up to 48 hours. So when a plan is short of machines:
+
+- Pick another size: `appService.kongSku` or `appService.nextjsSku` in `infrastructure.json` (for example `B2`), then run `infra:deploy` again.
+- Don't run it again and again with the same size.
+
+When the limit has hit, don't run `infra:deploy` again until it lifts: every attempt counts. Ask Azure support to lift it (**Help + support** > **+ Create a support request**, with the subscription, the region, code 51025 and the time), or wait. Everything created so far stays in place, and the next deploy continues where it stopped. A different subscription isn't affected.
+
 ## Step 1: Create App Registration
 
 1. Go to [Azure Portal](https://portal.azure.com) > search **"Microsoft Entra ID"**
@@ -175,7 +196,7 @@ The resource group **must** be named exactly `{projectName}-{env}-rg`. The frame
 1. Search for **"Resource groups"** > **+ Create**
 2. **Subscription:** Select from Step 3
 3. **Resource group:** `{projectName}-{env}-rg` (e.g., `tsdevstack-dev-rg`)
-4. **Region:** Choose your region (e.g., `East US 2`). Avoid `East US` — PostgreSQL Flexible Server is often restricted there.
+4. **Region:** Choose your region (e.g., `East US 2`). Avoid `East US` — PostgreSQL Flexible Server is often restricted there. Some regions also refuse tenants that have no resources there yet: `infra:init` then fails with "The selected region is currently not accepting new customers". Microsoft's [location ineligible page](https://learn.microsoft.com/azure/azure-resource-manager/troubleshooting/error-region-access-policy) lists those regions. The deploy creates its resources in the resource group's region, so moving means deleting the group, creating it again in another region (with the roles in Step 5), and setting `location` in the credentials (Step 6) to that region.
 5. Click **Review + create** > **Create**
 
 ## Step 5: Grant Permissions
@@ -215,7 +236,7 @@ Go to the Resource Group > **Access control (IAM)** > assign each role:
 |------|---------|
 | Contributor | Create and manage resources (Key Vault, Container Apps, databases, etc.) |
 | Key Vault Secrets Officer | Read, write, and delete secrets in Key Vault |
-| User Access Administrator (constrained) | Assign only the Key Vault, AcrPull, Storage and Monitoring Metrics Publisher roles to the apps' managed identities |
+| User Access Administrator (constrained) | Assign only the Key Vault, AcrPull, Storage and Monitoring Metrics Publisher roles to the apps' managed identities. Put and lift the database's delete lock (the condition limits role assignments only, not locks) |
 
 All roles above are scoped to the resource group. Provider registration (done earlier) is a separate subscription-level operation.
 
@@ -292,7 +313,7 @@ Ensure the file exists at `.tsdevstack/.credentials.azure.json`.
 
 ### "ServerNameAlreadyExists" on the PostgreSQL server
 
-PostgreSQL Flexible Server names are global DNS names, and the default `{project}-{env}-postgres` is already taken somewhere in Azure (another project with the same name, or a server left in a subscription you deleted). Set a different name for that environment with `database.serverName` in `.tsdevstack/infrastructure.json`, then deploy again. See [Custom server name (Azure)](/docs/infrastructure/service-configuration#custom-server-name-azure).
+PostgreSQL Flexible Server names are global DNS names, and the default name is already taken somewhere in Azure. With the subscription's suffix (`{project}-{env}-postgres-{suffix}`) that's rare; environments set up with v0.12.0 or earlier use `{project}-{env}-postgres`, which another project with the same name, or a server left in a subscription you deleted, can hold. Set a different name for that environment with `database.serverName` in `.tsdevstack/infrastructure.json`, then deploy again. See [Custom server name (Azure)](/docs/infrastructure/service-configuration#custom-server-name-azure).
 
 ### "Creation of Azure Managed Redis with the SKU ... is not supported for your subscription"
 

@@ -2,7 +2,7 @@
 
 tsdevstack on AWS uses [ECS Fargate](https://aws.amazon.com/fargate/) for all containerized services (backends, Next.js frontends, workers), [RDS](https://aws.amazon.com/rds/) PostgreSQL for databases, and [ElastiCache](https://aws.amazon.com/elasticache/) for Redis. [CloudFront](https://aws.amazon.com/cloudfront/) provides CDN and edge caching, with [AWS WAF](https://aws.amazon.com/waf/) for security.
 
-Backend services run in private subnets and are reachable only inside the VPC: Kong calls them directly through Cloud Map service discovery, the same private model as on GCP and Azure. Fargate has no scale-to-zero, so every service keeps at least one task running. The architecture uses ~45 Terraform resources.
+Backend services run in private subnets and are reachable only inside the VPC: Kong calls them directly through Cloud Map service discovery, the same private model as on GCP and Azure. Fargate has no scale-to-zero, so every service keeps at least one task running.
 
 :::info Cost
 tsdevstack is free and open source — there are no license fees. You only pay Amazon directly for the cloud resources. See [AWS Cost Estimation](/docs/infrastructure/providers/aws/cost-estimation) for a full breakdown by scenario.

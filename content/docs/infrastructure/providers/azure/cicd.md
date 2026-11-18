@@ -30,7 +30,22 @@ Do this for **each environment's App Registration** (dev, staging, prod).
 2. Click **App registrations**, then select the **All applications** tab
 3. Click on your App Registration for this environment
 
-### Add the Credential
+### Two forms of the GitHub subject
+
+Azure checks the token's subject exactly, with no wildcards. GitHub writes it in one of two forms:
+
+| Repository | Subject on `main` |
+|---|---|
+| Created before 15 July 2026 | `repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main` |
+| Created, renamed or transferred after 15 July 2026 | `repo:YOUR_ORG@OWNER_ID/YOUR_REPO@REPO_ID:ref:refs/heads/main` |
+
+An older repository switches to the second form only if someone opts in in its OIDC settings. Add a credential for each form and you don't need to know which one yours uses. Your `OWNER_ID` and `REPO_ID`:
+
+```bash
+gh api repos/YOUR_ORG/YOUR_REPO --jq '.owner.id, .id'
+```
+
+### Add the Credentials
 
 1. Click **Certificates & secrets** > **Federated credentials** tab
 2. Click **+ Add credential**
@@ -42,8 +57,16 @@ Do this for **each environment's App Registration** (dev, staging, prod).
    - **GitHub branch name:** `main`
    - **Name:** `github-actions-main`
 5. Click **Add**
+6. Click **+ Add credential** again, for the form with IDs
+7. **Scenario:** Select **"Other issuer"**
+8. Fill in:
+   - **Issuer:** `https://token.actions.githubusercontent.com`
+   - **Subject identifier:** `repo:YOUR_ORG@OWNER_ID/YOUR_REPO@REPO_ID:ref:refs/heads/main`
+   - **Name:** `github-actions-main-ids`
+   - **Audience:** `api://AzureADTokenExchange`
+9. Click **Add**
 
-Repeat for each environment's App Registration.
+Repeat for each environment's App Registration. The deploy workflows start from **Run workflow**: pick `main`, the branch both credentials name.
 
 :::info
 Running from other branches? Add additional federated credentials with those branch names. You can have up to 20 federated credentials per App Registration.
@@ -95,7 +118,7 @@ If you're setting up CI without running `cloud:init` locally, you need to create
 1. Go to the [Azure Portal](https://portal.azure.com) > search **"Key vaults"** > **+ Create**
 2. **Subscription:** Select the subscription for this environment
 3. **Resource group:** Select the resource group you created during Account Setup
-4. **Key vault name:** `{projectName}-{env}-kv` (e.g., `myapp-dev-kv`). If that's longer than 24 characters, the CLI shortens it. `cloud:init` lists each environment with its vault name
+4. **Key vault name:** `{projectName}-{env}-kv-{suffix}` (e.g., `myapp-dev-kv-1a2b3c`). The suffix is the first 6 characters of the SHA-256 of the subscription ID: `node -e "console.log(require('crypto').createHash('sha256').update('YOUR_SUBSCRIPTION_ID').digest('hex').slice(0,6))"`. If the name is longer than 24 characters, the CLI shortens it, and `cloud:init` lists each environment with its vault name. A vault named `{projectName}-{env}-kv` also works: the environment then keeps the names of v0.12.0 and earlier ([names](/docs/infrastructure/providers/azure/architecture#names))
 5. **Region:** Must match your resource group region
 6. **Pricing tier:** Standard
 7. Click **Review + create** > **Create**
@@ -108,7 +131,7 @@ If you're setting up CI without running `cloud:init` locally, you need to create
 ### Creating Secrets in Azure Portal
 
 1. Go to the [Azure Portal](https://portal.azure.com)
-2. Search for **"Key vaults"** and select your project's Key Vault (`{projectName}-{env}-kv`)
+2. Search for **"Key vaults"** and select your project's Key Vault (`{projectName}-{env}-kv-{suffix}`)
 3. Click **Secrets** in the left menu
 4. Click **+ Generate/Import**
 5. **Upload options:** Manual
@@ -134,18 +157,17 @@ For example, if your project name is `myapp`:
 
 ### Required User Secrets
 
-These are the minimum secrets required by the framework:
-
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOMAIN` | Your base domain | `example.com` |
-| `RESEND-API-KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL-FROM` | Sender email address | `noreply@example.com` |
+| Secret | When | Description | Example |
+|--------|------|-------------|---------|
+| `DOMAIN` | Always | Your base domain | `example.com` |
+| `RESEND-API-KEY` | With the auth template (the auth service doesn't start without it), or if your services send email | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL-FROM` | With `RESEND-API-KEY` | Sender email address | `noreply@example.com` |
+| `ADMIN-EMAILS` | Optional, auth template | The first admins, comma-separated. In the auth service's own Key Vault, not the shared one: set it with `npx tsdevstack cloud-secrets:set ADMIN_EMAILS --service auth-service --env <env>`, which creates that vault if needed | `you@example.com` |
 
 Azure Key Vault only allows alphanumeric characters and hyphens — no underscores. Use hyphens when creating secrets in the portal. The framework transforms them back to underscores (`RESEND-API-KEY` → `RESEND_API_KEY`) when injecting into your services.
 
 ::: warning Check your .secrets.user.json
-Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in Azure Key Vault before deployment. Use the same naming format: `{project-name}-shared-{KEY}` (with hyphens instead of underscores).
+Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in Azure Key Vault before deployment. Top-level ones go in the shared vault, named `{project-name}-shared-{KEY}` (with hyphens instead of underscores). One in a service's section goes in that service's own vault: set it with `cloud-secrets:set --service <service>`. See [Secret Naming in Cloud](/docs/secrets/cloud-secrets#secret-naming-in-cloud).
 :::
 
 ### Alternative: Using the CLI
@@ -208,6 +230,7 @@ Wrong `AZURE_CLIENT_ID` in GitHub secrets, or App Registration was deleted. Veri
 1. Federated credential not created on the App Registration
 2. Branch name doesn't match (credential is for `main` but workflow ran from another branch)
 3. Wrong repository in the federated credential
+4. Only the name-only credential exists, and the repository was created after 15 July 2026: add the one with IDs ([Two forms of the GitHub subject](#two-forms-of-the-github-subject))
 
 Check: App Registration > Certificates & secrets > Federated credentials tab.
 

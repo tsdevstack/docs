@@ -87,12 +87,15 @@ When storage buckets are configured in `config.json`, Terraform creates S3 bucke
 - One bucket per logical name: `{project}-{name}-{env}-{accountId}` (e.g., `tsdevstack-uploads-dev-123456789012`)
 - Account ID suffix ensures global uniqueness across S3's global namespace
 - Block all public access enabled
+- Requests without HTTPS refused (bucket policy)
 - Server-side encryption (AES-256)
 - CORS set to `*` (presigned URLs are the security boundary)
 
 **IAM:** Each ECS task role gets `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, and `s3:ListBucket` permissions on all storage buckets.
 
 No access keys in containers — ECS tasks use IAM Task Roles automatically.
+
+**Access logs:** every read and write of the buckets' files is recorded by a CloudTrail trail of its own (S3 data events, only for these buckets) and sent to CloudWatch Logs, kept 30 days. See [cost estimation](/docs/infrastructure/providers/aws/cost-estimation#storage-access-logs).
 
 For setup and usage, see [Object Storage](/docs/features/object-storage).
 
@@ -167,7 +170,7 @@ This keeps AWS on the same model as GCP and Azure: private backends, Kong as the
 ## SPA Deployment
 
 SPAs deploy to S3 with CloudFront:
-- S3 bucket: private (no public access), versioning enabled
+- S3 bucket: private (no public access), requests without HTTPS refused
 - CloudFront OAC (Origin Access Control) with SigV4 signing
 - 403/404 errors redirect to `index.html` for client-side routing
 
@@ -201,4 +204,4 @@ Async messaging uses Redis Streams on the same ElastiCache instance used for cac
 
 ## Terraform Resources
 
-AWS deployments create approximately 45 Terraform resources including VPC, subnets, NAT gateways, security groups, ALB with target groups, ECS cluster and services, auto-scaling policies, RDS instance, ElastiCache cluster, CloudFront distributions, WAF rules, Route 53 records, and IAM roles. Scheduled jobs add EventBridge schedules and a job invoker Lambda.
+The number of Terraform resources grows with your services and settings. They include VPC, subnets, NAT gateways, security groups, ALB with target groups, ECS cluster and services, auto-scaling policies, RDS instance, ElastiCache cluster, CloudFront distributions, WAF rules, Route 53 records, and IAM roles. Scheduled jobs add EventBridge schedules and a job invoker Lambda.

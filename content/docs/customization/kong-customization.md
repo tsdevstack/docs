@@ -142,7 +142,7 @@ Configure allowed origins in your secrets file:
 }
 ```
 
-The framework automatically converts this comma-separated string to an array in the final configuration.
+The framework automatically converts this comma-separated string to an array in the final configuration. In the cloud, Kong's image build also adds every domain from `infrastructure.json` that the list is missing.
 
 ## Escape hatch with kong.custom.yml
 

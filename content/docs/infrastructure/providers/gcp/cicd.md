@@ -152,16 +152,15 @@ For example, if your project name is `myapp`:
 
 ### Required User Secrets
 
-These are the minimum secrets required by the framework:
-
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOMAIN` | Your base domain | `example.com` |
-| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+| Secret | When | Description | Example |
+|--------|------|-------------|---------|
+| `DOMAIN` | Always | Your base domain | `example.com` |
+| `RESEND_API_KEY` | With the auth template (the auth service doesn't start without it), or if your services send email | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | With `RESEND_API_KEY` | Sender email address | `noreply@example.com` |
+| `ADMIN_EMAILS` | Optional, auth template | The first admins, comma-separated. In the auth service's scope: `{project-name}-auth-service-ADMIN_EMAILS` | `you@example.com` |
 
 ::: warning Check your .secrets.user.json
-Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in GCP Secret Manager before deployment. Use the same naming format: `{project-name}-shared-{KEY}`.
+Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in GCP Secret Manager before deployment. Top-level ones are named `{project-name}-shared-{KEY}`; one in a service's section is named `{project-name}-{service}-{KEY}`. See [Secret Naming in Cloud](/docs/secrets/cloud-secrets#secret-naming-in-cloud).
 :::
 
 ### Alternative: Using the CLI

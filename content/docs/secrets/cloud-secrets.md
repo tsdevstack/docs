@@ -50,7 +50,7 @@ npx tsdevstack cloud-secrets:push --env staging
 This command:
 
 - Generates and pushes framework secrets automatically (JWT keys, API keys, token TTLs, email provider)
-- Prompts you for **3 values**: `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM`. [Resend](https://resend.com) is an email delivery service used for transactional emails (account confirmation, password reset)
+- Prompts you for **3 values**: `DOMAIN`, `RESEND_API_KEY`, and `EMAIL_FROM`. The last two are for sending email through [Resend](https://resend.com). With the auth template, the auth service needs `RESEND_API_KEY` to start (account confirmation, password reset) and sends from `EMAIL_FROM`. Without the auth template, leave both empty unless your services send email
 - Auth template projects: asks for `ADMIN_EMAILS` (the first admins, optional) when it has a value in your local `.secrets.user.json`, and pushes it to the auth-service scope. Otherwise it prints the `cloud-secrets:set ADMIN_EMAILS --service auth-service --env <env>` command to run later. See [Managing Users](/docs/authentication/managing-users#the-first-admin)
 - **Includes your custom secrets** from `.secrets.user.json`: prompts you for each environment's value (you can skip any by leaving the value empty)
 - Auto-derives the rest from your domain: `API_URL`, `APP_URL`, `KONG_CORS_ORIGINS`

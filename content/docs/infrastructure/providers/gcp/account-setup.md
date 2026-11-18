@@ -2,6 +2,8 @@
 
 Setting up GCP for tsdevstack deployments. Each environment uses a separate GCP project — repeat these steps for each project.
 
+A GCP project can also hold more than one tsdevstack project: every resource name carries the project name ([names](/docs/infrastructure/providers/gcp/architecture#compute-cloud-run)).
+
 ## Service Account Setup
 
 ### 1. Create Service Account
@@ -94,6 +96,11 @@ The `cloud:init` command calls `infra:bootstrap`, which enables APIs and adds ro
 - Certificate Manager Owner
 - DNS Admin
 - Cloud Scheduler Admin
+- Logs Viewer (`infra:logs`)
+- Logs Configuration Writer (the storage buckets' access logs)
+- Monitoring Dashboard Editor (the environment's dashboard)
+
+A project set up with an older CLI gets the roles it lacks with `npx tsdevstack infra:bootstrap --env <env>`.
 
 ## Environment Isolation
 

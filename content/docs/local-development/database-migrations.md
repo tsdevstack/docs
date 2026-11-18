@@ -18,6 +18,25 @@ This creates a folder under `apps/<service>/prisma/migrations/`, applies it to y
 
 The Prisma CLI reads `DATABASE_URL` from the auto-generated `.env` in the service directory. That file is written by `generate-secrets` (and `sync`) for Prisma tooling only; the running service gets its configuration from `SecretsService`. Don't edit the `.env`, it is overwritten on every regeneration.
 
+## Database users
+
+Each service with a database has two Postgres users:
+
+- `<service>` owns the tables. Migrations and Prisma's tools (`migrate dev`, Studio, the seed script) use it.
+- `<service>_app` is what the running service connects as. It reads and writes rows. It can't create, change, drop or empty tables, and it can't connect to another service's database.
+
+So a bug or an injected query in a running service can't drop a table or change the schema.
+
+Locally, `sync` sets both up in each Postgres container, every time it runs. In `.secrets.local.json`, a service's `DATABASE_URL` is the `_app` user and `MIGRATION_DATABASE_URL` is the owner. The `.env` in the service directory holds the owner's URL, under the name Prisma reads (`DATABASE_URL`). Locally the owner is also the container's admin user.
+
+On AWS, GCP and Azure, `infra:deploy` sets both up on every deploy, with a short job inside your private network, and keeps their URLs in the cloud's secret store. Migration jobs connect as the owner. A running service can't read the owner's URL. On GCP the job also takes away the extra rights Cloud SQL gives every user it creates. On Azure the owner's URL sits in a separate Key Vault, the database jobs' vault, since a service can read everything in its own vault. `remove-service` drops both users.
+
+On Azure, services and migrations used to connect as the server's admin user. The first deploy after the upgrade gives the tables to the owner. Each service switches to its `_app` user on its next `infra:deploy-services`.
+
+If your code changes the schema while it runs (a raw `CREATE TABLE` or `TRUNCATE`), move that into a migration. The `_app` user can't do it.
+
+Coming from an earlier version? Run `npx tsdevstack sync` once. It creates the `_app` user in your existing databases and lets it use your tables. Your data stays where it is. In the cloud, the next `infra:deploy` does the same. Running services keep working until `infra:deploy-services` moves them to the `_app` user.
+
 ## What `sync` does
 
 `npx tsdevstack sync` runs `prisma migrate deploy` and `prisma generate` for every service that has a database. It applies committed migrations, for example after pulling a teammate's changes. It never creates migrations; that is always `prisma migrate dev`, run by you.

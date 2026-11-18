@@ -76,7 +76,7 @@ If autocomplete isn't working, ensure the `infrastructure.schema.json` file exis
 
 The JSON schema is provider-aware — IDE autocomplete will only show values valid for your cloud provider.
 
-On AWS, a service, Next.js app or worker without `cpu` and `memory` runs at 0.25 vCPU / 512 MiB, the smallest Fargate size. If you set only one of the two, the other comes from 0.5 vCPU / 1 GiB.
+On AWS, a service, Next.js app or worker without `cpu` and `memory` runs at 0.25 vCPU / 512 MiB, the smallest Fargate size. If you set only one of the two, the other comes from 0.5 vCPU / 1 GiB. Fargate runs only certain pairs (0.25 vCPU with 512Mi, 1Gi or 2Gi; 0.5 with 1Gi to 4Gi; 1 with 2Gi to 8Gi; 2 with 4Gi to 16Gi; 4 with 8Gi to 30Gi), and `infra:generate` stops at a pair it can't run, the merged one included.
 
 On Azure, Next.js apps run on App Service, not Container Apps: `cpu` and `memory` don't apply to them, and their instance counts follow the plan's SKU. See [Azure App Service plans](#azure-app-service-plans).
 
@@ -265,7 +265,21 @@ Workers support the same options as services (`minInstances`, `maxInstances`, `c
 
 A worker adds instances when its average CPU goes above a target, up to `maxInstances`, and removes them when it drops: 70% on AWS and Azure, and Cloud Run's own 60% on GCP (workers there keep their CPU allocated, so Cloud Run counts their CPU even between requests).
 
-Workers scale on CPU, not on the number of jobs waiting. A worker that mostly waits on the network, such as one that sends emails, stays at `minInstances` even with a long queue. Raise `minInstances` when it needs more throughput.
+Workers scale on CPU, not on the number of jobs waiting. So match the job to the knob:
+
+- **A job that waits on the network** (sending an email, calling an API) barely uses the CPU, so adding workers never triggers. Let one worker run several at once with the processor's `concurrency`. If the API has a rate limit, add a `limiter`: it holds the whole queue, across every worker, and jobs over it wait.
+- **A job that uses the CPU** (resizing images, building reports) keeps the default of one at a time per worker, and more work adds workers.
+
+The auth template's email processor does the first:
+
+```typescript
+@Processor('notifications', {
+  concurrency: 5,                       // up to 5 emails in flight per worker
+  limiter: { max: 10, duration: 1000 }, // Resend's default: 10 requests per second per team
+})
+```
+
+If a queue still falls behind, raise `concurrency` (within the API's limit) or `minInstances`.
 
 :::note
 Changing a worker's `maxInstances` affects the database connection pool calculation. After changing scaling config, redeploy all services and workers to rebalance pool sizes.
@@ -295,7 +309,8 @@ Configure managed PostgreSQL:
 | `diskSize` | GCP `10`, AWS `20`, Azure `32` | Storage in GB. GCP: 10 to 1000. AWS: 20 to 1000. Azure: 32, 64, 128, 256 or 512 |
 | `ha` | `false` | High availability, see below |
 | `backup` | GCP and AWS `true`, Azure `false` | Automated backups, see below |
-| `serverName` | `{project}-{env}-postgres` | Azure only. PostgreSQL server name, see [Custom server name (Azure)](#custom-server-name-azure) |
+| `deletionProtection` | `true` | Stops the database server from being deleted, see below |
+| `serverName` | `{project}-{env}-postgres-{suffix}` | Azure only. PostgreSQL server name, see [Custom server name (Azure)](#custom-server-name-azure) |
 
 **High availability (`ha`)** keeps a standby that takes over when the primary fails. It roughly doubles the database cost.
 - GCP: regional Cloud SQL instance. Needs `backup: true`.
@@ -306,6 +321,11 @@ Configure managed PostgreSQL:
 - GCP: `false` turns automated backups and point-in-time recovery off.
 - AWS: `false` turns automated backups and point-in-time recovery off. The final snapshot on `infra:destroy` is still taken.
 - Azure: backups can't be turned off. `true` keeps them for 35 days, `false` for 7 (the minimum).
+
+**Deletion protection (`deletionProtection`):**
+- GCP and AWS: the provider's own deletion protection on the instance. `infra:destroy` turns it off before it deletes anything.
+- Azure: a delete lock on the PostgreSQL server (`tsdevstack-database-delete-lock`), put on by `infra:deploy`. The lock also covers the databases on the server. `infra:remove-service` lifts it while it deletes a service's database and puts it back after. `infra:destroy` lifts it first, and stops before deleting anything if it can't. With `false`, the next deploy takes the lock off before it applies.
+- Azure: with the lock on, a deploy that would delete a database (a service whose `hasDatabase` you turned off, or a service you took out of `config.json` without `infra:remove-service`) fails at that step. To drop the database on purpose, set `deletionProtection` to `false` for that deploy, then back to `true`.
 
 :::note
 On AWS, changes to `ha`, `backup` and `tier` on a running database are applied in the next maintenance window (Mondays 04:00 to 05:00 UTC). Turning backups on or off causes a short outage.
@@ -336,9 +356,31 @@ On AWS, changes to `ha`, `backup` and `tier` on a running database are applied i
 
 The `_v5` sizes are Azure's current generation, with the same vCores, memory and connection limits as their `_v3` twins. A region can offer one generation to your subscription and not the other (see [PostgreSQL Region Access](/docs/infrastructure/providers/azure/account-setup#postgresql-region-access)).
 
+### Data of a removed service
+
+`infra:remove-service` saves the service's database before it drops it. The file goes to a private bucket of the environment, made by `infra:deploy`, and is deleted after 7 days. `infra:destroy` deletes the bucket with the environment. Keeping a file costs less than a cent per GB.
+
+The bucket is a Cloud Storage bucket on GCP, an S3 bucket on AWS, and a container in a storage account of its own on Azure. Only the database job reads and writes the files.
+
+To bring the data back, deploy the service again (`cloud-secrets:push`, then `infra:deploy`), then run:
+
+```bash
+npx tsdevstack infra:restore-database <service> --env <env>
+```
+
+See [infra:restore-database](/docs/reference/cli-commands).
+
+Without that file (removed with `--skip-export`, or more than 7 days ago), the data is only in the database server's automated backups (see `backup` above). Each backup covers the whole server, not one database. Restore a backup into a new server, at a time just before the removal. Then copy the service's database from it into the live server, and delete the new one:
+
+- GCP: clone the Cloud SQL instance with point-in-time recovery.
+- AWS: a point-in-time restore of the RDS instance. It creates a new instance.
+- Azure: a point-in-time restore of the Flexible Server. It creates a new server.
+
+On GCP, don't restore a backup onto the live instance: that rolls back every service's database to the backup's time.
+
 ### Custom server name (Azure)
 
-On Azure the PostgreSQL Flexible Server name is a global DNS name (`<name>.postgres.database.azure.com`), so it has to be unique across all of Azure, not only in your subscription. tsdevstack names it `{project}-{env}-postgres`. If someone else already holds that name, the deploy fails with `ServerNameAlreadyExists`. Typical causes: another project uses the same project name, or a server with that name still exists in a subscription you deleted.
+On Azure the PostgreSQL Flexible Server name is a global DNS name (`<name>.postgres.database.azure.com`), so it has to be unique across all of Azure, not only in your subscription. tsdevstack names it `{project}-{env}-postgres-{suffix}`, the suffix 6 characters from the subscription ID (environments set up with v0.12.0 or earlier: `{project}-{env}-postgres`). If someone else already holds that name, the deploy fails with `ServerNameAlreadyExists`. Typical causes: another project uses the same project name, or a server with that name still exists in a subscription you deleted.
 
 Pick a different name for that environment with `serverName`:
 
@@ -358,7 +400,7 @@ Rules: 3 to 63 characters, lowercase letters, digits and hyphens, no hyphen at t
 The field is Azure only. On GCP and AWS the schema flags it in your editor and `infra:status` reports it as an error.
 
 :::warning
-Set `serverName` before the first deploy of an environment. Changing it on an environment that is already running makes Terraform replace the server: the old server and every database on it are destroyed and a new, empty one is created. If you really need to rename a live server, back up first (`pg_dump`) and check `npx tsdevstack infra:plan` before you deploy.
+Set `serverName` before the first deploy of an environment. Changing it on an environment that is already running makes Terraform replace the server: the old server and every database on it are destroyed and a new, empty one is created. With `deletionProtection` on (the default), the delete lock makes that deploy fail instead. If you really need to rename a live server, back up first (`pg_dump`) and check `npx tsdevstack infra:plan` before you deploy.
 :::
 
 ## Redis
@@ -392,7 +434,7 @@ Configure managed Redis:
 - `cache.r6g.large` - Standard production
 
 **Azure (Managed Redis):**
-- `Balanced_B0` - Development (~$13/mo, clustered)
+- `Balanced_B0` - Development (~$26/mo for two nodes, clustered)
 - `Balanced_B1` - Small production
 - `Balanced_B3` - Standard production
 
@@ -720,7 +762,7 @@ Every request is traced by default. `tracing.sampleRate` sets the share of new t
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `sampleRate` | `1` | Share of new traces kept, from `0` to `1`. Kong decides per request and the services follow; scheduled jobs and workers use the same rate |
+| `sampleRate` | `1` | Share of new traces kept, from `0` to `1`. The first hop decides (the Next.js frontend for its calls, Kong for the others) and the rest follow; scheduled jobs and workers use the same rate |
 
 Trace volume drives the trace bill at high traffic. See [Traces and Dashboards](/docs/features/traces-and-dashboards#sampling).
 
@@ -733,12 +775,14 @@ Trace volume drives the trace bill at high traffic. See [Traces and Dashboards](
   "dev": {
     "auth-service": { "minInstances": 0 },
     "offers-service": { "minInstances": 0 },
-    "kong": { "minInstances": 0 },
+    "kong": { "minInstances": 1 },
     "database": { "tier": "db-f1-micro", "ha": false },
     "redis": { "tier": "BASIC", "memoryGb": 1 }
   }
 }
 ```
+
+A GCP example: the database and Redis tiers are GCP's. Kong stays at 1, because every API request goes through it. On AWS nothing scales to zero: `minInstances: 0` fails validation there.
 
 ### Production environments
 

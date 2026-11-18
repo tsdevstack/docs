@@ -228,7 +228,7 @@ There is no separate trial concept. A trial is a key with low limits and a near 
 
 ## Gateway responses
 
-What callers of your API get from the gateway on API key routes. Every error body is JSON with `error` and `message`:
+What callers of your API get from the gateway on API key routes. Every error body is JSON with `error` and `message`, except the 400 for too many headers, which Kong sends itself:
 
 ```json
 { "error": "api_key_revoked", "message": "API key revoked" }
@@ -236,7 +236,7 @@ What callers of your API get from the gateway on API key routes. Every error bod
 
 | Status | `error` | `message` | Cause |
 |---|---|---|---|
-| 400 | `too_many_headers` | Too many request headers | More than 1,000 request headers |
+| 400 | none | Request header or cookie too large | More than 1,000 request headers. Kong answers before the key is read |
 | 401 | `api_key_missing` | An API key is required | No `x-api-key` header, an empty one, or the header sent twice |
 | 401 | `invalid_api_key` | Invalid API key | Unknown key |
 | 401 | `api_key_revoked` | API key revoked | The key was revoked |

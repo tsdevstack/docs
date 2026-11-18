@@ -64,14 +64,14 @@ Backend services set to `minInstances: 0` in `infrastructure.json` (the default 
 | Backend services ×3 | 0.5 vCPU, 1 GiB, min=0 | Consumption billing — free grant covers idle | ~$0-3 |
 | SPA bucket | Blob Storage + Front Door | Storage + minimal egress | ~$1 |
 | PostgreSQL Flexible Server | B_Standard_B1ms, 32 GB | 1 vCore burstable + storage | ~$14 |
-| Managed Redis | Balanced B0, 1 GB | Entry-level tier | ~$13 |
+| Managed Redis | Balanced B0, 1 GB | Entry-level tier, two nodes (high availability) | ~$26 |
 | Front Door (Standard) | CDN + WAF + SSL + routing | Base fee + requests + data transfer | ~$35 |
 | ACR Basic | Container Registry | 10 GB included storage | ~$5 |
 | DNS, Key Vault, Logs | Minimal | — | ~$1-3 |
 | Kong private endpoint | Next.js servers to Kong | $0.01/hour + $0.01/GB processed + $0.50 DNS zone | ~$8 |
 | Traces | ~240k spans, ~0.24 GB | Within the 5 GB free each month | $0 |
-| **Total (Standard)** | | | **~$103-108** |
-| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$481-486** |
+| **Total (Standard)** | | | **~$116-121** |
+| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$494-499** |
 
 Cold starts after scale-to-zero: **2-5 seconds**. Container Apps use KEDA HTTP scaling — no wake-up mechanisms needed.
 
@@ -88,14 +88,14 @@ All services with `minInstances: 1` (the default). **Assumed traffic: ~100,000 r
 | Backend services ×3 | 0.5 vCPU, 1 GiB, min=1 each | 3.9M vCPU-sec at idle rate + 7.5M GiB-sec, less free grant | ~$39 |
 | SPA bucket | Blob Storage + Front Door | Storage + egress | ~$1 |
 | PostgreSQL Flexible Server | B_Standard_B1ms, 32 GB | — | ~$14 |
-| Managed Redis | Balanced B0 | — | ~$13 |
+| Managed Redis | Balanced B0, two nodes | — | ~$26 |
 | Front Door (Standard) | Moderate traffic | $35 base + 3M × $0.011/10k | ~$38-45 |
 | ACR, DNS, Key Vault, Logs | Minimal | — | ~$6-8 |
 | Kong private endpoint | Next.js servers to Kong | $0.01/hour + $0.01/GB processed + $0.50 DNS zone | ~$8 |
 | **Traces** | ~24M spans, ~24 GB at `sampleRate` 1 | ~$2.30/GB (the free 5 GB goes to logs) | **~$55** |
-| **Total (Standard)** | | | **~$200-209** |
-| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$578-587** |
-| **Total (Standard) with `sampleRate` 0.1** | | Traces ~$6 | **~$151-160** |
+| **Total (Standard)** | | | **~$213-222** |
+| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$591-600** |
+| **Total (Standard) with `sampleRate` 0.1** | | Traces ~$6 | **~$164-173** |
 
 :::tip
 Container Apps idle billing keeps this moderate: a `minInstances: 1` replica with no requests bills vCPU at $0.000003/sec instead of the active $0.000024/sec, and the first 180,000 vCPU-seconds and 360,000 GiB-seconds a month are free. Kong and Next.js run one instance each on B1. Autoscale needs a Standard plan (S1, ~$69 per instance) with `maxInstances` above `minInstances`; see [Azure App Service plans](/docs/infrastructure/service-configuration#azure-app-service-plans).
@@ -115,13 +115,13 @@ Services auto-scale to 3 replicas on average. App Service runs S1 with autoscale
 | **Front Door (Standard)** | High traffic | $35 base + 300M × $0.011/10k | **~$250-380** |
 | SPA bucket | Blob Storage + Front Door | Storage + egress at volume | ~$5-15 |
 | PostgreSQL Flexible Server | GP_Standard_D2s_v3, 32 GB | Upgraded for load (General Purpose) | ~$100-130 |
-| Managed Redis | Balanced B1 | Upgraded for load | ~$25 |
+| Managed Redis | Balanced B1, two nodes | Upgraded for load | ~$51 |
 | ACR, DNS, Key Vault, Logs | — | — | ~$8-12 |
 | Kong private endpoint | Next.js servers to Kong | $7.30 + $0.01/GB processed (assumed under 200 GB) + $0.50 DNS zone | ~$8-10 |
 | **Traces** | ~2.4 billion spans, ~2,400 GB at `sampleRate` 1 | ~$2.30/GB | **~$5,520** |
-| **Total (Standard)** | | | **~$6,304-6,480** |
-| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$6,682-6,858** |
-| **Total (Standard) with `sampleRate` 0.01** | | Traces ~$55 | **~$839-1,015** |
+| **Total (Standard)** | | | **~$6,330-6,506** |
+| **Total (Premium)** | | +$377.50 for Front Door Premium | **~$6,708-6,884** |
+| **Total (Standard) with `sampleRate` 0.01** | | Traces ~$55 | **~$865-1,041** |
 
 :::warning The Container Apps idle discount disappears under load
 At moderate traffic these replicas bill at $0.000003/vCPU-sec. Once they are serving continuously they bill at $0.000024/vCPU-sec, the same active rate as Cloud Run, which is why this line jumps from ~$39 to ~$250. Front Door's $0.011 per 10,000 requests is the other dominant line at this volume. Earlier versions of this page listed these at ~$15-40 and ~$45-65, which was far too low.
@@ -142,8 +142,9 @@ At this scale, consider [Azure Reservations](https://azure.microsoft.com/en-us/p
 | 1 | **Front Door tier** | Standard ($35) vs Premium ($412.50). The single biggest cost variable. |
 | 2 | **App Service plans** | Billed per instance: B1 ~$13, S1 ~$69 a month. Two plans (Kong, Next.js), at least one instance each. |
 | 3 | **PostgreSQL tier** | Burstable B1ms ($14) vs General Purpose D2s ($100+). Pick based on load. |
-| 4 | **Container Apps** | Very cheap on Consumption plan. Not a major cost driver. |
-| 5 | **Traces** | ~$2.30 per GB of spans after 5 GB free. Large from moderate traffic on; `tracing.sampleRate` sets it. |
+| 4 | **Managed Redis** | Runs two nodes (high availability, Azure's default, recommended for production), billed at twice the one-node price Azure lists: B0 ~$26, B1 ~$51. |
+| 5 | **Container Apps** | Very cheap on Consumption plan. Not a major cost driver. |
+| 6 | **Traces** | ~$2.30 per GB of spans after 5 GB free. Large from moderate traffic on; `tracing.sampleRate` sets it. |
 
 ---
 
@@ -200,9 +201,19 @@ The trace lines above assume **~8 spans per request** (Kong, the service, its da
 | Dashboard (workbook) | Free | Its log panels run workspace queries, free on the Analytics plan |
 | Slow queries (Query Store) | Free | On General Purpose and Memory Optimized tiers; off on Burstable (Microsoft's advice) |
 | Enhanced Postgres metrics | Free | On for every tier |
-| Reading logs (`infra:logs`) | Free | |
+| Reading and following logs (`infra:logs`, `--follow`) | Free | |
 
 `tracing.sampleRate` sets the share of traces kept, and the trace bill with it. See [Traces and Dashboards](/docs/features/traces-and-dashboards#sampling).
+
+## Storage Access Logs
+
+With storage buckets, every read, write and delete of their files is logged: the storage account's blob logs, in the environment's Log Analytics workspace (`StorageBlobLogs`).
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Access logs (Log Analytics) | ~$2.30 per GB ingested | The first 5 GB each month are free per billing account, shared with traces and other logs |
+
+Example: **~1.5 KB per access** (our estimate). A million reads and writes make about 1.5 GB: about $3.50 past the free 5 GB. Every file counts: a page that shows 20 images from a bucket makes 20 reads.
 
 ---
 

@@ -23,6 +23,8 @@ const client = axios.create({ baseURL: process.env.PAYMENTS_URL });
 client.interceptors.request.use(injectTraceContext);
 ```
 
+From the Next.js frontend, call Kong through the generated clients, not `fetch`. Their interceptors also send the frontend token. Without it, Kong drops the trace and counts all your visitors as one client for its rate limit.
+
 ## Where traces go
 
 | | Trace service | Where to look | How services sign in |
@@ -64,9 +66,14 @@ By default every trace is kept. Set `tracing.sampleRate` per environment to keep
 }
 ```
 
-The rate is a number from 0 to 1. Kong decides for each request it receives, and the services follow its decision. Scheduled job runs and workers use the same rate. Redeploy after a change.
+The rate is a number from 0 to 1. The first hop decides, and the hops after it keep what it kept:
 
-Kong 3.8 applies the rate again to requests from the Next.js frontend. Below 1, some frontend traces miss the Kong and service hops. At the default of 1 every trace is complete.
+- For a request to your Next.js frontend, the frontend decides. Kong keeps every trace the frontend kept, and the services follow Kong, so a kept trace is complete.
+- For a request that reaches Kong any other way (a browser calling the API, a partner with an API key), Kong decides, and the services follow.
+
+A trace a hop dropped stays dropped too, so you get no half traces. Each hop sends its `traceparent` twice: as `traceparent` and as `X-Tsdevstack-Traceparent`. On GCP, Cloud Run's front end can put its own span and its own decision in `traceparent`. It leaves the copy alone, so the next hop still follows the one before it.
+
+Scheduled job runs and workers use the same rate. Redeploy after a change.
 
 At high traffic, the rate sets the trace bill. See the cost page of your provider.
 
@@ -74,7 +81,7 @@ At high traffic, the rate sets the trace bill. See the cost page of your provide
 
 A client on the internet can't choose your trace IDs or force a trace to be kept:
 
-- Kong drops `traceparent`, `tracestate` and `baggage` from outside clients and starts a new trace. It keeps them on calls from your Next.js frontend, which it recognizes by the frontend token.
+- Kong drops `traceparent`, `tracestate`, `baggage` and `X-Tsdevstack-Traceparent` from outside clients and starts a new trace. It keeps them on calls from your Next.js frontend, which it recognizes by the frontend token.
 - The frontend starts a new trace for every browser request (`continueIncomingTraces: false`).
 
 ## Late traces
@@ -91,7 +98,10 @@ import packageJson from './package.json';
 
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { registerTelemetry } = await import('@tsdevstack/telemetry');
+    const { registerTelemetry, logConsoleAsJson } = await import(
+      '@tsdevstack/telemetry'
+    );
+    logConsoleAsJson({ serviceName: packageJson.name });
     registerTelemetry({
       serviceName: packageJson.name,
       serviceVersion: packageJson.version,

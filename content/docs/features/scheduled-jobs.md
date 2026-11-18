@@ -37,7 +37,7 @@ Add jobs to `.tsdevstack/infrastructure.json` under the target environment:
         "targetService": "auth-service",
         "endpoint": "/auth/jobs/cleanup-tokens",
         "method": "POST",
-        "httpTimeout": 300,
+        "httpTimeout": 120,
         "timezone": "UTC"
       }
     ]
@@ -51,9 +51,19 @@ Add jobs to `.tsdevstack/infrastructure.json` under the target environment:
 | `schedule` | Yes | — | CRON expression |
 | `targetService` | Yes | — | Service name (must exist in `config.json`) |
 | `endpoint` | Yes | — | HTTP path on the target service |
-| `method` | No | `POST` | HTTP method |
-| `httpTimeout` | No | `300` | Timeout in seconds |
-| `timezone` | No | `UTC` | IANA timezone |
+| `method` | No | `POST` | HTTP method: `GET`, `POST`, `PUT`, `DELETE` or `PATCH` |
+| `httpTimeout` | No | `300` (Azure `240`) | Seconds to wait for the response (limits below) |
+| `timezone` | No | `UTC` | IANA time zone the schedule runs in (`Europe/Budapest`). Azure runs schedules in UTC only, so any other zone stops `infra:generate` there |
+
+How long a job's call can wait depends on the cloud. `infra:generate` stops with a message when `httpTimeout` is outside it:
+
+| Cloud | `httpTimeout` | Why |
+|-------|---------------|-----|
+| GCP | 15 to 1800 s | Cloud Scheduler waits at most 30 minutes |
+| AWS | 15 to 890 s | The invoker Lambda stops at 900 s and logs the run's end in the last 10 s |
+| Azure | 15 to 240 s | Container Apps ingress ends every HTTP request at 240 s |
+
+A job that needs longer can start the work, return, and finish it in a worker.
 
 ### Auth template: the API key usage job
 

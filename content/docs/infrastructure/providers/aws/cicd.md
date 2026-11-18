@@ -34,23 +34,33 @@ Do this **once per AWS account**.
    - **GitHub branch:** `main` to restrict deploys to main only, or leave empty for all branches
 4. **Skip** attaching managed policies (you'll add an inline policy next)
 5. **Role name:** `github-actions-deploy`
-6. **Verify the trust policy** — AWS shows it before creation. Confirm the `StringLike` condition matches your intent:
+6. **Edit the trust policy** — AWS shows it before creation. GitHub writes the token's subject in one of two forms: repositories created, renamed or transferred after 15 July 2026 use `repo:YOUR_ORG@OWNER_ID/YOUR_REPO@REPO_ID:...`, older ones `repo:YOUR_ORG/YOUR_REPO:...` (unless someone opted in in their OIDC settings). The console writes only the name-only form, so edit the JSON and keep both. Your `OWNER_ID` and `REPO_ID`:
+
+   ```bash
+   gh api repos/YOUR_ORG/YOUR_REPO --jq '.owner.id, .id'
+   ```
 
    **Repository only** (any branch can deploy — use `*` wildcard):
    ```json
    "StringLike": {
-     "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
+     "token.actions.githubusercontent.com:sub": [
+       "repo:YOUR_ORG/YOUR_REPO:*",
+       "repo:YOUR_ORG@OWNER_ID/YOUR_REPO@REPO_ID:*"
+     ]
    }
    ```
 
    **Repository + branch** (only `main` can deploy):
    ```json
    "StringLike": {
-     "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main"
+     "token.actions.githubusercontent.com:sub": [
+       "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main",
+       "repo:YOUR_ORG@OWNER_ID/YOUR_REPO@REPO_ID:ref:refs/heads/main"
+     ]
    }
    ```
 
-   Replace `YOUR_ORG/YOUR_REPO` with your values. Edit the policy JSON directly if needed.
+   Replace `YOUR_ORG`, `YOUR_REPO`, `OWNER_ID` and `REPO_ID` with your values.
 
    | | Repository only | Repository + branch |
    |---|---|---|
@@ -281,16 +291,15 @@ For example, if your project name is `myapp`:
 
 ### Required User Secrets
 
-These are the minimum secrets required by the framework:
-
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `DOMAIN` | Your base domain | `example.com` |
-| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
-| `EMAIL_FROM` | Sender email address | `noreply@example.com` |
+| Secret | When | Description | Example |
+|--------|------|-------------|---------|
+| `DOMAIN` | Always | Your base domain | `example.com` |
+| `RESEND_API_KEY` | With the auth template (the auth service doesn't start without it), or if your services send email | API key from [resend.com/api-keys](https://resend.com/api-keys) | `re_123abc...` |
+| `EMAIL_FROM` | With `RESEND_API_KEY` | Sender email address | `noreply@example.com` |
+| `ADMIN_EMAILS` | Optional, auth template | The first admins, comma-separated. In the auth service's scope: `{project-name}-auth-service-ADMIN_EMAILS` | `you@example.com` |
 
 ::: warning Check your .secrets.user.json
-Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in AWS Secrets Manager before deployment. Use the same naming format: `{project-name}-shared-{KEY}`.
+Your project may have additional user secrets (e.g., `STRIPE_KEY`, `TWILIO_SID`). Any secret defined in `.secrets.user.json` that is not framework-generated must also be created manually in AWS Secrets Manager before deployment. Top-level ones are named `{project-name}-shared-{KEY}`; one in a service's section is named `{project-name}-{service}-{KEY}`. See [Secret Naming in Cloud](/docs/secrets/cloud-secrets#secret-naming-in-cloud).
 :::
 
 ### Alternative: Using the CLI
@@ -335,7 +344,7 @@ The `id-token: write` permission is **required** — without it, GitHub won't is
 2. `id-token: write` permission not set in workflow
 3. OIDC Identity Provider not created in the target account
 
-Check the trust policy matches your repository exactly. The `sub` claim format is `repo:ORG/REPO:ref:refs/heads/BRANCH`.
+Check the trust policy matches your repository exactly. The `sub` claim is `repo:ORG/REPO:ref:refs/heads/BRANCH`, or `repo:ORG@OWNER_ID/REPO@REPO_ID:ref:refs/heads/BRANCH` for repositories created after 15 July 2026. A policy with only the first form refuses the second (step 6 of Step 2).
 
 ### "Could not assume role with OIDC"
 

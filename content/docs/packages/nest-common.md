@@ -396,6 +396,8 @@ export class AuthClient extends BaseServiceClient<Api<unknown>> implements OnMod
 // this.authClient.client.v1.getUserProfile()
 ```
 
+A call gives up after 30 seconds (axios itself has no timeout). For a slower endpoint, pass your own: `new Api({ baseURL: url, timeout: 120_000, ... })`.
+
 ### filterForwardHeaders()
 
 Filters request headers for safe forwarding in service-to-service calls. Removes hop-by-hop headers (`connection`, `keep-alive`, `transfer-encoding`, `host`, `content-length`, `content-encoding`).
@@ -756,7 +758,7 @@ export class PrismaService
 }
 ```
 
-Uses Prisma 7 with the `pg` adapter.
+Uses Prisma 7 with the `pg` adapter. In production (`NODE_ENV=production`) it stops at once when `DATABASE_URL` or `DB_POOL_MAX` is missing, so a service never tries a local address in the cloud. Each cloud deploy sets both.
 
 ### waitForDatabase()
 
@@ -782,6 +784,8 @@ poolMax     = floor(totalUsable / totalInstances)
 ```
 
 You never set `DB_POOL_MAX` manually: it's injected as an environment variable during deployment. If the result is one connection per instance, the deploy warns; pick a larger database tier or a lower `maxInstances`.
+
+The split counts the services and workers in the project's config. Adding or removing one, or changing a `maxInstances`, changes every share, and the running services get their new number at the next `infra:deploy`. After `infra:remove-service`, the other services keep the share that counted the removed one until `remove-service` and `infra:deploy` have run. That is safe: their pools are smaller than they could be, never larger.
 
 ### Connection options
 

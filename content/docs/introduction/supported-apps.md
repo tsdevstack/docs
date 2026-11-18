@@ -27,7 +27,7 @@ A worker has three parts: a **processor** that handles jobs, a **producer** (any
 
 Queue processors run only in workers, never inside a service. A service on GCP or Azure can scale to zero, and on GCP a service that does gets CPU only while it handles a request. A processor inside it would stop until the next request. A worker never stops.
 
-A worker needs these files in its service:
+A worker needs these files in its service. `register-detached-worker` (below) creates whichever are missing, and the two scripts; the processors are yours:
 
 ```
 apps/auth-service/
@@ -89,6 +89,8 @@ In the cloud, a worker runs once you register it as a detached worker. The frame
 ```bash
 npx tsdevstack register-detached-worker --name auth-worker --base-service auth-service
 ```
+
+It also creates the worker's files and scripts that its service doesn't have yet. It never overwrites a file, and it lists what it created and what it left alone. A new `worker.module.ts` has no queues: register each queue there with `BullModule.registerQueue` and add its processor to `providers`.
 
 Detached workers get their own Cloud Run / ECS / Container Apps instance with CPU always allocated. Like services, workers are configurable in `infrastructure.json`: you can set `minInstances`, `maxInstances`, `cpu`, and `memory`. Workers run at least 1 instance (they must always be running to poll Redis queues).
 

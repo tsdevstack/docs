@@ -211,9 +211,19 @@ The trace lines above assume **~8 spans per request** (Kong, the service, its da
 | Traces (Cloud Trace) | $0.20 per million spans | The first 2.5 million spans each month are free, per billing account |
 | Dashboard (Cloud Monitoring) | Free | Its metrics are free platform metrics |
 | Slow queries (Cloud SQL Query Insights) | Free | On by default |
-| Reading logs (`infra:logs`) | Free | |
+| Reading and following logs (`infra:logs`, `--follow`) | Free | |
 
 `tracing.sampleRate` sets the share of traces kept, and the trace bill with it. See [Traces and Dashboards](/docs/features/traces-and-dashboards#sampling).
+
+## Storage Access Logs
+
+With storage buckets, every read and write of their files is logged: Cloud Storage's Data Access audit logs, in Cloud Logging. Logs of the other buckets in the project (the Terraform state, the SPA buckets) are dropped before they are stored, so they cost nothing.
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Access logs (Cloud Logging) | $0.50 per GiB | The first 50 GiB each month are free, per project, shared with every other log. Kept 30 days |
+
+Example: **~1.5 KB per access** (our estimate). A million reads and writes make about 1.5 GB, which fits in the free 50 GiB of most projects. Past it, a million costs about $0.75. Every file counts: a page that shows 20 images from a bucket makes 20 reads.
 
 ---
 
@@ -227,4 +237,4 @@ The trace lines above assume **~8 spans per request** (Kong, the service, its da
 - [Secret Manager Pricing](https://cloud.google.com/secret-manager/pricing)
 - [Cloud DNS Pricing](https://cloud.google.com/dns/pricing)
 - [Artifact Registry Pricing](https://cloud.google.com/artifact-registry/pricing)
-- [Google Cloud Observability Pricing](https://cloud.google.com/stackdriver/pricing) (Cloud Trace)
+- [Google Cloud Observability Pricing](https://cloud.google.com/stackdriver/pricing) (Cloud Trace, Cloud Logging)

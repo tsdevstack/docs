@@ -22,6 +22,8 @@ npx tsdevstack cloud-secrets:set DOMAIN --value "example.com" --env prod
 
 `API_URL` and `KONG_CORS_ORIGINS` are **auto-derived** during `cloud-secrets:push` from `DOMAIN` and the domains configured in `.tsdevstack/infrastructure.json` -- you do not need to set them manually.
 
+The push sets `KONG_CORS_ORIGINS` once and doesn't overwrite it later. Kong's image build (`infra:deploy`, `infra:build-kong`) adds every domain from `infrastructure.json` that the secret is missing. So a domain you add later works after the next deploy, and origins you added to the secret yourself stay.
+
 | Secret | Example | Set By | Purpose |
 |--------|---------|--------|---------|
 | `DOMAIN` | `example.com` | Manual | Base domain - infrastructure derives `api.example.com` for Kong |

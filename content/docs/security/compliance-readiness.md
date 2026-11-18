@@ -153,7 +153,7 @@ Every Annex A technical control listed above is enforced by default. ISO 27001 c
 
 ### What tsdevstack provides
 
-- Encryption at rest and in transit enforced by default across all three providers
+- Encryption at rest, and in transit from the visitor to your services, to the databases and to the caches, enforced by default across all three providers
 - Zero-credential container runtimes (Managed Identity, IAM roles, Service Account binding)
 - OIDC-based CI/CD with no long-lived secrets
 - Network isolation with WAF, private subnets, and origin verification
@@ -161,6 +161,10 @@ Every Annex A technical control listed above is enforced by default. ISO 27001 c
 - Per-service secret and database credential isolation
 - Non-root containers with vulnerability scanning
 - Infrastructure as Code with full audit trail
+
+### Account-level services (your choice)
+
+Threat detection, a findings dashboard, secret rotation and DNSSEC work on your cloud account as a whole and cost money per account, so the framework doesn't turn them on. [Account Hardening](/docs/infrastructure/account-hardening) says what each one does, what it costs, and how to turn it on.
 
 ### What remains (organizational, not technical)
 

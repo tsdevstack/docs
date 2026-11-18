@@ -10,11 +10,12 @@ These secrets are generated automatically when you run `npx tsdevstack generate-
 
 Each service with a database gets unique credentials:
 
-- `DB_{SERVICE}_USERNAME` - Generated username for the local database (e.g., `auth_user`). In the cloud, database users are named after the service.
-- `DB_{SERVICE}_PASSWORD` - Cryptographically secure random password
-- `DATABASE_URL` - Full connection string with credentials
+- `DB_{SERVICE}_USERNAME` - The local database owner, named after the service (for example `auth-service`). It owns the tables and is the Postgres container's admin user.
+- `DB_{SERVICE}_PASSWORD` - Its cryptographically secure random password
+- `DATABASE_URL` - The connection string the running service uses, as `<service>_app`, a user that reads and writes rows only. Its password lives in this URL.
+- `MIGRATION_DATABASE_URL` - The owner's connection string, for migrations and Prisma's tools
 
-These are regenerated only on first run or if deleted. The framework preserves them across subsequent regenerations.
+These are regenerated only on first run or if deleted. The framework preserves them across subsequent regenerations. See [Database users](/docs/local-development/database-migrations#database-users).
 
 ### JWT Keys
 

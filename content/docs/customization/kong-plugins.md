@@ -4,9 +4,9 @@ Kong ships with a long list of bundled plugins (CORS, rate limiting, request siz
 
 ## The gateway image
 
-tsdevstack builds one Kong image, the same one locally and in every cloud environment. The generated Dockerfile starts from `kong:3.8.0` and adds:
+tsdevstack builds one Kong image, the same one locally and in every cloud environment. The generated Dockerfile starts from `kong:3.9.4`, the newest open-source Kong, and adds:
 
-- the OIDC plugin (`oidc`) that validates JWTs, with nginx shared memory caches for the discovery document and the signing keys (fetched once and reused for 24 hours; a token signed with a key Kong has not seen yet triggers a refetch),
+- the OIDC plugin (`oidc`) that validates JWTs, with nginx shared memory caches for the discovery document and the signing keys (fetched once and reused for 24 hours; a token signed with a key Kong has not seen yet triggers a refetch). A client's bad token (expired, signed with an old key, forged) gets a 401 and is logged at `info`, below Kong's `notice` level, so it doesn't show up as an error. If Kong can't fetch the discovery document or the signing keys, that is still logged as an error,
 - the framework plugins shipped with the CLI (see [below](#framework-plugins)),
 - every plugin in the `kong-plugins/` folder at your project root.
 
@@ -117,14 +117,17 @@ A fresh clone needs `npx tsdevstack sync` (or `generate-kong`) before the first 
 
 ## Framework plugins
 
-Five plugins ship with the CLI and are always in the image. You don't enable or configure them. `generate-kong` does.
+Six plugins ship with the CLI and are always in the image. You don't enable or configure them. `generate-kong` does.
 
 | Plugin | Where | What it does |
 |---|---|---|
 | `tsdevstack-strip-identity` | Global, in `kong.tsdevstack.yml` | Removes identity headers sent by clients (`X-Userinfo`, `X-Consumer-*`, `X-Credential-Identifier`, `X-Kong-Trust` and similar) before any authentication plugin runs, so backends only ever see identity that Kong set |
 | `tsdevstack-client-ip` | Global, in `kong.tsdevstack.yml` | Lets the Next.js frontend name the visitor it calls the gateway for, checked with the secret `KONG_FRONTEND_TOKEN`, so rate limits apply per visitor. Passes the client address to services in `X-Tsdevstack-Real-IP`. See [Client addresses](/docs/customization/kong-customization#client-addresses) |
 | `tsdevstack-trust` | Global, in `kong.tsdevstack.yml` | Sets the trust header `X-Kong-Trust` on every request it forwards, so your services know it came through the gateway. The token (`KONG_TRUST_TOKEN`) is read when Kong starts and never stored in the image |
+| `tsdevstack-opentelemetry` | Global, in `kong.tsdevstack.yml` | Kong's own OpenTelemetry plugin with two changes: a trace the Next.js frontend already kept stays kept, whatever `tracing.sampleRate` says, and the trace also travels in `X-Tsdevstack-Traceparent`, which platforms don't rewrite. See [Sampling](/docs/features/traces-and-dashboards#sampling) |
 | `tsdevstack-api-key` | On each partner service | Checks the `x-api-key` against the key records in Redis and enforces the key's limits; see [API Keys](/docs/authentication/api-keys) |
 | `tsdevstack-api-prefix` | On each partner service | Partner routes match `/api/...`; this plugin removes `/api` before the request reaches your service, which serves the path without it |
 
-Don't declare them in `kong.user.yml`: Kong allows one global instance per plugin name, so generation fails. Don't reuse their names in `kong-plugins/` either. The only place to add them yourself is a full [`kong.custom.yml`](/docs/customization/kong-customization#escape-hatch-with-kongcustomyml) override.
+The six are open source (Apache-2.0) and work in any open-source Kong 3.9, not only in tsdevstack projects. They are published as the `tsdevstack/kong-plugins` repository on GitHub, as LuaRocks packages (`luarocks install tsdevstack-api-key`), and as the image `ghcr.io/tsdevstack/kong`: Kong 3.9.4 with the six plugins and the OIDC plugin, all switched on. Each CLI release pins one version of them. Your project's gateway image is still built from the copy the CLI ships, so a project never depends on those downloads.
+
+Don't declare them in `kong.user.yml`: Kong allows one global instance per plugin name, so generation fails. The same goes for Kong's bundled `opentelemetry` plugin, which would trace every request a second time. Don't reuse their names in `kong-plugins/` either. The only place to add them yourself is a full [`kong.custom.yml`](/docs/customization/kong-customization#escape-hatch-with-kongcustomyml) override.

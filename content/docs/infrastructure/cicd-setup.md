@@ -130,6 +130,8 @@ Secrets are **environment-prefixed**: each secret name ends with the environment
 
 For each environment, add the same set of secrets with the corresponding suffix (`_STAGING`, `_PROD`, etc.).
 
+These GitHub secrets only let the workflows sign in to your cloud. Your app's own secrets live in the cloud's secret store, named `{projectName}-{scope}-{KEY}` ([Secret Naming in Cloud](/docs/secrets/cloud-secrets#secret-naming-in-cloud)). The ones you provide yourself, like `DOMAIN`, must be there before the first CI deployment: each provider guide below lists them.
+
 See the provider-specific setup guides for where to find these values:
 
 - [GCP CI/CD](/docs/infrastructure/providers/gcp/cicd) - Workload Identity Federation setup
