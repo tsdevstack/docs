@@ -42,7 +42,9 @@ Key terms used throughout the tsdevstack documentation.
 |------|-------------|
 | **Environment** | Deployment target: `dev`, `staging`, or `prod`. Each has isolated infrastructure and secrets. |
 | **CI workflows** | GitHub Actions workflows generated for build, test, and deploy pipelines. |
-| **Scheduled job** | A job that runs on a cron schedule. Cloud Scheduler (GCP), EventBridge (AWS), or Container App Jobs (Azure). Configured in `.tsdevstack/infrastructure.json` and deployed via `deploy-scheduler`. See [Scheduled Jobs](/docs/features/scheduled-jobs). |
+| **Scheduled job** | Work that runs on a cron schedule: a cron job or a trigger. Started by Cloud Scheduler (GCP), EventBridge Scheduler (AWS) or Container App Jobs (Azure). Configured in `.tsdevstack/infrastructure.json` and deployed with `infra:deploy-schedulers`. See [Scheduled Jobs](/docs/features/scheduled-jobs). |
+| **Cron job** | A scheduled job that runs a handler from a service's code as its own task, then exits. Added with `register-cron`. |
+| **Trigger** | A scheduled job that calls an endpoint of a running service, guarded by `SchedulerGuard`. |
 | **Database migration** | Schema changes applied via [Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate). Preview with `plan-db-migrate`, apply with `run-db-migrate`. |
 | **`NPM_TOKEN`** | Single global GitHub repository secret (not per-env) for authenticating against private npm registries during host `npm ci` and tsdevstack-spawned docker builds. Auto-detected when `.npmrc` exists at project root. See [Private npm packages](/docs/infrastructure/cicd-setup#private-npm-packages). |
 | **BuildKit secret mount** | Docker BuildKit `--mount=type=secret,...` directive that exposes a secret only during a single `RUN` step. It is never persisted in image layers, never visible in `docker history`. Used for `NPM_TOKEN` on the `npm ci` line in generated Dockerfiles. |
@@ -81,5 +83,5 @@ Key terms used throughout the tsdevstack documentation.
 | **Hot reload** | Automatic restart when source files change during development. |
 | **OpenAPI spec** | API documentation generated from NestJS decorators. Powers [Swagger UI](https://swagger.io/tools/swagger-ui/) and client generation. |
 | **Generated client** | Type-safe TypeScript HTTP client generated from a service's OpenAPI spec via `generate-client`. Placed in `packages/shared/` for use by other services. |
-| **MCP** | [Model Context Protocol](https://modelcontextprotocol.io/), the standard for AI agent tool integration. The built-in MCP server exposes 57 tools and 12 resources so agents like Claude Code can deploy, query, and debug your project. See [MCP Server](/docs/features/mcp-server). |
+| **MCP** | [Model Context Protocol](https://modelcontextprotocol.io/), the standard for AI agent tool integration. The built-in MCP server exposes 61 tools and 12 resources so agents like Claude Code can deploy, query, and debug your project. See [MCP Server](/docs/features/mcp-server). |
 

@@ -78,14 +78,15 @@ Kong and Next.js use `internal-load-balancer` ingress. Their Cloud Run URLs do n
 |----------|------|
 | Services, Next.js apps, workers | `{project}-{service}` |
 | Database migration jobs | `{project}-migrate-{service}` |
-| Cloud Scheduler jobs | `{project}-{job}` |
+| Cron jobs (Cloud Run Jobs) | `{project}-cron-{name}` |
+| Cloud Scheduler jobs (both kinds) | `{project}-{job}` |
 | Kong | `{project}-kong` |
 
 A Cloud Run name has at most 49 characters. `infra:generate` stops on a longer one and says which.
 
 Each service also carries the label `tsdevstack-project: {project}`, and each Cloud Scheduler job the description `tsdevstack project: {project}`. The CLI lists only those as the project's, so `shop` never mistakes `shop-admin`'s services for its own. You can filter on the label in the Cloud Run console too.
 
-Environments first deployed with v0.12.0 or earlier keep the names they have: `{service}`, `migrate-{service}` and `{job}` (Kong was already `{project}-kong`). A Cloud Run service can't be renamed, and its name is in its URL, which Kong and the scheduler call. The CLI reads which names an environment uses from its Terraform state and never renames anything.
+Environments first deployed with v0.12.0 or earlier keep the names they have: `{service}`, `migrate-{service}` and `{job}` (Kong was already `{project}-kong`). Their cron jobs are `cron-{name}`. A Cloud Run service can't be renamed, and its name is in its URL, which Kong and the scheduler call. The CLI reads which names an environment uses from its Terraform state and never renames anything.
 
 ## Data: Cloud SQL + Memorystore
 

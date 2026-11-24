@@ -511,7 +511,7 @@ Environment password protection was removed. The `accessControl.protected` and `
 
 ## Scheduled Jobs
 
-Configure cron-based scheduled jobs in the `scheduledJobs` array. See the [Scheduled Jobs](/docs/features/scheduled-jobs) guide for full configuration, service-side implementation, authentication, and provider architecture.
+Configure scheduled jobs in the `scheduledJobs` array: cron jobs, which run code from a service on their own, and triggers, which call a service's endpoint. See the [Scheduled Jobs](/docs/features/scheduled-jobs) guide for full configuration, service-side implementation, authentication, and provider architecture.
 
 With the auth template, every environment needs the `sync-api-key-usage` job; `infra:generate` warns and prints the entry when it is missing. See [API Keys](/docs/authentication/api-keys#the-usage-job).
 

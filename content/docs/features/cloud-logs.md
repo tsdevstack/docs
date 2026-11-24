@@ -38,7 +38,8 @@ Read all sources:  npx tsdevstack infra:logs --all --env dev
 | `kong` | The gateway. The load balancer's health checks are left out |
 | `migration` | Migration runs of a service with a database (`migrate-<service>`) |
 | `db-init` | The database setup that `infra:deploy` runs: each service's database users and their access |
-| `job` | Runs of a scheduled job |
+| `job` | Runs of a trigger: the scheduler's calls |
+| `cron` | A cron job's runs: its own log lines |
 | `bucket` | Every read and write of a storage bucket's files (`bucket-<name>`) |
 | `edge` | The load balancer and the WAF |
 

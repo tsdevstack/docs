@@ -11,7 +11,7 @@ Every request gets one trace, from the Next.js frontend through Kong to each ser
 | NestJS services and workers | One span per request (`GET /auth/v1/users/:id`), calls to other services through generated clients, BullMQ jobs (queued and processed), messages (published and handled) |
 | Database | Each Prisma query: the operation, the SQL with `$1` placeholders (never the values), the connection |
 
-A job runs in the trace of the request that queued it. A message handler runs in the trace of the request that published the message. A scheduled job run is a request to your service, so it starts a trace of its own.
+A job runs in the trace of the request that queued it. A message handler runs in the trace of the request that published the message. A trigger's run is a request to your service, so it starts a trace of its own. A cron job's run is one trace too, `cron <name>`, with the job's queries inside it.
 
 Health checks and `/metrics` get no spans, in Kong and the Next.js apps too: the load balancer and Front Door probe them every few seconds. Calls you make with your own axios instance or `fetch` don't carry the trace to the next service. Add the interceptor from `@tsdevstack/telemetry` to carry it:
 

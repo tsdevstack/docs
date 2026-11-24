@@ -202,6 +202,18 @@ See [Service Configuration](/docs/infrastructure/service-configuration) for all 
 
 ---
 
+## Scheduled Jobs
+
+Each scheduled job, of either kind, is one Cloud Scheduler job. A cron job also runs as a Cloud Run Job, billed for the time it runs. A trigger's call is a request to the service, billed as one.
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Schedules (Cloud Scheduler) | $0.10 per job per month | The first 3 jobs of the billing account are free |
+| Cron job runs (Cloud Run Jobs) | $0.000018 per vCPU-second, $0.000002 per GiB-second | From the start of the run's instance to its end |
+| Trigger calls | The service's own request billing | |
+
+Example: **a cron job that runs once a day for 1 minute** at the default 1 vCPU and 2 GiB (our assumption). That is 1,800 seconds a month: 1,800 × ($0.000018 + 2 × $0.000002) = **~$0.04 a month**, plus its schedule.
+
 ## Traces and Dashboards
 
 The trace lines above assume **~8 spans per request** (Kong, the service, its database queries). A request that calls more services or runs more queries makes more spans.
@@ -230,6 +242,7 @@ Example: **~1.5 KB per access** (our estimate). A million reads and writes make 
 ## GCP Pricing References
 
 - [Cloud Run Pricing](https://cloud.google.com/run/pricing)
+- [Cloud Scheduler Pricing](https://cloud.google.com/scheduler/pricing)
 - [Cloud SQL Pricing](https://cloud.google.com/sql/pricing)
 - [Memorystore for Redis Pricing](https://cloud.google.com/memorystore/docs/redis/pricing)
 - [Cloud Load Balancing Pricing](https://cloud.google.com/load-balancing/pricing)

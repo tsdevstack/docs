@@ -191,6 +191,20 @@ See [Service Configuration](/docs/infrastructure/service-configuration) for all 
 
 ---
 
+## Scheduled Jobs
+
+Both kinds are Container App Jobs, and the schedule is part of the job. A run is billed at the active rate from its start to its end. A trigger's run is a small job (0.25 vCPU, 0.5 GiB) that calls the service.
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Schedules | Free | |
+| Runs (Container App Jobs) | $0.000024 per vCPU-second, $0.000003 per GiB-second | Shares the subscription's monthly free grant (180,000 vCPU-seconds, 360,000 GiB-seconds) with the Container Apps |
+
+Examples, before the free grant:
+
+- **A cron job that runs once a day for 1 minute** at the default 1 vCPU and 2 GiB (our assumption): 1,800 × $0.000024 + 3,600 × $0.000003 = **~$0.05 a month**.
+- **A trigger every 5 minutes, about 10 seconds a run** (our assumption): 8,640 runs × 10 s × (0.25 × $0.000024 + 0.5 × $0.000003) = **~$0.65 a month**.
+
 ## Traces and Dashboards
 
 The trace lines above assume **~8 spans per request** (Kong, the service, its database queries) and **~1 KB per span**. Both are estimates: a request that calls more services or runs more queries makes more spans.

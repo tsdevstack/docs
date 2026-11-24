@@ -261,11 +261,14 @@ npx tsdevstack update-messaging-topic --name <name> --publishers <services> --su
 
 ### `cloud:init`
 
-Initialize cloud secrets provider integration.
+Initialize cloud secrets provider integration. It sets up and tests every environment in the credentials file.
 
 ```bash
 npx tsdevstack cloud:init --gcp    # or --aws, --azure
+npx tsdevstack cloud:init --azure --env staging
 ```
+
+`--env` tests only the selected environment.
 
 ### `cloud-secrets:push`
 
@@ -599,7 +602,7 @@ The `--service` flag is required. It specifies which service's database to migra
 
 ## Scheduled Jobs Commands
 
-The scheduler commands work across all providers, but each provider uses a different underlying service:
+Scheduled jobs come in two kinds: cron jobs run code from a service as their own task, and triggers call an endpoint of a running service. See [Scheduled Jobs](/docs/features/scheduled-jobs). Each cloud starts them with its own service:
 
 | Provider | Scheduler Service |
 |----------|-------------------|
@@ -607,9 +610,40 @@ The scheduler commands work across all providers, but each provider uses a diffe
 | AWS | EventBridge Scheduler |
 | Azure | Container Apps Jobs |
 
+### `register-cron`
+
+Add a cron job to a NestJS service.
+
+```bash
+npx tsdevstack register-cron --service <service-name> --name <job-name>
+```
+
+It creates the handler, `src/cron/<job-name>.cron.ts`. With the service's first cron job, it also creates `src/cron.ts`, `src/cron.module.ts`, `tsconfig.cron.json` and the `cron` script. It never overwrites a file. For a later cron job, it prints the two lines to add to `src/cron.module.ts`. It prints the entry to add to `scheduledJobs` in `infrastructure.json`.
+
+### `run-cron`
+
+Run a scheduled job once on the local stack.
+
+```bash
+npx tsdevstack run-cron <job-name> --service <service-name>
+npx tsdevstack run-cron <trigger-name> --env <environment>
+```
+
+A cron job runs its handler once and the command exits with the run's exit code. A trigger is called on its service's local port; `--env` picks which environment's entry to use.
+
+### `infra:run-cron`
+
+Start a scheduled job now in the cloud, and report the run.
+
+```bash
+npx tsdevstack infra:run-cron --job <job-name> --env <environment>
+```
+
+A cron job runs once, and the command waits for it to end. On a trigger, AWS and Azure wait for the call's answer, and GCP returns once the call started. The command exits with 1 when the run failed.
+
 ### `infra:deploy-scheduler`
 
-Deploy a single scheduled job.
+Deploy a single scheduled job, either kind.
 
 ```bash
 npx tsdevstack infra:deploy-scheduler --job <job-name> --env <environment>
@@ -617,7 +651,7 @@ npx tsdevstack infra:deploy-scheduler --job <job-name> --env <environment>
 
 ### `infra:deploy-schedulers`
 
-Deploy all scheduled jobs.
+Deploy all scheduled jobs: the schedules, and each cron job with the image its service runs.
 
 ```bash
 npx tsdevstack infra:deploy-schedulers --env <environment>
@@ -625,7 +659,7 @@ npx tsdevstack infra:deploy-schedulers --env <environment>
 
 ### `infra:list-schedulers`
 
-List scheduled jobs and their deployment status.
+List scheduled jobs of both kinds, each schedule's state, and the last run.
 
 ```bash
 npx tsdevstack infra:list-schedulers --env <environment>
@@ -633,7 +667,7 @@ npx tsdevstack infra:list-schedulers --env <environment>
 
 ### `infra:remove-scheduler`
 
-Remove a scheduled job.
+Remove a scheduled job. For a cron job, its job resource goes too.
 
 ```bash
 npx tsdevstack infra:remove-scheduler --job <job-name> --env <environment>

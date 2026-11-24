@@ -21,7 +21,7 @@ The CLI is the single entry point for all framework operations. You never write 
 | Infrastructure | Terraform generation, planning, and deployment |
 | Deployment | Build Docker images, push to registry, deploy services, Kong, load balancer |
 | Database | Preview and apply Prisma migrations in cloud |
-| Scheduled jobs | Deploy, list, and remove cron-based jobs |
+| Scheduled jobs | Add cron jobs, run any job now, deploy, list and remove both kinds |
 | Workers | Register and deploy detached background workers |
 | CI/CD | Generate GitHub Actions workflows; auto-detect private-npm-package auth (`.npmrc` → `NPM_TOKEN` wired through workflows + docker builds) |
 | Client generation | Type-safe HTTP clients from OpenAPI specs |
@@ -79,7 +79,11 @@ For the full command reference with syntax, options, and examples, see [CLI Comm
 |---------|-------------|
 | `infra:plan-db-migrate` | Show pending migrations for a service |
 | `infra:run-db-migrate` | Apply pending migrations |
+| `register-cron` | Add a cron job to a service |
+| `run-cron` | Run a scheduled job once locally |
+| `infra:run-cron` | Start a scheduled job now in the cloud |
 | `infra:deploy-schedulers` | Deploy all scheduled jobs |
+| `infra:list-schedulers` | Scheduled jobs, their state and last run |
 | `infra:remove-scheduler` | Remove a scheduled job |
 
 ### CI/CD

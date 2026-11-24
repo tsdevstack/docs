@@ -58,7 +58,7 @@ This command:
 
 Custom secrets keep the scope they have locally. Top-level ones go to the **shared scope**, which every service reads. Values in a service's section go to **that service's scope**. Values in a frontend's or a worker's section are listed, not pushed. If a secret already exists in the cloud, you won't be prompted again.
 
-**Without prompts** (CI, AI agents): `--skip-user-secrets` pushes the framework secrets and lists the user secrets still missing in the cloud, with a `cloud-secrets:set` command for each. If `DOMAIN` is set in the cloud, it also derives `API_URL`, `APP_URL` and `KONG_CORS_ORIGINS`; set `DOMAIN` first, or push again after. The MCP server's `cloud_secrets_push` tool always runs this way.
+**Without prompts** (CI): `--skip-user-secrets` pushes the framework secrets and lists the user secrets still missing in the cloud, with a `cloud-secrets:set` command for each. If `DOMAIN` is set in the cloud, it also derives `API_URL`, `APP_URL` and `KONG_CORS_ORIGINS`; set `DOMAIN` first, or push again after. The MCP server's `cloud_secrets_push` tool always runs this way. An AI agent gives you these commands to run in your own terminal.
 
 ```bash
 npx tsdevstack cloud-secrets:set DOMAIN example.com --env staging

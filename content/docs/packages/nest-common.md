@@ -92,6 +92,39 @@ Features:
 - Graceful shutdown with 9-second timeout
 - SIGTERM/SIGINT signal handlers
 
+### `runCronJob()`
+
+Entry point of a service's cron jobs. `node dist/cron.js <name>` runs the handler of that name once, then the process exits. `npx tsdevstack register-cron` creates these files. See [Scheduled Jobs](/docs/features/scheduled-jobs).
+
+```typescript
+// apps/auth-service/src/cron.ts
+import { runCronJob } from '@tsdevstack/nest-common';
+import { CronModule } from './cron.module';
+
+void runCronJob(CronModule, process.argv[2]);
+```
+
+```typescript
+// apps/auth-service/src/cron.module.ts (part)
+import { provideCronJobs } from '@tsdevstack/nest-common';
+import { UsageReportCron } from './cron/usage-report.cron';
+
+const handlers = [UsageReportCron];
+
+@Module({
+  // ConfigModule, SecretsModule, ObservabilityModule, RedisModule, PrismaModule
+  providers: provideCronJobs(handlers),
+})
+export class CronModule {}
+```
+
+A handler implements `CronJobHandler`: a `name`, and `run(signal: AbortSignal): Promise<void>`. Returning is success, throwing is failure.
+
+- One run of a job at a time: the run holds a Redis lock, and a second start exits as skipped.
+- The signal fires at the job's timeout (`CRON_JOB_TIMEOUT`, set by the deploy) or on SIGTERM. After 8 more seconds the process exits.
+- A run is one trace, `cron <name>`. Every log line carries `cronJob`, and the last one is `cron job finished`.
+- Exit codes: `0` success or skipped, `1` failure or stopped, `2` no handler of that name.
+
 ## Authentication
 
 `AuthModule` provides gateway-integrated authentication. Kong validates tokens at the gateway level, and `AuthGuard` (registered globally with `APP_GUARD` in every generated service) verifies that the request came through Kong, then reads the identity Kong set.
@@ -337,7 +370,7 @@ Default job options: 3 retries with exponential backoff, keep 100 completed / 50
 
 ### SchedulerGuard
 
-Validates that requests to scheduled job endpoints come from the cloud scheduler (not arbitrary HTTP clients).
+Validates that a trigger's calls come from the environment's scheduler. Use it on every endpoint a trigger calls.
 
 ```typescript
 import { Controller, Post, UseGuards } from '@nestjs/common';

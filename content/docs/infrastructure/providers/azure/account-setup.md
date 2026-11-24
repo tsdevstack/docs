@@ -273,6 +273,12 @@ This will:
 4. Check that the service principal can read the vault's secrets. This needs the Key Vault Secrets Officer role from Step 5. `cloud:init` doesn't assign roles.
 5. Update `.tsdevstack/config.json` with `cloud.provider: "azure"`
 
+Steps 2 to 4 run in every environment of the credentials file. When you add an environment later, set up only that one:
+
+```bash
+npx tsdevstack cloud:init --azure --env staging
+```
+
 Safe to run multiple times — all operations are idempotent.
 
 ## Secret Naming

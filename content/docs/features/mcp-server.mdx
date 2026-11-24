@@ -48,7 +48,7 @@ The MCP server is a **thin wrapper** around the existing CLI. Each tool spawns `
 
 ## Tools
 
-The server exposes 57 tools organized into query tools (read-only) and action tools (mutating).
+The server exposes 61 tools organized into query tools (read-only) and action tools (mutating).
 
 ### Query tools (14)
 
@@ -65,13 +65,13 @@ Read-only operations. Two of them read sensitive data, `get_logs` and `get_secre
 | `list_secrets` | Secret names in a cloud environment (no values) |
 | `diff_secrets` | Compare local vs cloud secrets |
 | `get_secret` | Get a single secret value from cloud. The agent asks you first |
-| `list_schedulers` | Scheduled jobs and their status |
+| `list_schedulers` | Scheduled jobs of both kinds, their state and their last run |
 | `plan_db_migrate` | Preview pending database migrations |
 | `infra_plan` | Terraform plan: preview infrastructure changes |
 | `infra_status` | Check if infrastructure config is in sync |
 | `get_logs` | Newest log lines of a deployed environment, or its log sources. The agent asks you first |
 
-### Action tools: local (14)
+### Action tools: local (16)
 
 Low-risk operations that modify local files only.
 
@@ -88,11 +88,13 @@ Low-risk operations that modify local files only.
 | `remove_bucket_storage` | Remove an object storage bucket |
 | `register_detached_worker` | Register a detached worker in config |
 | `unregister_detached_worker` | Remove a detached worker from config |
+| `register_cron` | Add a cron job to a service: the handler file, and the entrypoint the first time |
+| `run_cron` | Run a scheduled job once on the local stack |
 | `add_messaging_topic` | Add a messaging topic to config |
 | `remove_messaging_topic` | Remove a messaging topic from config |
 | `update_messaging_topic` | Update publishers/subscribers for a topic |
 
-### Action tools: cloud (16)
+### Action tools: cloud (18)
 
 Higher-risk operations that modify cloud infrastructure.
 
@@ -111,7 +113,9 @@ Higher-risk operations that modify cloud infrastructure.
 | `run_db_migrate` | No | Apply pending database migrations |
 | `deploy_schedulers` | No | Deploy all scheduled jobs |
 | `deploy_scheduler` | No | Deploy a single scheduled job |
+| `infra_run_cron` | No | Start a scheduled job now and report the run |
 | `remove_service_cloud` | Yes | Remove a service from cloud (permanent) |
+| `restore_database` | Yes | Replace a service's database with a saved file. The agent asks you first |
 | `remove_detached_worker` | Yes | Remove a worker from cloud (permanent) |
 | `infra_destroy` | Yes | Destroy ALL cloud infrastructure for an environment |
 
@@ -170,7 +174,8 @@ Hardcoded reference content for AI agents:
 The MCP server uses [tool annotations](https://modelcontextprotocol.io/docs/concepts/tools#annotations) to communicate risk to AI clients:
 
 - **`readOnlyHint: true`**: Query tools. They change nothing.
-- **Sensitive reads:** logs can hold personal data, and `get_secret` returns a secret's value. The server's instructions and the descriptions of `get_logs` and `get_secret` tell the agent to ask you before every call, say what it wants to read and why, and wait for your yes. MCP has no way to enforce this: your AI client decides how it uses the tools. The secrets resources show key names only.
+- **Sensitive reads:** logs can hold personal data, and `get_secret` returns a secret's value. The server's instructions and the descriptions of `get_logs` and `get_secret` tell the agent to ask you before every call, say what it wants to read and why, and wait for your yes. MCP has no way to enforce this: your AI client decides how it uses the tools. The secrets resources show key names only. For the same reason `infra_run_cron` reports a failed run without its log lines: the agent reads them with `get_logs`.
+- **Secret values:** the server's instructions and the descriptions of `cloud_secrets_push` and `cloud_secrets_set` tell the agent to give you the commands (`cloud-secrets:push`, `cloud-secrets:set`) to run in your own terminal, which ask for each value, and never to ask you for a value itself. Here too, your AI client decides how it uses the tools.
 - **`destructiveHint: true`**: Tools that permanently delete data (`remove_service_cloud`, `infra_destroy`, etc.). AI clients should always confirm before running these.
 - **`idempotentHint: true`**: Tools that can be safely re-run (most generate/deploy commands).
 

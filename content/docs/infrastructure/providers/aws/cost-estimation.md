@@ -184,6 +184,18 @@ See [Service Configuration](/docs/infrastructure/service-configuration) for all 
 
 ---
 
+## Scheduled Jobs
+
+EventBridge Scheduler starts both kinds. A cron job runs as a Fargate task, billed for the time it runs. A trigger runs the job function, a small Lambda that calls the service.
+
+| Item | Price | Notes |
+|------|-------|-------|
+| Schedules (EventBridge Scheduler) | $1.00 per million starts | The first 14 million starts each month are free |
+| Cron job runs (Fargate) | $0.04048 per vCPU-hour, $0.004445 per GB-hour | Per second, from the image pull to the end of the task, at least 1 minute |
+| Trigger calls (Lambda, 256 MB) | Lambda's request and duration pricing | Lambda's free tier covers 1 million requests and 400,000 GB-seconds a month |
+
+Example: **a cron job that runs once a day**, at the default 1 vCPU and 2 GB, **about 90 seconds a run with the image pull** (our assumption). That is 0.75 hours a month: 0.75 × ($0.04048 + 2 × $0.004445) = **~$0.04 a month**. A trigger every 5 minutes is about 8,600 calls a month, inside Lambda's free tier.
+
 ## Traces and Dashboards
 
 The trace lines above assume **~8 spans per request** (Kong, the service, its database queries) and **~1 KB per span**. Both are estimates: a request that calls more services or runs more queries makes more spans.
@@ -222,6 +234,8 @@ Example: **~1.5 KB per access** (our estimate). A million reads and writes cost 
 ## AWS Pricing References
 
 - [Fargate Pricing](https://aws.amazon.com/fargate/pricing/)
+- [EventBridge Pricing](https://aws.amazon.com/eventbridge/pricing/) (Scheduler)
+- [Lambda Pricing](https://aws.amazon.com/lambda/pricing/)
 - [RDS PostgreSQL Pricing](https://aws.amazon.com/rds/postgresql/pricing/)
 - [ElastiCache Pricing](https://aws.amazon.com/elasticache/pricing/)
 - [Elastic Load Balancing Pricing](https://aws.amazon.com/elasticloadbalancing/pricing/)

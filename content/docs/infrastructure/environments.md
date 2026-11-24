@@ -53,9 +53,11 @@ The framework validates credentials and rejects deployments if the same project/
 
 2. **Add credentials**:
 ```bash
-npx tsdevstack cloud:init --gcp
+npx tsdevstack cloud:init --gcp --env staging
 # Follow prompts to configure credentials for the new environment
 ```
+
+`--env` tests only the selected environment.
 
 3. **Update CI configuration**:
 ```json

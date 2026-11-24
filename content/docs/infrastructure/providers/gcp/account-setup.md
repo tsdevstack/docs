@@ -62,6 +62,8 @@ Create `.tsdevstack/.credentials.gcp.json` with your key:
 }
 ```
 
+Paste the whole downloaded key and keep every field in it, including ones not shown here, such as `universe_domain`.
+
 The `region` field is added by the framework — it's not part of the downloaded JSON key. Add it manually to each environment.
 
 Each environment must have a different `project_id`.
